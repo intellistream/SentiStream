@@ -19,10 +19,10 @@ Master Thesis "An Empirical Study of  Online Sentiment Analysis on Twitter Strea
 [Sentiment140](http://cs.stanford.edu/people/alecmgo/trainingandtestdata.zip)
 
 ## Quick Guide
-### 1. Pyflink_demo
+### 1. Supervised_OSA
 * [Tweets_clean_demo](https://github.com/HuilinWu2/Online-Sentiment-Analysis-on-Twitter-Streams/tree/main/Pyflink_demo/Tweets_clean_demo): Demo for batch-based Tweets preprocessing for Sentiment Analysis on FLink
 * [Streaming_demo_Sentiment_Analysis](https://github.com/HuilinWu2/Online-Sentiment-Analysis-on-Twitter-Streams/tree/main/Pyflink_demo/Streaming_demo_Sentiment_Analysis): Demo for stream-based Tweets preprocessing & online Sentiment Analysis model on Flink
-### 2. OSA_algorithms
+### 2. Unsupervised_OSA
 * Algorithms of incremental Sentiment Analysis
 ### 3. Python_small_job
 * Python file of various developing note
