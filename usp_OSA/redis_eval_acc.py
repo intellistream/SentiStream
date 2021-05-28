@@ -156,6 +156,20 @@ class unsupervised_OSA(MapFunction):
                 try:
                     self.bad   +=  model.wv.similarity(words,'bad')
                     self.good  +=  model.wv.similarity(words,'good') 
+#                                 bad += model.wv.similarity(words,'bad')
+#                                 good += model.wv.similarity(words,'good')
+#                                 bad   +=  model.wv.similarity(words,'low')
+#                                 good  +=  model.wv.similarity(words,'high') 
+#                                 bad   +=  model.wv.similarity(words,'fuck')
+#                                 good  +=  model.wv.similarity(words,'thank') 
+#                                 bad   +=  model.wv.similarity(words,'poor')
+#                                 good  +=  model.wv.similarity(words,'great')
+#                                 bad   +=  model.wv.similarity(words,'hard')
+#                                 good  +=  model.wv.similarity(words,'easy')
+#                                 bad   +=  model.wv.similarity(words,'wrong')
+#                                 good  +=  model.wv.similarity(words,'right')
+#                                 bad   +=  model.wv.similarity(words,'horrible')
+#                                 good  +=  model.wv.similarity(words,'amazing')
                 except:
                     self.good += 0
         # the original labels: 0 means Negative while 4 means Positive
