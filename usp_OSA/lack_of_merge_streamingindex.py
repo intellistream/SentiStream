@@ -377,16 +377,23 @@ if __name__ == '__main__':
             output1[1] = word_to_merge_1
             output2[1] = word_to_merge_2
             
-            # merge duplicate words
-            word_to_merge_1[0][0] = index_to_call_1
-            word_to_merge_2[0][0] = index_to_call_2
-            word_to_merge_1[0][1] = lru_table_1
-            word_to_merge_2[0][1] = lru_table_2
+            # release all necessary data
+            index_to_call_1 = word_to_merge_1[0][0]
+            index_to_call_2 = word_to_merge_2[0][0]
+            lru_table_1 = word_to_merge_1[0][1]
+            lru_table_2 = word_to_merge_2[0][1]
+            duplicate_word_to_merge_1 = word_to_merge_1[1]
+            duplicate_word_to_merge_2 = word_to_merge_2[1]
+            new_word_to_merge_1 = word_to_merge_1[2]
+            new_word_to_merge_2 = word_to_merge_2[2] 
             
-            # merge new words
-            word_to_merge_1[1] = duplicate_word_to_merge_1
-            word_to_merge_2[1] = duplicate_word_to_merge_2
-
+            # merge duplicate words
+            # if there exists the same words of two threads
+            for  i
+            same_word_index =  [x for x in index_to_call_1 if x in index_to_call_2]
+            for index in same_word_index:
+               index_to_call_1.index(index)
+               
         new_vocab =  [x for x in model.wv.get_keys()  if x not in self.get_keys()]
         print(new_vocab)
         same_vocab = [x for x in self.get_keys() if x in model.wv.get_keys()]
