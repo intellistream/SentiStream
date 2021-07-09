@@ -369,5 +369,19 @@ if __name__ == '__main__':
       .add_sink(StreamingFileSink
       .for_row_format('./output', Encoder.simple_string_encoder())
       .build())
+      
+      
+      
+      
+ 
+    def merge(self,model):
+        new_vocab =  [x for x in model.wv.get_keys()  if x not in self.get_keys()]
+        print(new_vocab)
+        same_vocab = [x for x in self.get_keys() if x in model.wv.get_keys()]
+        print(same_vocab)
+        for diff_words in new_vocab:
+            self[diff_words] = model.wv.get_vectors()[diff_words]
+        for same in same_vocab:
+            self[same] = (self[same] + model.wv.get_vectors()[same])/2
 
     env.execute("osa_job")
