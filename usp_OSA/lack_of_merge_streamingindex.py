@@ -100,10 +100,12 @@ class unsupervised_OSA(MapFunction):
         result = None
         for word in clean_words:
             self.current_collector.append(word)
+            
         if len(self.thousand_text) <= self.collector_size:
             self.thousand_text.append(clean_words)
         else:
-            result = self.update_model(self.thousand_text)
+            weight_matrix, to_merge = self.load_vectors()
+            result = self.update_model(self.thousand_text,weight_matrix,to_merge)
             self.thousand_text = []
         if result != None:
             return result
@@ -149,13 +151,14 @@ class unsupervised_OSA(MapFunction):
                                           .replace('[','')
                                           .replace(']','')
                                           .split(','))))
-
+        to_merge = (index_to_call,lru_table)
         # next: build the new initial weight matrix
-        return self.build_weight_matrix(duplicate_word_vectors,
+        weight_matrix = self.build_weight_matrix(duplicate_word_vectors,
                                         self.model_param['vector_size'],
                                         vocabulary_size,
                                         self.current_new_word,
                                         index_to_call)
+        return weight_matrix,to_merge
 
     def build_weight_matrix(self,duplicate_word_vectors,vector_size,size_of_vocabulary,new_words,index_to_call):
         weight_matrix = np.zeros((size_of_vocabulary, vector_size), dtype=real)
@@ -223,19 +226,27 @@ class unsupervised_OSA(MapFunction):
             return self.tweets_collector(clean_word_list) 
 
 
-    def update_model(self,new_sentences):
-
+    def update_model(self,new_sentences,weight_matrix, to_merge):
+        
+        duplicate_word_to_merge = []
+        new_word_to_merge = []
+         
         model = Word2Vec(min_count   = self.model_param['min_count'],
                          window      = self.model_param['window_size'],
                          vector_size = self.model_param['vector_size'])
+        model.wv.initialize_weight_matrix(weight_matrix)
         model.build_vocab(new_sentences,update = True)
         model.train(new_sentences,
                     total_examples = self.corpus_count,
                     epochs = self.epochs)
-        weight_matrix = model.wv.get_vectors()
-
+        new_weight_matrix = model.wv.get_vectors()
+        for index in to_merge[0]:
+            duplicate_word_to_merge.append(new_weight_matrix[index]) 
+        for word in self.current_new_words:
+            new_word_to_merge.append(new_weight_matrix[model.key_to_index[word]])
+        word_to_merge = (to_merge,duplicate_word_to_merge, new_word_to_merge)
         # Text Vectorization is ready, next we do classifying
-        ans = self.eval(new_sentences, model)
+        ans = self.eval(new_sentences,model,word_to_merge)
         return ans
 
     def to_string(self,l):
@@ -284,7 +295,7 @@ class unsupervised_OSA(MapFunction):
         return 0.5 * cos + 0.5 if norm else cos  # 归一化到[0, 1]区间内
 
 
-    def eval(self,tweets,model):
+    def eval(self,tweets,model,word_to_merge):
         '''
         TO DO:
         Please try checking the similarity directly with sentences instead of each word
@@ -321,6 +332,8 @@ class unsupervised_OSA(MapFunction):
         accuracy =   accuracy_score(self.test_data.polarity, list(predict_result))
         polarity = ['============'] + [self.redis_time,self.preprocess_time,self.predict_time] + [accuracy] + ['============']
         self.predictions = []
+         
+        output = (predictions,word_to_merge)
     
         return self.tostring(polarity)
 
@@ -356,6 +369,16 @@ if __name__ == '__main__':
             self.redis_param.getset(word,weight_matrix[model.wv.key_to_index[word]])
 
         # update lru table to redis
+    def merge(self,model1, model2):
+        # form: (to_merge ((index_to_call,lru_table)),duplicate_word_to_merge, new_word_to_merge)
+        new_vocab =  [x for x in model.wv.get_keys()  if x not in self.get_keys()]
+        print(new_vocab)
+        same_vocab = [x for x in self.get_keys() if x in model.wv.get_keys()]
+        print(same_vocab)
+        for diff_words in new_vocab:
+            self[diff_words] = model.wv.get_vectors()[diff_words]
+        for same in same_vocab:
+            self[same] = (self[same] + model.wv.get_vectors()[same])/2
 
         return 
     #final = []
@@ -369,19 +392,5 @@ if __name__ == '__main__':
       .add_sink(StreamingFileSink
       .for_row_format('./output', Encoder.simple_string_encoder())
       .build())
-      
-      
-      
-      
- 
-    def merge(self,model):
-        new_vocab =  [x for x in model.wv.get_keys()  if x not in self.get_keys()]
-        print(new_vocab)
-        same_vocab = [x for x in self.get_keys() if x in model.wv.get_keys()]
-        print(same_vocab)
-        for diff_words in new_vocab:
-            self[diff_words] = model.wv.get_vectors()[diff_words]
-        for same in same_vocab:
-            self[same] = (self[same] + model.wv.get_vectors()[same])/2
 
     env.execute("osa_job")
