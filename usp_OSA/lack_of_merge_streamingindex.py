@@ -335,7 +335,7 @@ class unsupervised_OSA(MapFunction):
          
         output = (predictions,word_to_merge)
     
-        return self.tostring(polarity)
+        return output
 
     def predict_similarity(self,tweet,model):
         bad,good = 0,0
@@ -369,8 +369,24 @@ if __name__ == '__main__':
             self.redis_param.getset(word,weight_matrix[model.wv.key_to_index[word]])
 
         # update lru table to redis
-    def merge(self,model1, model2):
+    def merge(self,output1, output2):
         # form: (to_merge ((index_to_call,lru_table)),duplicate_word_to_merge, new_word_to_merge)
+        if len(output1) > 1:
+            output1[0] = prediction_1
+            output2[0] = prediction_2
+            output1[1] = word_to_merge_1
+            output2[1] = word_to_merge_2
+            
+            # merge duplicate words
+            word_to_merge_1[0][0] = index_to_call_1
+            word_to_merge_2[0][0] = index_to_call_2
+            word_to_merge_1[0][1] = lru_table_1
+            word_to_merge_2[0][1] = lru_table_2
+            
+            # merge new words
+            word_to_merge_1[1] = duplicate_word_to_merge_1
+            word_to_merge_2[1] = duplicate_word_to_merge_2
+
         new_vocab =  [x for x in model.wv.get_keys()  if x not in self.get_keys()]
         print(new_vocab)
         same_vocab = [x for x in self.get_keys() if x in model.wv.get_keys()]
@@ -381,7 +397,7 @@ if __name__ == '__main__':
             self[same] = (self[same] + model.wv.get_vectors()[same])/2
 
         return 
-    #final = []
+    # final = []
     env = StreamExecutionEnvironment.get_execution_environment()
     env.set_parallelism(1)
     
