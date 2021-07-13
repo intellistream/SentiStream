@@ -71,6 +71,7 @@ class unsupervised_OSA(MapFunction):
         self.index_table = range(self.initial_model.wv.index_to_key)
         self.max_index = max(self.index_table)
         self.thread_index = runtime_context.get_index_of_this_subtask()
+        self.number_of_thread = runtime_context.get_number_of_parallel_subtasks()
         # save model to redis
         self.save_model(self.initial_model)
 
@@ -244,7 +245,7 @@ class unsupervised_OSA(MapFunction):
             duplicate_word_to_merge.append(new_weight_matrix[index]) 
         for word in self.current_new_words:
             new_word_to_merge.append(new_weight_matrix[model.key_to_index[word]])
-        word_to_merge = (to_merge,duplicate_word_to_merge, new_word_to_merge)
+        word_to_merge = (to_merge,duplicate_word_to_merge, new_word_to_merge, self.thread_index)
         # Text Vectorization is ready, next we do classifying
         ans = self.eval(new_sentences,model,word_to_merge)
         return ans
@@ -387,6 +388,8 @@ if __name__ == '__main__':
             new_word_to_merge_1 = word_to_merge_1[2]
             new_word_to_merge_2 = word_to_merge_2[2] 
             
+#             new_word_to_merge_2 = word_to_merge_2[2]
+#             new_word_to_merge_2 = word_to_merge_2[2]
             # merge duplicate words
             # if there exists the same words of two threads
             for  i
