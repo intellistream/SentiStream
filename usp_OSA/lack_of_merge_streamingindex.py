@@ -241,10 +241,10 @@ class unsupervised_OSA(MapFunction):
                     total_examples = self.corpus_count,
                     epochs = self.epochs)
         new_weight_matrix = model.wv.get_vectors()
-        for index in to_merge[0]:
-            duplicate_word_to_merge.append(new_weight_matrix[index]) 
+        for i in range(len(to_merge[0])):
+            duplicate_word_to_merge.append(new_weight_matrix[to_merge[0][i]]) 
         for word in self.current_new_words:
-            new_word_to_merge.append(new_weight_matrix[model.key_to_index[word]])
+            new_word_to_merge.append([new_weight_matrix[model.key_to_index[word]],word])
         word_to_merge = (to_merge,duplicate_word_to_merge, new_word_to_merge, self.thread_index)
         # Text Vectorization is ready, next we do classifying
         ans = self.eval(new_sentences,model,word_to_merge)
@@ -332,9 +332,10 @@ class unsupervised_OSA(MapFunction):
         predict_result = self.clean_test_data.apply(lambda x: self.predict_similarity(x,model))
         accuracy =   accuracy_score(self.test_data.polarity, list(predict_result))
         polarity = ['============'] + [self.redis_time,self.preprocess_time,self.predict_time] + [accuracy] + ['============']
+        predict_polarity = self.predictions
         self.predictions = []
          
-        output = (predictions,word_to_merge)
+        output = (predict_polarity,word_to_merge)
     
         return output
 
@@ -350,33 +351,15 @@ class unsupervised_OSA(MapFunction):
             return 0
         else:
             return 4
-
-
-if __name__ == '__main__':
-
-    from pyflink.datastream.connectors import StreamingFileSink
-    from pyflink.common.serialization import Encoder
-    coming_tweets = pd.read_csv('flinktestdata.csv')
-    coming_tweets = list(coming_tweets.tweet)[180000:220000]
-    print('Coming tweets is ready...')
-    print('===============================')
-
-    def merge():
-        # update word vectors to redis
-        for word in self.current_duplicate_word:
-            self.redis_param.getset(word,weight_matrix[model.wv.key_to_index[word]])
-
-        for word in self.current_new_word:
-            self.redis_param.getset(word,weight_matrix[model.wv.key_to_index[word]])
-
-        # update lru table to redis
+    
     def merge(self,output1, output2):
+        # form of output: (predictions, word_to_merge)
         # form: (to_merge ((index_to_call,lru_table)),duplicate_word_to_merge, new_word_to_merge)
         if len(output1) > 1:
-            output1[0] = prediction_1
-            output2[0] = prediction_2
-            output1[1] = word_to_merge_1
-            output2[1] = word_to_merge_2
+            prediction_1 = output1[0]
+            prediction_2 = output2[0]
+            word_to_merge_1 = output1[1]
+            word_to_merge_2 = output2[1]
             
             # release all necessary data
             index_to_call_1 = word_to_merge_1[0][0]
@@ -388,25 +371,58 @@ if __name__ == '__main__':
             new_word_to_merge_1 = word_to_merge_1[2]
             new_word_to_merge_2 = word_to_merge_2[2] 
             
-#             new_word_to_merge_2 = word_to_merge_2[2]
-#             new_word_to_merge_2 = word_to_merge_2[2]
+            word_to_cover = []
+            word_to_add = []
+            same_new = []
             # merge duplicate words
+            # the index to call list contain absolutely the duplicate words
             # if there exists the same words of two threads
-            for  i
-            same_word_index =  [x for x in index_to_call_1 if x in index_to_call_2]
-            for index in same_word_index:
-               index_to_call_1.index(index)
-               
-        new_vocab =  [x for x in model.wv.get_keys()  if x not in self.get_keys()]
-        print(new_vocab)
-        same_vocab = [x for x in self.get_keys() if x in model.wv.get_keys()]
-        print(same_vocab)
-        for diff_words in new_vocab:
-            self[diff_words] = model.wv.get_vectors()[diff_words]
-        for same in same_vocab:
-            self[same] = (self[same] + model.wv.get_vectors()[same])/2
 
-        return 
+            same_duplicate = [x for x in index_to_call_1 if x in index_to_call_2]
+            if len(same_duplicate) >=1:
+                for same_word in same_duplicate:
+                    index_1 = index_to_call_1.index(same_word)
+                    index_2 = index_to_call_2.index(same_word)
+                    word_to_cover.append([(duplicate_word_to_merge_1[0][index_1]+duplicate_word_to_merge_2[0][index_2])/2,same_word])
+            
+            l2_word = [x for x in index_to_call_2 if x not in index_to_call_1] # in list2 not in list1
+            l1_word = [x for x in index_to_call_1 if x not in index_to_call_2]
+            for word in l2_word:
+                word_to_cover.append(duplicate_word_to_merge_2[0][index_to_call_2.index(word)],duplicate_word_to_merge_2[1][index_to_call_2.index(word)])
+            for word in l1_word:
+                word_to_cover.append(duplicate_word_to_merge_1[0][index_to_call_1.index(word)],word)
+            
+            for word in word_to_cover:
+                list(a.keys())[list(a.values()).index('a')]
+
+
+            # merging the same new words
+            for word in new_word_to_merge_1:
+                for words in new_word_to_merge_2:
+                    if word[1] == words[1]:
+                        word[0] = (word[0]+words[0])/2
+                        same_new.append(word[1])
+            # the rest new words should be updated
+            for word in new_word_to_merge_1:
+                word_to_add.append(word)
+            for word in new_word_to_merge_2:
+                if word[1] not in same_new:
+                    word_to_add.append(word)
+
+            # save the new vector to redis
+            for word in word_to_add:
+                self.redis_param.set(word[1],word[0])
+
+
+if __name__ == '__main__':
+
+    from pyflink.datastream.connectors import StreamingFileSink
+    from pyflink.common.serialization import Encoder
+    coming_tweets = pd.read_csv('flinktestdata.csv')
+    coming_tweets = list(coming_tweets.tweet)[180000:220000]
+    print('Coming tweets is ready...')
+    print('===============================')
+ 
     # final = []
     env = StreamExecutionEnvironment.get_execution_environment()
     env.set_parallelism(1)
@@ -414,7 +430,7 @@ if __name__ == '__main__':
     ds = env.from_collection(collection = coming_tweets)
 
     ds.map(unsupervised_OSA(), output_type = Types.STRING())\
-      .key_by(lambda x: x[0]).reduce(lambda x,y: merge(x,y))
+      .key_by(lambda x: x[0]).reduce(lambda x,y: unsupervised_OSA().merge(x,y))\
       .add_sink(StreamingFileSink
       .for_row_format('./output', Encoder.simple_string_encoder())
       .build())
