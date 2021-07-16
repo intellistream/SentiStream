@@ -229,7 +229,7 @@ class unsupervised_OSA(MapFunction):
 
     def update_model(self,new_sentences,weight_matrix, to_merge):
         
-        duplicate_word_to_merge = []
+        duplicate_word_to_merge = {}
         new_word_to_merge = []
          
         model = Word2Vec(min_count   = self.model_param['min_count'],
@@ -242,7 +242,7 @@ class unsupervised_OSA(MapFunction):
                     epochs = self.epochs)
         new_weight_matrix = model.wv.get_vectors()
         for i in range(len(to_merge[0])):
-            duplicate_word_to_merge.append(new_weight_matrix[to_merge[0][i]]) 
+            duplicate_word_to_merge[self.current_duplicate_word[i]] = new_weight_matrix[to_merge[0][i]]
         for word in self.current_new_words:
             new_word_to_merge.append([new_weight_matrix[model.key_to_index[word]],word])
         word_to_merge = (to_merge,duplicate_word_to_merge, new_word_to_merge, self.thread_index)
@@ -371,31 +371,43 @@ class unsupervised_OSA(MapFunction):
             new_word_to_merge_1 = word_to_merge_1[2]
             new_word_to_merge_2 = word_to_merge_2[2] 
             
-            word_to_cover = []
+            word_to_cover = {}
             word_to_add = []
             same_new = []
             # merge duplicate words
             # the index to call list contain absolutely the duplicate words
             # if there exists the same words of two threads
 
-            same_duplicate = [x for x in index_to_call_1 if x in index_to_call_2]
-            if len(same_duplicate) >=1:
-                for same_word in same_duplicate:
-                    index_1 = index_to_call_1.index(same_word)
-                    index_2 = index_to_call_2.index(same_word)
-                    word_to_cover.append([(duplicate_word_to_merge_1[0][index_1]+duplicate_word_to_merge_2[0][index_2])/2,same_word])
+#             same_duplicate = [x for x in index_to_call_1 if x in index_to_call_2]
+#             if len(same_duplicate) >=1:
+#                 for same_word in same_duplicate:
+#                     index_1 = index_to_call_1.index(same_word)
+#                     index_2 = index_to_call_2.index(same_word)
+#                     word_to_cover.append([(duplicate_word_to_merge_1[0][index_1]+duplicate_word_to_merge_2[0][index_2])/2,same_word])
             
-            l2_word = [x for x in index_to_call_2 if x not in index_to_call_1] # in list2 not in list1
-            l1_word = [x for x in index_to_call_1 if x not in index_to_call_2]
-            for word in l2_word:
-                word_to_cover.append(duplicate_word_to_merge_2[0][index_to_call_2.index(word)],duplicate_word_to_merge_2[1][index_to_call_2.index(word)])
-            for word in l1_word:
-                word_to_cover.append(duplicate_word_to_merge_1[0][index_to_call_1.index(word)],word)
-            
-            for word in word_to_cover:
-                list(a.keys())[list(a.values()).index('a')]
+#             l2_word = [x for x in index_to_call_2 if x not in index_to_call_1] # in list2 not in list1
+#             l1_word = [x for x in index_to_call_1 if x not in index_to_call_2]
+#             for word in l2_word:
+#                 word_to_cover.append(duplicate_word_to_merge_2[0][index_to_call_2.index(word)],duplicate_word_to_merge_2[1][index_to_call_2.index(word)])
+#             for word in l1_word:
+#                 word_to_cover.append(duplicate_word_to_merge_1[0][index_to_call_1.index(word)],word)
 
+            for key in duplicate_word_to_merge_1:
+                if duplicate_word_to_merge_2.get(key):
+                    word_to_cover[key]= (duplicate_word_to_merge_1[key]+duplicate_word_to_merge_2[key])/2
+                else:
+                    word_to_cover[key]=duplicate_word_to_merge_1[key]
+            for key in duplicate_word_to_merge_2:
+                if duplicate_word_to_merge_1.get(key):
+                    pass
+                else:
+                    word_to_cover[key]=duplicate_word_to_merge_2[key]
 
+            # cover the duplicate vector to redis
+            for key in word_to_cover:
+               self.redis_param.getset(key,word_to_cover.get(key))
+                  
+                  
             # merging the same new words
             for word in new_word_to_merge_1:
                 for words in new_word_to_merge_2:
