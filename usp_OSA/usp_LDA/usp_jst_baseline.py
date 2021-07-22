@@ -46,11 +46,11 @@ class JST_OSA(MapFunction):
         self.counter = 1
 
     def open(self, runtime_context: RuntimeContext):
-        prior_information = 0
+        prior_information = 2
         if prior_information == 1:
             self.read_model_prior(r'./constraint/mpqa.constraint')
         elif prior_information == 2:
-            self.read_model_prior(r'./constraint/paradigm_words.constraint')
+            self.read_model_prior(r'/home/huilin/Documents/Learning/experimentOSA/JST_model-on-MR-master/constraint/paradigm_words.constraint')
         elif prior_information == 3:
             self.read_model_prior(r'./constraint/full_subjectivity_lexicon.constraint')
         elif prior_information == 4:
@@ -109,7 +109,7 @@ class JST_OSA(MapFunction):
         tweet = re.sub("[!~#$+%*:()'?-]", ' ', tweet)  # remove characters stated below
         clean_word_list = tweet.split(' ')
         clean_word_list = [w for w in clean_word_list if w not in self.stop_words]
-        if '' in clean_word_list:
+        while '' in clean_word_list:
             clean_word_list.remove('')
         for item in clean_word_list:
             self.vocab.add(item)
@@ -118,7 +118,7 @@ class JST_OSA(MapFunction):
         # corpus collector
         self.docs.append(clean_word_list)
 
-        if len(self.docs) >= 2000:
+        if len(self.docs) >= 19000:
             self.analyze_corpus()
             self.init_model_parameters()
             self.estimate()
@@ -150,13 +150,13 @@ class JST_OSA(MapFunction):
         self.nd = np.zeros((self.doc_num,), dtype=np.int32)
         self.ndl = np.zeros((self.doc_num, self.sentilab), dtype=np.int32)
         self.ndlz = np.zeros((self.doc_num, self.sentilab, self.topics), dtype=np.int32)
-        self.nlzw = np.zeros((self.sentilab, self.topics, self.vocabsize), dtype=np.int32)
+        self.nlzw = np.zeros((self.sentilab, self.topics, self.vocab_size), dtype=np.int32)
         self.nlz = np.zeros((self.sentilab, self.topics), dtype=np.int32)
 
         # model parameters
         self.pi_dl = np.zeros((self.doc_num, self.sentilab), dtype=np.float)
         self.theta_dlz = np.zeros((self.doc_num, self.sentilab, self.topics), dtype=np.float)
-        self.phi_lzw = np.zeros((self.sentilab, self.topics, self.vocabsize), dtype=np.float)
+        self.phi_lzw = np.zeros((self.sentilab, self.topics, self.vocab_size), dtype=np.float)
 
         # init hyperparameters with prior imformation
         self.alpha_lz = np.full((self.sentilab, self.topics), fill_value=self.alpha)
@@ -165,16 +165,16 @@ class JST_OSA(MapFunction):
         if (self.beta <= 0):
             self.beta = 0.01
 
-        self.beta_lzw = np.full((self.sentilab, self.topics, self.vocabsize), fill_value=self.beta)
+        self.beta_lzw = np.full((self.sentilab, self.topics, self.vocab_size), fill_value=self.beta)
         self.betasum_lz = np.zeros((self.sentilab, self.topics), dtype=np.float)
 
         # #word prior
-        self.add_lw = np.ones((self.sentilab, self.vocabsize), dtype=np.float)
+        self.add_lw = np.ones((self.sentilab, self.vocab_size), dtype=np.float)
 
         self.add_prior()
         for l in range(self.sentilab):
             for z in range(self.topics):
-                for r in range(self.vocabsize):
+                for r in range(self.vocab_size):
                     self.beta_lzw[l][z][r] *= self.add_lw[l][r]
                     self.betasum_lz[l][z] += self.beta_lzw[l][z][r]
 
@@ -282,7 +282,7 @@ class JST_OSA(MapFunction):
     def cal_phi_lzw(self):
         for l in range(self.sentilab):
             for z in range(self.topics):
-                for w in range(self.vocabsize):
+                for w in range(self.vocab_size):
                     self.phi_lzw[l][z][w] = (self.nlzw[l][z][w] + self.beta_lzw[l][z][w]) \
                                             / (self.nlz[l][z] + self.betasum_lz[l][z])
 
@@ -323,17 +323,19 @@ if __name__ == '__main__':
     from pyflink.datastream.connectors import StreamingFileSink
     from pyflink.common.serialization import Encoder
 
-    coming_tweets = pd.read_csv('flinktestdata.csv')
-    coming_tweets = list(coming_tweets.tweet)[180000:220000]
+    twitter = open('./twitter_stream.txt', 'r')
+    coming_tweets = []
+    for line in twitter:
+        tweet_with_label = line.replace('\n', '').split('@whl@')
+        coming_tweets.append((tweet_with_label[0], tweet_with_label[1]))
     print('Coming tweets is ready...')
     print('===============================')
 
     env = StreamExecutionEnvironment.get_execution_environment()
-    env.set_parallelism(2)
+    env.set_parallelism(1)
     ds = env.from_collection(collection=coming_tweets)
-    ds.map(JST_OSA(), output_type=Types.STRING()) \
-        .reduce() \
+    ds.map(JST_OSA(), output_type=Types.STRING())\
         .add_sink(StreamingFileSink
-                  .for_row_format('./output', Encoder.simple_string_encoder())
-                  .build())
+        .for_row_format('./output', Encoder.simple_string_encoder())
+        .build())
     env.execute("osa_job")
