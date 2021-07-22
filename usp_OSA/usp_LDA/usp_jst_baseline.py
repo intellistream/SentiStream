@@ -59,6 +59,32 @@ class JST_OSA(MapFunction):
             self.read_model_prior(r'./constraint/empty_prior')
         self.thread_index = runtime_context.get_index_of_this_subtask()
 
+
+    def reset_model(self, topics=1, sentilab=3, iteration=100, K=50,
+                 beta=0.01, gamma=0.01, random_state=123456789,
+                 refresh=50):
+        self.topics = topics
+        self.sentilab = sentilab
+        self.iter = iteration
+        self.alpha = (K + .0) / (topics + .0)
+        self.beta = beta
+        self.gamma = gamma
+        self.random_state = random_state
+        self.refresh = refresh
+        if self.alpha <= 0 or beta <= 0 or gamma <= 0:
+            raise ValueError("alpha,beta and gamma must be greater than zero")
+        rng = self.check_random_state(random_state)
+        self._rands = rng.rand(1024 ** 2 // 8)
+        self.vocab_size = 0
+        self.word2id = {}
+        self.id2word = {}
+        self.vocab = set()
+        self.docs = []
+        self.doc_num = 0
+        self.doc_size = 0
+        self.true_label = []
+
+
     def read_model_prior(self, prior_path):
         """Joint Sentiment-Topic Model using collapsed Gibbs sampling.
 
@@ -118,13 +144,15 @@ class JST_OSA(MapFunction):
         # corpus collector
         self.docs.append(clean_word_list)
 
-        if len(self.docs) >= 19000:
+        if len(self.docs) >= 5000:
             self.analyze_corpus()
             self.init_model_parameters()
             self.estimate()
             self.cal_pi_ld()
             ans = self.eval()
-            self.docs = []
+            self.reset_model(topics=1, sentilab=3, iteration=100, K=50,
+                 beta=0.01, gamma=0.01, random_state=123456789,
+                 refresh=50)
             return ans
         else:
             return 'collecting'
@@ -298,7 +326,8 @@ class JST_OSA(MapFunction):
         self.accuracy_lda.append(acc)
         self.accuracy_lda.append(acc)
         if self.counter > 6:
-            return str(self.accuracy_lda)
+            result = str(self.accuracy_lda)
+            return result
         else:
             return '==========' + str(acc) + '==========='
 
@@ -323,17 +352,28 @@ if __name__ == '__main__':
     from pyflink.datastream.connectors import StreamingFileSink
     from pyflink.common.serialization import Encoder
 
-    twitter = open('./twitter_stream.txt', 'r')
-    coming_tweets = []
-    for line in twitter:
-        tweet_with_label = line.replace('\n', '').split('@whl@')
-        coming_tweets.append((tweet_with_label[0], tweet_with_label[1]))
+    f = open('./amazon.txt','r')
+    true_label = []
+    amazon_review = []
+    # 1 neg
+    # 2 pos
+    for line in f:
+        if '__label__2' in line:
+            true_label.append(4)
+            amazon_review.append(line[11:].replace('\n',''))
+        elif '__label__1' in line:
+            true_label.append(0)
+            amazon_review.append(line[11:].replace('\n',''))
+    amazon_stream = []
+    for i in range(50000):
+        amazon_stream.append((amazon_review[i],true_label[i]))
+
     print('Coming tweets is ready...')
     print('===============================')
 
     env = StreamExecutionEnvironment.get_execution_environment()
     env.set_parallelism(1)
-    ds = env.from_collection(collection=coming_tweets)
+    ds = env.from_collection(collection=amazon_stream)
     ds.map(JST_OSA(), output_type=Types.STRING())\
         .add_sink(StreamingFileSink
         .for_row_format('./output', Encoder.simple_string_encoder())
