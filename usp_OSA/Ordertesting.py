@@ -28,7 +28,10 @@ class unsupervised_OSA(MapFunction):
         self.preprocess_time = 0
         self.redis_time = 0
         self.predict_time = 0
+        self.collector_time = 0
+        self.training_time = 0
         self.stop_words = stopwords.words('english')
+        self.collector_size = 5000
         for w in ['!',',','.','?','-s','-ly','</s>','s']:
             self.stop_words.append(w)
 
@@ -64,8 +67,10 @@ class unsupervised_OSA(MapFunction):
         
     def tweets_collector(self,clean_words):
         result = None
-        if len(self.thousand_text) <= 10000:
+        start = time()
+        if len(self.thousand_text) <= self.collector_size:
             self.thousand_text.append(clean_words)
+            self.collector_time += (time() - start)/60
         else:
             result = self.update_model(self.thousand_text)
             self.thousand_text = []
@@ -73,6 +78,10 @@ class unsupervised_OSA(MapFunction):
             return result
         else:
             return 'collecting'
+
+    '''
+    To Do: another map fucntion to deal with cleaning
+    '''
 
     # tweet preprocessing
     def text_to_word_list(self,tweet):
@@ -108,42 +117,109 @@ class unsupervised_OSA(MapFunction):
 
     def update_model(self,new_sentences):
 
-        start_redis = time()
+        '''
+        To Do: not total model needed, call the correspoding word vectors only
+        method: 1) query 2) extract
+        '''
+        start_load_redis = time()
+        call_model = self.load_model()
+        end_load_redis = time()
+
+        # time of loading model from Redis
+        loadtime = (end_load_redis - start_load_redis) /60
 
         # incremental learning
-        call_model = self.load_model()
-        call_model.build_vocab(new_sentences,update = True)
-        call_model.train(new_sentences,total_examples = call_model.corpus_count,epochs = self.initial_model.epochs, report_delay =1)
+        learn_start_time = time()
+        call_model.build_vocab(new_sentences,update = True)         # 1) update vocabulary
+        call_model.train(new_sentences,                             # 2) incremental training
+                         total_examples = call_model.corpus_count,
+                         epochs = self.initial_model.epochs)
+        self.training_time += (time() - learn_start_time) /60
+
+        start_save_redis = time()
         self.save_model(call_model)
+        end_save_redis = time()
 
-        self.redis_time += (time() - start_redis) / 60
+        # time of saving model from Redis
+        savetime = (end_save_redis - start_save_redis) /60
 
-        ans = self.eval(new_sentences, call_model)
-        
-        return ans
+        # total time cost of Redis
+        self.redis_time += (loadtime +savetime)
 
+        # After updating model, the next step is to do classifyings(predictions)
+        classify_result = self.eval(new_sentences, call_model)
+        return classify_result
+
+    # ======== these two functions are used for output  ========
     def to_string(self,l):
         return ','.join(l)
 
     def tostring(self,st):
         return str(st)
+    # ==========================================================
 
     def eval(self,tweets,model):
 
+        pre_time = time()
+
+        for tweet in tweets:
+            for words in tweet:
+                try:
+                    self.bad   +=  model.wv.similarity(words,'bad')
+                    self.good  +=  model.wv.similarity(words,'good') 
+                        # self.bad   +=  model.wv.similarity(words,'low')
+                        # self.good  +=  model.wv.similarity(words,'high') 
+                        # self.bad   +=  model.wv.similarity(words,'fuck')
+                        # self.good  +=  model.wv.similarity(words,'thank') 
+                        # self.bad   +=  model.wv.similarity(words,'poor')
+                        # self.good  +=  model.wv.similarity(words,'great')
+                        # self.bad   +=  model.wv.similarity(words,'hard')
+                        # self.good  +=  model.wv.similarity(words,'easy')
+                        # self.bad   +=  model.wv.similarity(words,'wrong')
+                        # self.good  +=  model.wv.similarity(words,'right')
+                        # self.bad   +=  model.wv.similarity(words,'horrible')
+                        # self.good  +=  model.wv.similarity(words,'amazing')
+                except:
+                    self.good += 0
+        # the original labels: 0 means Negative while 4 means Positive
+            if self.bad >= self.good:
+                self.predictions += '0'
+            else:
+                self.predictions += '0'
+
+        # This version cancels the prediction results of coming tweets list(self.predictions)
+        self.predict_time += (time() - pre_time) / 60
 
         # predict_result of test data
         predict_result = self.clean_test_data.apply(lambda x: self.predict_similarity(x,model))
         accuracy =   accuracy_score(self.test_data.polarity, list(predict_result))
-        polarity = ['============'] + [accuracy] + ['============']
+        polarity = ['redis_time,process_time,predict_time,collect_time,train_time:'] + \
+                   [self.redis_time,self.preprocess_time,self.predict_time,self.collector_time,self.training_time] + \
+                   [accuracy] + ['============'] # + predictions
+        self.predictions = ''
+        self.bad,self.good = 0,0
 
         return self.tostring(polarity)
 
+    # This same similarity function is used for accuracy testing specially
     def predict_similarity(self,tweet,model):
         bad,good = 0,0
         for words in tweet:
             try:
                 bad += model.wv.similarity(words,'bad')
                 good += model.wv.similarity(words,'good')
+                # bad   +=  model.wv.similarity(words,'low')
+                # good  +=  model.wv.similarity(words,'high') 
+                # bad   +=  model.wv.similarity(words,'fuck')
+                # good  +=  model.wv.similarity(words,'thank') 
+                # bad   +=  model.wv.similarity(words,'poor')
+                # good  +=  model.wv.similarity(words,'great')
+                # bad   +=  model.wv.similarity(words,'hard')
+                # good  +=  model.wv.similarity(words,'easy')
+                # bad   +=  model.wv.similarity(words,'wrong')
+                # good  +=  model.wv.similarity(words,'right')
+                # bad   +=  model.wv.similarity(words,'horrible')
+                # good  +=  model.wv.similarity(words,'amazing')
             except:
                 good += 0
         if bad > good:
@@ -156,8 +232,8 @@ if __name__ == '__main__':
 
     from pyflink.datastream.connectors import StreamingFileSink
     from pyflink.common.serialization import Encoder
-    coming_tweets = pd.read_csv('flinktestdata.csv')
-    coming_tweets = list(coming_tweets.tweet)[180000:220000]
+    coming_tweets = pd.read_csv('80percent.csv')
+    coming_tweets = list(coming_tweets.tweet)
     print('Coming tweets is ready...')
     print('===============================')
 
