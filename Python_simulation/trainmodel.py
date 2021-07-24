@@ -94,4 +94,24 @@ yelp_model.train(clean_review[:200000], total_examples = yelp_model.corpus_count
 
 
 
-
+def eval(tweets, model):
+    predictions = []
+    for tweet in tweets:
+        bad, good = 0, 0
+        for words in tweet:
+            try:
+                bad += model.wv.similarity(words, 'bad')
+                good += model.wv.similarity(words, 'good')
+            except:
+                good += 0
+        if bad >= good:
+            predictions.append(1)
+        else:
+            predictions.append(2)
+    return predictions
+acc_to_plot = []
+for i in range(1,11):
+    acc= accuracy_score(eval(clean_review[(i-1)*2000:2000*i],yelp_model), true_label[(i-1)*2000:2000*i])
+    acc_to_plot.append(acc)
+    acc_to_plot.append(acc)
+acc_to_plot
