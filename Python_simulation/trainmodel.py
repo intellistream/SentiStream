@@ -63,3 +63,35 @@ yelp_model.train(clean_review[:200000], total_examples = yelp_model.corpus_count
 
 
 amazon_model.save('ns.model')
+
+
+
+
+
+
+
+
+import pandas as pd
+yelp_stream = []
+yelp = pd.read_csv('./train.csv')
+yelp_stream =  list(yelp.tweet)
+true_label = list(yelp.polarity)
+yelp_stream
+clean_review =[]
+for review in yelp_stream:
+    clean_review.append(text_to_word_list(review))
+clean_review
+yelp_model = Word2Vec(min_count=3,
+                         window=4,
+                         vector_size=300,
+                         sample =1e-5,
+                         alpha=0.03, 
+                         min_alpha=0.0007,
+                        negative =20)
+yelp_model.build_vocab(clean_review[:200000])
+print(yelp_model)
+yelp_model.train(clean_review[:200000], total_examples = yelp_model.corpus_count, epochs = 30)
+
+
+
+
