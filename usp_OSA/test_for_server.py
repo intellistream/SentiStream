@@ -1,7 +1,7 @@
 import time
 
 def timetest(t):
-  return time.time()-t
+    return time.time()-t
 
 if '__name__' == '__main__':
-  timetest(3)
+    print(timetest(3))
