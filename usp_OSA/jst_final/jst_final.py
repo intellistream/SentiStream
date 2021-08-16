@@ -11,13 +11,14 @@ from pyflink.datastream.functions import RuntimeContext, MapFunction
 from pyflink.common.typeinfo import TypeInformation, Types
 from pyflink.datastream import StreamExecutionEnvironment
 from pyflink.table import StreamTableEnvironment
-
+from time import time
 
 class JST_OSA(MapFunction):
 
     def __init__(self, topics=1, sentilab=3, iteration=100, K=50,
                  beta=0.01, gamma=0.01, random_state=123456789,
                  refresh=50):
+        self.time_finish = f'{time()},'
         self.topics = topics
         self.sentilab = sentilab
         self.iter = iteration
@@ -42,7 +43,7 @@ class JST_OSA(MapFunction):
         self.stop_words = stopwords.words('english')
         for w in ['!', ',', '.', '?', '-s', '-ly', '</s>', 's']:
             self.stop_words.append(w)
-        self.accuracy_lda = []
+        self.accuracy_lda = ''
         self.counter = 1
 
     def open(self, runtime_context: RuntimeContext):
@@ -50,7 +51,7 @@ class JST_OSA(MapFunction):
         if prior_information == 1:
             self.read_model_prior(r'./constraint/mpqa.constraint')
         elif prior_information == 2:
-            self.read_model_prior(r'/home/huilin/Documents/Learning/experimentOSA/JST_model-on-MR-master/constraint/paradigm_words.constraint')
+            self.read_model_prior(r'./constraint/paradigm_words.constraint')
         elif prior_information == 3:
             self.read_model_prior(r'./constraint/full_subjectivity_lexicon.constraint')
         elif prior_information == 4:
@@ -141,7 +142,7 @@ class JST_OSA(MapFunction):
         # corpus collector
         self.docs.append(clean_word_list)
 
-        if len(self.docs) >= 5000:
+        if len(self.docs) >= 2000:
             self.analyze_corpus()
             self.init_model_parameters()
             self.estimate()
@@ -319,51 +320,102 @@ class JST_OSA(MapFunction):
             else:
                 polarity.append(1)
         acc = accuracy_score(self.true_label, polarity)
-        self.accuracy_lda.append(acc)
-        self.accuracy_lda.append(acc)
-        if self.counter > 10:
-            result = str(self.accuracy_lda)
-            return result
-        else:
-            return '==========' + str(acc) + '==========='
+        acc = str(acc) + ','
+        self.accuracy_lda += acc
+        self.accuracy_lda += acc
+        current_time = str(time()) + ','
+        self.time_finish += current_time
+        return str(self.accuracy_lda) +'@'+ str(self.time_finish)
+        # if self.counter > 10:
+        #     result = str(self.accuracy_lda)
+        #     return result
+        # else:
+        #     return '==========' + str(acc) + '==========='
 
-    def plot_result(self, y, num):
-        import matplotlib.pyplot as plt
-        x = [0]
-        for i in range(1, num):
-            x.append(f'b{i}')
-            x.append(f'b{i}')
-        x.append(f'b{num}')
-        plt.plot(x, y)
-        plt.title("Lexicon-based Online Sentiment Analysis Performance")
-        plt.xlabel('batch_size = 2000')
-        plt.ylabel('accuracy')
-        plt.grid()
-        plt.savefig(f'./lexicon_{self.thread_index}.png')
-        return True
+    # def plot_result(self, y, num):
+    #     import matplotlib.pyplot as plt
+    #     x = [0]
+    #     for i in range(1, num):
+    #         x.append(f'b{i}')
+    #         x.append(f'b{i}')
+    #     x.append(f'b{num}')
+    #     plt.plot(x, y)
+    #     plt.title("Lexicon-based Online Sentiment Analysis Performance")
+    #     plt.xlabel('batch_size = 2000')
+    #     plt.ylabel('accuracy')
+    #     plt.grid()
+    #     plt.savefig(f'./lexicon_{self.thread_index}.png')
+    #     return True
 
 
 
 if __name__ == '__main__':
     from pyflink.datastream.connectors import StreamingFileSink
     from pyflink.common.serialization import Encoder
+    import sys
+    import pandas as pd
 
-    l = 40000
-    f = pd.read_csv('./train.csv')
-    true_label = list(f.polarity)[:l]
-    yelp_review = list(f.tweet)[:l]
-    yelp_stream = []
-    for i in range(l):
-        yelp_stream.append((yelp_review[i], true_label[i]))
+    parallelism = int(sys.argv[1])
+    dataset = str(sys.argv[2])
+    if dataset == 'tweet':
+        # format of input data: (tweet,label)
+        import pandas as pd
+
+        data = pd.read_csv('./sentiment140.csv', encoding='ISO-8859-1')
+        first = data.columns[5]
+        data.columns = ['polarity', 'id', 'date', 'query', 'name', 'tweet']
+        tweet = list(data.tweet)
+        tweet.append(first)
+        label = list(data.polarity)
+        label.append('0')
+        data_stream = [0] * 1600000
+        for i in range(len(tweet)):
+            data_stream[i] = (tweet[i], int(label[i]))
+    elif dataset == 'yelp':
+        l=20000
+        f = pd.read_csv('./train.csv')
+        true_label = list(f.polarity)[:l]
+        yelp_review = list(f.tweet)[:l]
+        data_stream = []
+        for i in range(l): #len(true_label)
+            data_stream.append((yelp_review[i], true_label[i]))
 
     print('Coming tweets is ready...')
     print('===============================')
 
     env = StreamExecutionEnvironment.get_execution_environment()
-    env.set_parallelism(1)
-    ds = env.from_collection(collection=yelp_stream)
-    ds.map(JST_OSA(), output_type=Types.STRING())\
+    env.set_parallelism(parallelism)
+    ds = env.from_collection(collection=data_stream)
+    ds.shuffle().map(JST_OSA(), output_type=Types.STRING())\
         .add_sink(StreamingFileSink
         .for_row_format('./output', Encoder.simple_string_encoder())
         .build())
     env.execute("osa_job")
+
+    import time
+    import os
+
+    result_path = os.getcwd() + '/output/' + time.strftime("%Y-%m-%d--%H", time.localtime())
+    for dirpath, dirnames, filenames in os.walk(result_path):
+        for name in filenames:
+            if 'part' in name:
+                logfile = []
+                with open(result_path + '/' + name, 'r') as f:
+                    for line in f.readlines():
+                        if line != 'collecting\n':
+                            logfile.append(line.replace('\n', ''))
+                logfile = logfile[-1]
+                logfile = list(logfile.split('@'))
+                acc = logfile[0][:-1]
+                time = logfile[1].replace('(', '').replace(')', '').split(',')
+                time.remove('')
+                time = list(map(lambda x: float(x), time))
+                for i in range(1, len(time)):
+                    time[i] = time[i] - time[0]
+                time[0] = 0
+                with open('./lda_accuracy.txt', 'a') as f:
+                    f.write(acc)
+                    f.write('\n')
+                with open('./lda_time.txt', 'a') as e:
+                    e.write(str(time))
+                    e.write('\n')
