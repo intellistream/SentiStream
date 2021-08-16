@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
-from nltk import word_tokenize  # 分词函数
+from nltk import word_tokenize
 from time import time
 import re
+import logging
 import pandas as pd
 from nltk.corpus import stopwords
 from sklearn.metrics import accuracy_score
 from pyflink.datastream.functions import RuntimeContext, MapFunction
-from pyflink.common.typeinfo import TypeInformation, Types
+from pyflink.common.typeinfo import Types
 from pyflink.datastream import StreamExecutionEnvironment
 
 
@@ -14,8 +15,8 @@ class unsupervised_OSA(MapFunction):
 
     def __init__(self):
         self.batch_size = 2000
-        self.total_time = [time()]
-        self.acc_to_plot = []
+        self.total_time = f'{time(),}'
+        self.acc_to_plot = ''
         self.counter = 1
         self.stop_words = stopwords.words('english')
         for w in ['!', ',', '.', '?', '-s', '-ly', '</s>', 's']:
@@ -62,14 +63,15 @@ class unsupervised_OSA(MapFunction):
         for key in word_tag:
             if key[1] in self.noun:
                 word_form.append(f'{key[0]}.n.01')
-            elif key[1] in self.verb:
-                word_form.append(f'{key[0]}.v.01')
+            # elif key[1] in self.verb:
+            #     word_form.append(f'{key[0]}.v.01')
             elif key[1] in self.adj:
                 word_form.append(f'{key[0]}.a.01')
             elif key[1] in self.adv:
                 word_form.append(f'{key[0]}.r.01')
 
         return self.eval(word_form)
+
 
     def eval(self, word_form):
 
@@ -85,15 +87,24 @@ class unsupervised_OSA(MapFunction):
             self.result.append(2)
         elif pos_score < neg_score:
             self.result.append(1)
-
         if len(self.result) >= self.batch_size:
-            self.total_time.append(time())
+            current_time = str(time()) + ','
+            self.total_time += current_time
             ans = accuracy_score(self.result, self.true_label)
+            ans = str(ans) + ','
             self.result = []
             self.true_label = []
-            self.acc_to_plot.append(ans)
-            self.acc_to_plot.append(ans)
-            return str(self.acc_to_plot) + str(self.total_time)
+            self.acc_to_plot += ans
+            self.acc_to_plot += ans
+            import os
+            filename = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'ram.log')
+            logging.basicConfig(level=logging.DEBUG,  # 控制台打印的日志级别
+                                filename=filename,
+                                filemode='a',
+                                format='%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s'
+                                )
+            logging.warning(f"Cherry_label_acc: {self.acc_to_plot}")
+            return str(self.acc_to_plot) + "@" + str(self.total_time)
         else:
             return 'next'
 
@@ -114,25 +125,68 @@ class unsupervised_OSA(MapFunction):
 if __name__ == '__main__':
     from pyflink.datastream.connectors import StreamingFileSink
     from pyflink.common.serialization import Encoder
+    import sys
+    # python lexicon_final.py parallelism tweet/yelp
+    parallelism = int(sys.argv[1])
+    dataset = str(sys.argv[2])
+    if dataset == 'tweet':
+        # format of input data: (tweet,label)
+        import pandas as pd
+        data = pd.read_csv('./sentiment140.csv', encoding='ISO-8859-1')
+        first = data.columns[5]
+        data.columns = ['polarity', 'id', 'date', 'query', 'name', 'tweet']
+        tweet = list(data.tweet)
+        tweet.append(first)
+        label = list(data.polarity)
+        label.append('0')
+        data_stream = [0] * 1600000
+        for i in range(len(tweet)):
+            data_stream[i] = (tweet[i], int(label[i]))
+    elif dataset == 'yelp':
+        f = pd.read_csv('./train.csv')
+        true_label = list(f.polarity)
+        yelp_review = list(f.tweet)
+        data_stream = []
+        for i in range(len(true_label)):
+            data_stream.append((yelp_review[i], true_label[i]))
 
-    parallelism = 2
-    l = 40000
-    f = pd.read_csv('./train.csv')
-    true_label = list(f.polarity)[:l]
-    yelp_review = list(f.tweet)[:l]
-    yelp_stream = []
-    for i in range(l):
-        yelp_stream.append((yelp_review[i], true_label[i]))
-
-    print('Coming stream is ready.')
+    print('Coming tweets is ready.')
     print('======================')
 
     env = StreamExecutionEnvironment.get_execution_environment()
     env.set_parallelism(parallelism)
     print(f'Current parallelism is: {parallelism}')
-    ds = env.from_collection(collection=yelp_stream)
+    ds = env.from_collection(collection=data_stream)
+    ds = ds.shuffle()
     ds.map(unsupervised_OSA(), output_type=Types.STRING()) \
         .add_sink(StreamingFileSink
                   .for_row_format('./output', Encoder.simple_string_encoder())
                   .build())
     env.execute("osa_job")
+
+    import time
+    import os
+    result_path = os.getcwd() + '/output/' + time.strftime("%Y-%m-%d--%H", time.localtime())
+    for dirpath, dirnames, filenames in os.walk(result_path):
+        for name in filenames:
+            if 'part' in name:
+                logfile = []
+                with open(result_path + '/' + name, 'r') as f:
+                    for line in f.readlines():
+                        if line != 'next\n':
+                            logfile.append(line.replace('\n', ''))
+                logfile = logfile[-1]
+                logfile = list(logfile.split('@'))
+                acc = logfile[0][:-1]
+                time = logfile[1].replace('(', '').replace(')', '').split(',')
+                time.remove('')
+                time = list(map(lambda x: float(x), time))
+                for i in range(1, len(time)):
+                    time[i] = time[i] - time[0]
+                time[0] = 0
+                with open('./lexicon_accuracy.txt', 'a') as f:
+                    f.write(acc)
+                    f.write('\n')
+                with open('./lexicon_time.txt', 'a') as e:
+                    e.write(str(time))
+                    e.write('\n')
