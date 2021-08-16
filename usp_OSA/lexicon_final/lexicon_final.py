@@ -15,7 +15,7 @@ class unsupervised_OSA(MapFunction):
 
     def __init__(self):
         self.batch_size = 2000
-        self.total_time = f'{time(),}'
+        self.total_time = f'{time()},'
         self.acc_to_plot = ''
         self.counter = 1
         self.stop_words = stopwords.words('english')
