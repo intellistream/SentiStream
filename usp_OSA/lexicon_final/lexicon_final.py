@@ -96,14 +96,6 @@ class unsupervised_OSA(MapFunction):
             self.true_label = []
             self.acc_to_plot += ans
             self.acc_to_plot += ans
-            import os
-            filename = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'ram.log')
-            logging.basicConfig(level=logging.DEBUG,  # 控制台打印的日志级别
-                                filename=filename,
-                                filemode='a',
-                                format='%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s'
-                                )
-            logging.warning(f"Cherry_label_acc: {self.acc_to_plot}")
             return str(self.acc_to_plot) + "@" + str(self.total_time)
         else:
             return 'next'
@@ -153,9 +145,16 @@ if __name__ == '__main__':
     print('Coming tweets is ready.')
     print('======================')
 
-    env = StreamExecutionEnvironment.get_execution_environment()
+    from time import time
+
+    env = StreamExecutionEnvironment. \
+        set_python_requirements(requirements_file_path='./requirements.txt',
+                                requirements_cache_dir='cached_dir'). \
+        get_execution_environment()
     env.set_parallelism(parallelism)
     print(f'Current parallelism is: {parallelism}')
+
+    process_time = time()
     ds = env.from_collection(collection=data_stream)
     ds = ds.shuffle()
     ds.map(unsupervised_OSA(), output_type=Types.STRING()) \
@@ -163,6 +162,8 @@ if __name__ == '__main__':
                   .for_row_format('./output', Encoder.simple_string_encoder())
                   .build())
     env.execute("osa_job")
+    process_time_total = (time() - process_time) / 60
+    print(f"Lexicon-based solution is finished, total time cost:{process_time_total} minutes")
 
     import time
     import os
