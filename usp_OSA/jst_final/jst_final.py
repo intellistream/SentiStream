@@ -13,6 +13,7 @@ from pyflink.datastream import StreamExecutionEnvironment
 from pyflink.table import StreamTableEnvironment
 from time import time
 
+
 class JST_OSA(MapFunction):
 
     def __init__(self, topics=1, sentilab=3, iteration=100, K=50,
@@ -60,10 +61,9 @@ class JST_OSA(MapFunction):
             self.read_model_prior(r'./constraint/empty_prior')
         self.thread_index = runtime_context.get_index_of_this_subtask()
 
-
     def reset_model(self, topics=1, sentilab=3, iteration=100, K=50,
-                 beta=0.01, gamma=0.01, random_state=123456789,
-                 refresh=50):
+                    beta=0.01, gamma=0.01, random_state=123456789,
+                    refresh=50):
         self.topics = topics
         self.sentilab = sentilab
         self.iter = iteration
@@ -84,7 +84,6 @@ class JST_OSA(MapFunction):
         self.doc_num = 0
         self.doc_size = 0
         self.true_label = []
-
 
     def read_model_prior(self, prior_path):
         """Joint Sentiment-Topic Model using collapsed Gibbs sampling.
@@ -149,8 +148,8 @@ class JST_OSA(MapFunction):
             self.cal_pi_ld()
             ans = self.eval()
             self.reset_model(topics=1, sentilab=3, iteration=100, K=50,
-                 beta=0.01, gamma=0.01, random_state=123456789,
-                 refresh=50)
+                             beta=0.01, gamma=0.01, random_state=123456789,
+                             refresh=50)
             return ans
         else:
             return 'collecting'
@@ -325,7 +324,7 @@ class JST_OSA(MapFunction):
         self.accuracy_lda += acc
         current_time = str(time()) + ','
         self.time_finish += current_time
-        return str(self.accuracy_lda) +'@'+ str(self.time_finish)
+        return str(self.accuracy_lda) + '@' + str(self.time_finish)
         # if self.counter > 10:
         #     result = str(self.accuracy_lda)
         #     return result
@@ -346,7 +345,6 @@ class JST_OSA(MapFunction):
     #     plt.grid()
     #     plt.savefig(f'./lexicon_{self.thread_index}.png')
     #     return True
-
 
 
 if __name__ == '__main__':
@@ -372,25 +370,34 @@ if __name__ == '__main__':
         for i in range(len(tweet)):
             data_stream[i] = (tweet[i], int(label[i]))
     elif dataset == 'yelp':
-        l=20000
         f = pd.read_csv('./train.csv')
-        true_label = list(f.polarity)[:l]
-        yelp_review = list(f.tweet)[:l]
+        first = f.columns[1]
+        f.columns = ['polarity', 'tweet']
+        true_label = list(f.polarity)
+        true_label.append('1')
+        yelp_review = list(f.tweet)
+        yelp_review.append(first)
         data_stream = []
-        for i in range(l): #len(true_label)
-            data_stream.append((yelp_review[i], true_label[i]))
+        for i in range(len(yelp_review)):  # len(true_label)
+            data_stream.append((yelp_review[i], int(true_label[i])))
 
     print('Coming tweets is ready...')
     print('===============================')
 
+    from time import time
+
+    process_time = time()
+
     env = StreamExecutionEnvironment.get_execution_environment()
     env.set_parallelism(parallelism)
     ds = env.from_collection(collection=data_stream)
-    ds.shuffle().map(JST_OSA(), output_type=Types.STRING())\
+    ds.shuffle().map(JST_OSA(), output_type=Types.STRING()) \
         .add_sink(StreamingFileSink
-        .for_row_format('./output', Encoder.simple_string_encoder())
-        .build())
+                  .for_row_format('./output', Encoder.simple_string_encoder())
+                  .build())
     env.execute("osa_job")
+    process_time_total = (time() - process_time) / 60
+    print(f"LDA-based solution is finished, total time cost:{process_time_total} minutes")
 
     import time
     import os
