@@ -136,11 +136,15 @@ if __name__ == '__main__':
             data_stream[i] = (tweet[i], int(label[i]))
     elif dataset == 'yelp':
         f = pd.read_csv('./train.csv')
+        first = f.columns[1]
+        f.columns = ['polarity', 'tweet']
         true_label = list(f.polarity)
+        true_label.append('1')
         yelp_review = list(f.tweet)
+        yelp_review.append(first)
         data_stream = []
-        for i in range(len(true_label)):
-            data_stream.append((yelp_review[i], true_label[i]))
+        for i in range(len(yelp_review)):  # len(true_label)
+            data_stream.append((yelp_review[i], int(true_label[i])))
 
     print('Coming tweets is ready.')
     print('======================')
