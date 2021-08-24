@@ -7,30 +7,22 @@ from gensim.models import Word2Vec
 import redis
 import pickle
 import logging
-# logging.basicConfig(format="%(levelname)s - %(asctime)s: %(message)s", datefmt= '%H:%M:%S', level=logging.INFO)
 from nltk.corpus import stopwords
 from sklearn.metrics import accuracy_score, confusion_matrix, precision_score, recall_score, f1_score
 from pyflink.datastream.functions import RuntimeContext, MapFunction
-# from pyflink.common.serialization import SimpleStringEncoder
 from pyflink.common.typeinfo import TypeInformation, Types
 from pyflink.datastream import StreamExecutionEnvironment
-from pyflink.table import StreamTableEnvironment
 
-
-# from pyflink.datastream.connectors import StreamingFileSink
 
 class unsupervised_OSA(MapFunction):
 
     def __init__(self):
+        self.time_finish = [time()]
         self.acc_to_plot = []
         self.true_label = []
         self.thousand_text = []
         self.bad, self.good = 0, 0
         self.predictions = []
-        self.preprocess_time = 0
-        self.redis_time = 0
-        self.predict_time = 0
-        self.collector_time = 0
         self.stop_words = stopwords.words('english')
         self.collector_size = 2000
         for w in ['!', ',', '.', '?', '-s', '-ly', '</s>', 's']:
@@ -61,17 +53,11 @@ class unsupervised_OSA(MapFunction):
         except (redis.exceptions.RedisError, TypeError, Exception):
             logging.warning('Unable to call the model from Redis server, please check your model')
 
-    '''
-    To Do: another map fucntion to deal with cleaning
-    '''
-
     # tweet preprocessing
     def text_to_word_list(self, tweet):
-
         tweet = tweet.lower()  # change to lower case
         tweet = re.sub("@\w+ ", "", tweet)  # removes all usernames in text
-        tweet = re.sub("\'s", " ",
-                       tweet)  # we have cases like "Sam is" or "Sam's" (i.e. his) these two cases aren't separable, I choose to compromise are kill "'s" directly
+        tweet = re.sub("\'s", " ",tweet)
         tweet = re.sub("\'t", " not ", tweet)
         tweet = re.sub(" whats ", " what is ", tweet, flags=re.IGNORECASE)
         tweet = re.sub("\'ve", " have ", tweet)
@@ -100,124 +86,88 @@ class unsupervised_OSA(MapFunction):
 
     def update_model(self, new_sentences):
 
-        '''
-        To Do: not total model needed, call the correspoding word vectors only
-        method: 1) query 2) extract
-        '''
-        start_load_redis = time()
         call_model = self.load_model()
-        end_load_redis = time()
-
-        # time of loading model from Redis
-        loadtime = (end_load_redis - start_load_redis) / 60
 
         # incremental learning
-        # learn_start_time = time()
         call_model.build_vocab(new_sentences, update=True)  # 1) update vocabulary
         call_model.train(new_sentences,  # 2) incremental training
                          total_examples=call_model.corpus_count,
                          epochs=self.initial_model.epochs)
-        # self.training_time += (time() - learn_start_time) / 60
 
-        start_save_redis = time()
         self.save_model(call_model)
-        end_save_redis = time()
-        #
-        # # time of saving model from Redis
-        savetime = (end_save_redis - start_save_redis) / 60
-        #
-        # # total time cost of Redis
-        self.redis_time += (loadtime + savetime)
 
-        # After updating model, the next step is to do classifyings(predictions)
+        # After updating model, the next step is to do classifying(predictions)
         classify_result = self.eval(new_sentences, call_model)
         return classify_result
 
-    # ======== these two functions are used for output  ========
-    def to_string(self, l):
-        return ','.join(l)
-
-    def tostring(self, st):
-        return str(st)
-
-    # ==========================================================
-
     def eval(self, tweets, model):
 
-        pre_time = time()
-
         for tweet in tweets:
-            good, bad = 0, 0
             for words in tweet:
                 try:
-                    bad += model.wv.similarity(words, 'bad')
-                    good += model.wv.similarity(words, 'good')
-                    # bad   +=  model.wv.similarity(words,'low')
-                    # good  +=  model.wv.similarity(words,'high')
-                    # bad   +=  model.wv.similarity(words,'fuck')
-                    # good  +=  model.wv.similarity(words,'thank')
-                    # bad   +=  model.wv.similarity(words,'poor')
-                    # good  +=  model.wv.similarity(words,'great')
-                    # bad   +=  model.wv.similarity(words,'hard')
-                    # good  +=  model.wv.similarity(words,'easy')
-                    # self.bad   +=  model.wv.similarity(words,'wrong')
-                    # self.good  +=  model.wv.similarity(words,'right')
-                    # self.bad   +=  model.wv.similarity(words,'horrible')
-                    # self.good  +=  model.wv.similarity(words,'amazing')
+                    self.bad += model.wv.similarity(words, 'bad')
+                    self.good += model.wv.similarity(words, 'good')
                 except:
-                    good += 0
+                    self.good += 0
             # the original labels: 0 means Negative while 4 means Positive
-            if bad >= good:
+            if self.bad >= self.good:
                 self.predictions.append(1)
             else:
                 self.predictions.append(2)
 
-        # This version cancels the prediction results of coming tweets list(self.predictions)
-        self.predict_time += (time() - pre_time) / 60
-
-        # predict_result of test data
-        # return self.tostring(self.predictions)
+        self.time_finish.append(time())
         self.acc_to_plot.append(accuracy_score(self.true_label, self.predictions))
-
         self.predictions = []
+        self.bad, self.good = 0, 0
 
-        return str(self.acc_to_plot) + '====' + str(self.redis_time) + str(self.predict_time) + '===='
+        return str(self.acc_to_plot) + '@' + str(self.time_finish)
 
 
 if __name__ == '__main__':
     from pyflink.datastream.connectors import StreamingFileSink
     from pyflink.common.serialization import Encoder
-
-    # f = open('./amazon.txt', 'r')
-    # true_label = []  # 1 neg
-    # amazon_review = []  # 2 pos
-    # for line in f:
-    #     if '__label__2' in line:
-    #         true_label.append(4)
-    #         amazon_review.append(line[11:].replace('\n', ''))
-    #     elif '__label__1' in line:
-    #         true_label.append(0)
-    #         amazon_review.append(line[11:].replace('\n', ''))
-    # amazon_stream = []
-    # for i in range(20000):
-    #     amazon_stream.append((amazon_review[i], true_label[i]))
-    f = pd.read_csv('./train.csv')
-    true_label = list(f.polarity)[:20000]
-    yelp_review = list(f.tweet)[:20000]
-    yelp_stream = []
-    for i in range(20000):
-        yelp_stream.append((yelp_review[i], true_label[i]))
+    import sys
+    import pandas as pd
+    parallelism = int(sys.argv[1])
+    dataset = str(sys.argv[2])
+    if dataset == 'tweet':
+        # format of input data: (tweet,label)
+        data = pd.read_csv('./sentiment140.csv', encoding='ISO-8859-1')
+        first = data.columns[5]
+        data.columns = ['polarity', 'id', 'date', 'query', 'name', 'tweet']
+        tweet = list(data.tweet)
+        tweet.append(first)
+        label = list(data.polarity)
+        label.append('0')
+        data_stream = [0] * 1600000
+        for i in range(len(tweet)):
+            data_stream[i] = (tweet[i], int(label[i]))
+    elif dataset == 'yelp':
+        f = pd.read_csv('./train.csv')
+        first = f.columns[1]
+        f.columns = ['polarity','tweet']
+        true_label = list(f.polarity)
+        true_label.append('1')
+        yelp_review = list(f.tweet)
+        yelp_review.append(first)
+        data_stream = []
+        for i in range(len(yelp_review)):  # len(true_label)
+            data_stream.append((yelp_review[i], int(true_label[i])))
 
     print('Coming tweets is ready...')
     print('===============================')
 
-    # final = []
-    env = StreamExecutionEnvironment.get_execution_environment()
-    env.set_parallelism(1)
+    from time import time
 
-    ds = env.from_collection(collection=yelp_stream)
-    # ds.shuffle()
-    ds.map(unsupervised_OSA(), output_type=Types.STRING()) \
+    env = StreamExecutionEnvironment.get_execution_environment()
+        # set_python_requirements(requirements_file_path='./requirements.txt',
+        #                         requirements_cache_dir='cached_dir'). \
+    env.set_parallelism(parallelism)
+
+    process_time = time()
+    ds = env.from_collection(collection=data_stream)
+    ds.shuffle() \
+        .map(unsupervised_OSA(), output_type=Types.STRING()) \
         .add_sink(StreamingFileSink
                   .for_row_format('./output', Encoder.simple_string_encoder())
                   .build())
