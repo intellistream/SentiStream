@@ -23,7 +23,6 @@ docopt==0.6.2
 entrypoints==0.3
 fastavro==0.23.6
 future==0.18.2
-gensim==4.0.1
 grpcio==1.38.1
 hdfs==2.6.0
 httplib2==0.17.4
