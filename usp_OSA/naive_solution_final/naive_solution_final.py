@@ -144,11 +144,12 @@ if __name__ == '__main__':
             data_stream[i] = (tweet[i], int(label[i]))
     elif dataset == 'yelp':
         f = pd.read_csv('./train.csv')
+        l = 60000
         first = f.columns[1]
-        f.columns = ['polarity','tweet']
-        true_label = list(f.polarity)
+        f.columns = ['polarity', 'tweet']
+        true_label = list(f.polarity)[:l - 1]
         true_label.append('1')
-        yelp_review = list(f.tweet)
+        yelp_review = list(f.tweet)[:l - 1]
         yelp_review.append(first)
         data_stream = []
         for i in range(len(yelp_review)):  # len(true_label)
@@ -166,10 +167,8 @@ if __name__ == '__main__':
 
     process_time = time()
     ds = env.from_collection(collection=data_stream)
-    ds.shuffle() \
-        .map(unsupervised_OSA(), output_type=Types.STRING()) \
+    ds.map(unsupervised_OSA(), output_type=Types.STRING()) \
         .add_sink(StreamingFileSink
                   .for_row_format('./output', Encoder.simple_string_encoder())
                   .build())
-
     env.execute("osa_job")
