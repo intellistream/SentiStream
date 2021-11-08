@@ -5,7 +5,7 @@ Master Thesis "An Empirical Study of  Online Sentiment Analysis on Twitter Strea
 
 # Time Table
 1. Experiments of impact of text length. 3/Nov/2021 -- done.
-2. Minimum Word Count experiments Revise. 4/Nov/2021
+2. Minimum Word Count experiments Revise. 4/Nov/2021 -- done.
 3. Impact of Optimizations. 12/Nov/2021
 4. Experimental analysis of violint figures. 15/Nov/2021
 5. Draft update. 19/Nov/2021
