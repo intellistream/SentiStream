@@ -6,9 +6,9 @@ Master Thesis "An Empirical Study of  Online Sentiment Analysis on Twitter Strea
 # Time Table
 1. Experiments of impact of text length. 3/Nov/2021 -- done.
 2. Minimum Word Count experiments Revise. 4/Nov/2021 -- done.
-3. Impact of Optimizations. 12/Nov/2021 - 13/Nov/2021
-4. Experimental analysis of violint figures + Draft Update. 15/Nov/2021
-6. Send to Volker for review. 15/Nov/2021
+3. Impact of Optimizations. 12/Nov/2021 - 13/Nov/2021 -- done.
+4. Experimental analysis of violint figures + Draft Update. 15/Nov/2021 -- in progress.
+6. Send to Volker for review. 20/Nov/2021
 7. Prepare the demo for DASFAA. 28/Nov/2021
 8. Make the submission to VLDB 22. 1/Dec/2021
 
