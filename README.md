@@ -3,14 +3,6 @@ Master Thesis "An Empirical Study of  Online Sentiment Analysis on Twitter Strea
 * Author: Huilin Wu
 * Advisor: [Dr. Shuhao Zhang](https://github.com/ShuhaoZhangTony)
 
-# Time Table
-1. Experiments of impact of text length. 3/Nov/2021 -- done.
-2. Minimum Word Count experiments Revise. 4/Nov/2021 -- done.
-3. Impact of Optimizations. 12/Nov/2021 - 13/Nov/2021 -- done.
-4. Experimental analysis of violint figures + Draft Update. 15/Nov/2021 -- in progress.
-6. Send to Volker for review. 20/Nov/2021
-7. Prepare the demo for DASFAA. 28/Nov/2021
-8. Make the submission to VLDB 22. 1/Dec/2021
 
 ## Motivation
 * Most existing studies regarding Sentiment Analysis are based on offline batch-based learning mechanisms. Meanwhile, many stream processing systems have been proposed, but they are not specifically designed for online learning tasks, such as online Sentiment Analysis. As a result, it still remains an open and challenging question of how to efficiently perform Sentiment Analysis for real-time streaming data, e.g., ongoing Twitter Streams.
