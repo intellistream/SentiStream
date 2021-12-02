@@ -16,13 +16,13 @@
 * Dataset quick access in https://course.fast.ai/datasets#nlp
 ### Tweets
 * 1.6 million labeled Tweets:
-* [Sentiment140](http://cs.stanford.edu/people/alecmgo/trainingandtestdata.zip)
+* Source:[Sentiment140](http://cs.stanford.edu/people/alecmgo/trainingandtestdata.zip)
 ### Yelp Reviews
 * 280,000 training and 19,000 test samples in each polarity
-* [Yelp Review Polarity](https://s3.amazonaws.com/fast-ai-nlp/yelp_review_polarity_csv.tgz)
+* Source:[Yelp Review Polarity](https://s3.amazonaws.com/fast-ai-nlp/yelp_review_polarity_csv.tgz)
 ### Amazon Reviews
 * 1,800,000 training and 200,000 testing samples in each polarity
-* [Amazon product review polarity](https://s3.amazonaws.com/fast-ai-nlp/amazon_review_polarity_csv.tgz)
+* Source:[Amazon product review polarity](https://s3.amazonaws.com/fast-ai-nlp/amazon_review_polarity_csv.tgz)
 
 ## Quick Guide
 ### 1. Supervised_OSA
