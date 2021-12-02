@@ -1,8 +1,8 @@
 # SentiStream: Towards Online Sentiment Learning of Massive Data Streams
 
 ## Motivation
-* Most existing studies regarding Sentiment Analysis are based on offline batch-based learning mechanisms. Meanwhile, many stream processing systems have been proposed, but they are not specifically designed for online learning tasks, such as online Sentiment Analysis. As a result, it still remains an open and challenging question of how to efficiently perform Sentiment Analysis for real-time streaming data, e.g., ongoing Twitter Streams.
-* The goal of this thesis is to empirically evaluate various online algorithms for Sentiment Analysis on Twitter Streams by implementing them on DSPS (Data Stream Processing System) for practical application.
+* Sentiment classification over a large number of opinions, like tweets or product reviews, has numerous practical applications, such as public opinion monitoring, customer support management, and event prediction. However, existing sentiment classification techniques cannot effectively handle continuous evolving data streams in real-time as they typically assume that a large number of datasets have been collected and labelled beforehand. 
+* we introduce SentiStream, an online sentiment learning system that learns incrementally, trains without labels, and scales almost linearly.
 
 ## Environment Requirement
 1. Flink v1.12
@@ -13,14 +13,14 @@
 6. Redis server v4.0.9
 
 ## DataSource
-1.6 million labeled Tweets:
+### 1.6 million labeled Tweets:
 [Sentiment140](http://cs.stanford.edu/people/alecmgo/trainingandtestdata.zip)
-280,000 training and 19,000 test samples in each polarity
+### 280,000 training and 19,000 test samples in each polarity
 [Yelp Review Polarity](https://s3.amazonaws.com/fast-ai-nlp/yelp_review_polarity_csv.tgz)
-1,800,000 training and 200,000 testing samples in each polarity
+### 1,800,000 training and 200,000 testing samples in each polarity
 [Amazon product review polarity](https://s3.amazonaws.com/fast-ai-nlp/amazon_review_polarity_csv.tgz)
 
-*Dataset quick access in https://course.fast.ai/datasets#nlp
+* Dataset quick access in https://course.fast.ai/datasets#nlp
 
 ## Quick Guide
 ### 1. Supervised_OSA
