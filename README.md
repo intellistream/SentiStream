@@ -1,8 +1,4 @@
-# Online-Sentiment-Analysis-on-Twitter-Streams
-Master Thesis "An Empirical Study of  Online Sentiment Analysis on Twitter Streams " offered by [DIMA](https://www.dima.tu-berlin.de/menue/database_systems_and_information_management_group/?no_cache=1), TU Berlin
-* Author: Huilin Wu
-* Advisor: [Dr. Shuhao Zhang](https://github.com/ShuhaoZhangTony)
-
+# SentiStream: Towards Online Sentiment Learning of Massive Data Streams
 
 ## Motivation
 * Most existing studies regarding Sentiment Analysis are based on offline batch-based learning mechanisms. Meanwhile, many stream processing systems have been proposed, but they are not specifically designed for online learning tasks, such as online Sentiment Analysis. As a result, it still remains an open and challenging question of how to efficiently perform Sentiment Analysis for real-time streaming data, e.g., ongoing Twitter Streams.
@@ -19,6 +15,12 @@ Master Thesis "An Empirical Study of  Online Sentiment Analysis on Twitter Strea
 ## DataSource
 1.6 million labeled Tweets:
 [Sentiment140](http://cs.stanford.edu/people/alecmgo/trainingandtestdata.zip)
+280,000 training and 19,000 test samples in each polarity
+[Yelp Review Polarity](https://s3.amazonaws.com/fast-ai-nlp/yelp_review_polarity_csv.tgz)
+1,800,000 training and 200,000 testing samples in each polarity
+[Amazon product review polarity](https://s3.amazonaws.com/fast-ai-nlp/amazon_review_polarity_csv.tgz)
+
+*Dataset quick access in https://course.fast.ai/datasets#nlp
 
 ## Quick Guide
 ### 1. Supervised_OSA
