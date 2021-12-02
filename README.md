@@ -4,7 +4,7 @@
 * Sentiment classification over a large number of opinions, like tweets or product reviews, has numerous practical applications, such as public opinion monitoring, customer support management, and event prediction. However, existing sentiment classification techniques cannot effectively handle continuous evolving data streams in real-time as they typically assume that a large number of datasets have been collected and labelled beforehand. 
 * we introduce SentiStream, an online sentiment learning system that learns incrementally, trains without labels, and scales almost linearly.
 
-## Environment Requirement
+## Environment Requirements
 1. Flink v1.12
 2. Scala v2.11
 3. Python 3.7
@@ -13,12 +13,15 @@
 6. Redis server v4.0.9
 
 ## DataSource
-### 1.6 million labeled Tweets:
-[Sentiment140](http://cs.stanford.edu/people/alecmgo/trainingandtestdata.zip)
-### 280,000 training and 19,000 test samples in each polarity
-[Yelp Review Polarity](https://s3.amazonaws.com/fast-ai-nlp/yelp_review_polarity_csv.tgz)
-### 1,800,000 training and 200,000 testing samples in each polarity
-[Amazon product review polarity](https://s3.amazonaws.com/fast-ai-nlp/amazon_review_polarity_csv.tgz)
+### Tweets
+* 1.6 million labeled Tweets:
+* [Sentiment140](http://cs.stanford.edu/people/alecmgo/trainingandtestdata.zip)
+### Yelp Reviews
+* 280,000 training and 19,000 test samples in each polarity
+* [Yelp Review Polarity](https://s3.amazonaws.com/fast-ai-nlp/yelp_review_polarity_csv.tgz)
+### Amazon Reviews
+* 1,800,000 training and 200,000 testing samples in each polarity
+* [Amazon product review polarity](https://s3.amazonaws.com/fast-ai-nlp/amazon_review_polarity_csv.tgz)
 
 * Dataset quick access in https://course.fast.ai/datasets#nlp
 
