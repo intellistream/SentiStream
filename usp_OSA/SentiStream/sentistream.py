@@ -122,50 +122,54 @@ class unsupervised_OSA(MapFunction):
             return model
         else:
             word_to_prune = list(self.LRU_index[30000:])
-            words1 = copy.deepcopy(model.wv.index_to_key)
-            syn1s1 = copy.deepcopy(model.syn1)
-            syn1negs1 = copy.deepcopy(model.syn1neg)
-            cum_tables1 = copy.deepcopy(model.cum_table)
-            corpus_count = copy.deepcopy(model.corpus_count)
-            counts1 = copy.deepcopy(model.wv.expandos['count'])
-            sample_ints1 = copy.deepcopy(model.wv.expandos['sample_int'])
-            codes1 = copy.deepcopy(model.wv.expandos['code'])
-            points1 = copy.deepcopy(model.wv.expandos['point'])
-            final_words = []
-            final_vectors = []
-            final_syn1 = []
-            final_syn1neg = []
-            final_cum_table = []
-            final_count = []
-            final_sample_int = []
-            final_code = []
-            final_point = []
-            for idx1 in range(len(words1)):
-                if words1[idx1] not in word_to_prune:
-                    word = words1[idx1]
-                    v1 = model.wv[word]
-                    syn11 = syn1s1[idx1]
-                    syn1neg1 = syn1negs1[idx1]
-                    cum_table1 = cum_tables1[idx1]
-                    count = counts1[idx1]
-                    sample_int = sample_ints1[idx1]
-                    code = codes1[idx1]
-                    point = points1[idx1]
-                    final_words.append(word)
-                    final_vectors.append(list(v1))
-                    final_syn1.append(syn11)
-                    final_syn1neg.append(syn1neg1)
-                    final_cum_table.append(cum_table1)
-                    final_count.append(count)
-                    final_sample_int.append(sample_int)
-                    final_code.append(code)
-                    final_point.append(point)
-            model_pruned = self.get_model_new(final_words, np.array(final_vectors), np.array(final_syn1),
-                                           np.array(final_syn1neg), \
-                                           final_cum_table, corpus_count, np.array(final_count),
-                                           np.array(final_sample_int), \
-                                           np.array(final_code), np.array(final_point), model)
-            return model_pruned
+            for word in word_to_prune:
+                del model.wv.index_to_key[model.wv.key_to_index[word]]
+            return model
+#             word_to_prune = list(self.LRU_index[30000:])
+#             words1 = copy.deepcopy(model.wv.index_to_key)
+#             syn1s1 = copy.deepcopy(model.syn1)
+#             syn1negs1 = copy.deepcopy(model.syn1neg)
+#             cum_tables1 = copy.deepcopy(model.cum_table)
+#             corpus_count = copy.deepcopy(model.corpus_count)
+#             counts1 = copy.deepcopy(model.wv.expandos['count'])
+#             sample_ints1 = copy.deepcopy(model.wv.expandos['sample_int'])
+#             codes1 = copy.deepcopy(model.wv.expandos['code'])
+#             points1 = copy.deepcopy(model.wv.expandos['point'])
+#             final_words = []
+#             final_vectors = []
+#             final_syn1 = []
+#             final_syn1neg = []
+#             final_cum_table = []
+#             final_count = []
+#             final_sample_int = []
+#             final_code = []
+#             final_point = []
+#             for idx1 in range(len(words1)):
+#                 if words1[idx1] not in word_to_prune:
+#                     word = words1[idx1]
+#                     v1 = model.wv[word]
+#                     syn11 = syn1s1[idx1]
+#                     syn1neg1 = syn1negs1[idx1]
+#                     cum_table1 = cum_tables1[idx1]
+#                     count = counts1[idx1]
+#                     sample_int = sample_ints1[idx1]
+#                     code = codes1[idx1]
+#                     point = points1[idx1]
+#                     final_words.append(word)
+#                     final_vectors.append(list(v1))
+#                     final_syn1.append(syn11)
+#                     final_syn1neg.append(syn1neg1)
+#                     final_cum_table.append(cum_table1)
+#                     final_count.append(count)
+#                     final_sample_int.append(sample_int)
+#                     final_code.append(code)
+#                     final_point.append(point)
+#             model_pruned = self.get_model_new(final_words, np.array(final_vectors), np.array(final_syn1),
+#                                            np.array(final_syn1neg), \
+#                                            final_cum_table, corpus_count, np.array(final_count),
+#                                            np.array(final_sample_int), \
+#                                            np.array(final_code), np.array(final_point), model)
+#             return model_pruned
 
     def get_model_new(self, final_words, final_vectors, final_syn1, final_syn1neg, final_cum_table, corpus_count,
                       final_count, final_sample_int, final_code, final_point, model):
