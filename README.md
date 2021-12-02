@@ -13,6 +13,7 @@
 6. Redis server v4.0.9
 
 ## DataSource
+* Dataset quick access in https://course.fast.ai/datasets#nlp
 ### Tweets
 * 1.6 million labeled Tweets:
 * [Sentiment140](http://cs.stanford.edu/people/alecmgo/trainingandtestdata.zip)
@@ -22,8 +23,6 @@
 ### Amazon Reviews
 * 1,800,000 training and 200,000 testing samples in each polarity
 * [Amazon product review polarity](https://s3.amazonaws.com/fast-ai-nlp/amazon_review_polarity_csv.tgz)
-
-* Dataset quick access in https://course.fast.ai/datasets#nlp
 
 ## Quick Guide
 ### 1. Supervised_OSA
