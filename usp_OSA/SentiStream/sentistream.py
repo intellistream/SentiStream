@@ -123,7 +123,9 @@ class unsupervised_OSA(MapFunction):
         else:
             word_to_prune = list(self.LRU_index[30000:])
             for word in word_to_prune:
-                del model.wv.index_to_key[model.wv.key_to_index[word]]
+                k = model.wv.key_to_index[word]
+                del model.wv.index_to_key[k]
+                del model.wv.key_to_index[word]
             return model
 #             word_to_prune = list(self.LRU_index[30000:])
 #             words1 = copy.deepcopy(model.wv.index_to_key)
