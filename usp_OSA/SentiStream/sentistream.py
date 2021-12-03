@@ -97,16 +97,11 @@ class unsupervised_OSA(MapFunction):
             logging.warning('Unable to call the model from Redis server, please check your model')
 
     # tweet preprocessing
-    def text_to_word_list(self, tweet):
-        tweet = tweet.lower()  # change to lower case
-        tweet = re.sub("@\w+ ", "", tweet)  # removes all usernames in text
-        tweet = re.sub("\'s", " ", tweet)
-        tweet = re.sub("\'t", " ", tweet)
-        tweet = re.sub("[!~#$+%*:()'?-]", ' ', tweet)  # remove characters stated below
-        tweet = re.sub(r'\s+', ' ', tweet)
-        tweet = re.sub(r'[^\w\s]', '', tweet)  # remove commas
-        tweet = re.sub('[^a-zA-Z]', ' ', tweet)  # remove numbers
-        clean_word_list = tweet.split(' ')
+    def text_to_word_list(self, text):
+        text = re.sub("@\w+ ", "", text)
+        text = re.sub("[!~#$+%*:()'?-]", ' ', text)
+        text = re.sub('[^a-zA-Z]', ' ', text)
+        clean_word_list = text.split(' ')
         clean_word_list = [self.sno.stem(w) for w in clean_word_list if w not in self.stop_words]
         while '' in clean_word_list:
             clean_word_list.remove('')
