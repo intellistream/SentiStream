@@ -413,19 +413,7 @@ if __name__ == '__main__':
     
     parallelism = 4
     dataset = str(sys.argv[1])
-    if dataset == 'tweet':
-        # format of input data: (tweet,label)
-        data = pd.read_csv('./sentiment140.csv', encoding='ISO-8859-1')
-        first = data.columns[5]
-        data.columns = ['polarity', 'id', 'date', 'query', 'name', 'tweet']
-        tweet = list(data.tweet)
-        tweet.append(first)
-        label = list(data.polarity)
-        label.append('0')
-        data_stream = [0] * 1600000
-        for i in range(len(tweet)):
-            data_stream[i] = (tweet[i], int(label[i]))
-    elif dataset == 'yelp':
+    if dataset == 'yelp':
         f = pd.read_csv('./train.csv')  #, encoding='ISO-8859-1'
         true_label = list(f.polarity)
         yelp_review = list(f.tweet)
