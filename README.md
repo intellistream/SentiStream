@@ -24,6 +24,7 @@ relative python packages are summerized in `requirements.txt`
 * Source:[Amazon product review polarity](https://s3.amazonaws.com/fast-ai-nlp/amazon_review_polarity_csv.tgz)
 
 ## Quick Start
+quick try PLStream on yelp review dataset
 ### Data Prepare
 ```
 cd PLStream
@@ -39,3 +40,6 @@ mv yelp_review_polarity_csv/train.csv train.csv
 ```
 python PLStream.py
 ```
+### Option
+to see the labelling accuracy, simply run:
+`python PLStream_acc.py`
