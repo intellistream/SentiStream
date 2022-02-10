@@ -76,7 +76,7 @@ class unsupervised_OSA(MapFunction):
         self.redis_param = redis.StrictRedis(host='localhost', port=6379, db=0)
 
         # load initial model
-        self.initial_model = Word2Vec.load('ogb_c10.model')
+        self.initial_model = Word2Vec.load('PLS_c10.model')
         self.vocabulary = list(self.initial_model.wv.index_to_key)
 
         # save model to redis
