@@ -151,8 +151,8 @@ class unsupervised_OSA(MapFunction):
         return model_new
 
     def model_merge(self, model1, model2):
-        if model1[0] == 'acc':
-            return (float(model1[1]) + float(model2[1])) / 2
+        if model1[0] == 'labelled':
+            return (model1[1]) + (model2[1])
         elif model1[0] == 'model':
             model1 = model1[1]
             model2 = model2[1]
@@ -184,10 +184,6 @@ class unsupervised_OSA(MapFunction):
             final_point = []
             for idx1 in range(len(words1)):
                 word = words1[idx1]
-                '''
-                if word == '现状':
-                    print(model1.wv.vocab['现状'].index)
-                '''
                 v1 = model1.wv[word]
                 syn11 = syn1s1[idx1]
                 syn1neg1 = syn1negs1[idx1]
@@ -328,6 +324,7 @@ class unsupervised_OSA(MapFunction):
         self.neg_coefficient = self.predictions.count('0')/self.predictions.count('1')
         self.pos_coefficient = 1 - self.neg_coefficient
         self.predictions = []
+        self.collector = []
         ans = self.labelled_dataset
         return ans
 
