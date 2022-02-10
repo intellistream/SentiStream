@@ -29,7 +29,7 @@ relative python packages are summerized in `requirements.txt`
 cd PLStream
 weget https://s3.amazonaws.com/fast-ai-nlp/yelp_review_polarity_csv.tgz
 tar zxvf yelp_review_polarity_csv.tgz
-cd yelp_review_polarity_csv
+mv yelp_review_polarity_csv/train.csv train.csv
 ```
 ### 1. Install required environment of PLStream
 ```pip install -r requirements.txt```
