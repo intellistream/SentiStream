@@ -2,6 +2,7 @@ import random
 import copy
 import re
 import numpy as np
+np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)
 
 from numpy import dot
 from numpy.linalg import norm
@@ -13,10 +14,10 @@ import logging
 
 import nltk
 from nltk.corpus import stopwords
-from sklearn.metrics import accuracy_score, confusion_matrix, precision_score, recall_score, f1_score
+from sklearn.metrics import accuracy_score
 
 from pyflink.datastream.functions import RuntimeContext, MapFunction
-from pyflink.common.typeinfo import TypeInformation, Types
+from pyflink.common.typeinfo import Types
 from pyflink.datastream import StreamExecutionEnvironment
 from pyflink.datastream import CheckpointingMode
 
@@ -34,7 +35,7 @@ class unsupervised_OSA(MapFunction):
     def __init__(self):
         # collection
         self.true_label = []
-        self.thousand_text = []
+        self.cleaned_text = []
         self.stop_words = stopwords.words('english')
         self.collector_size = 2000
 
@@ -42,7 +43,7 @@ class unsupervised_OSA(MapFunction):
         self.LRU_index = ['good','bad']
         self.max_index = max(self.LRU_index)
         self.LRU_cache_size = 30000
-        self.sno = nltk.stem.SnowballStemmer('english')
+#         self.sno = nltk.stem.SnowballStemmer('english')
 
         # model merging
         self.flag = True
@@ -57,18 +58,17 @@ class unsupervised_OSA(MapFunction):
                         'fantastic']
         self.ref_neg = ['bad', 'worst', 'stupid', 'disappointing', 'terrible', 'rubbish', 'boring', 'awful',
                         'unwatchable', 'awkward']
-        self.ref_pos = [self.sno.stem(x) for x in self.ref_pos]
-        self.ref_neg = [self.sno.stem(x) for x in self.ref_neg]
+        # self.ref_pos = [self.sno.stem(x) for x in self.ref_pos]
+        # self.ref_neg = [self.sno.stem(x) for x in self.ref_neg]
 
         # temporal trend detection
-        self.trend = []
         self.pos_coefficient = 0.5
         self.neg_coefficient = 0.5
 
         # results
         self.acc_to_plot = []
         self.predictions = []
-        self.time_finish = [time()]
+
 
     def open(self, runtime_context: RuntimeContext):
         # redis-server parameters
@@ -104,12 +104,12 @@ class unsupervised_OSA(MapFunction):
         text = re.sub("[!~#$+%*:()'?-]", ' ', text)
         text = re.sub('[^a-zA-Z]', ' ', text)
         clean_word_list = text.strip().split(' ')
-        clean_word_list = [self.sno.stem(w) for w in clean_word_list if w not in self.stop_words]
+        clean_word_list = [w for w in clean_word_list if w not in self.stop_words]
         while '' in clean_word_list:
             clean_word_list.remove('')
-        self.thousand_text.append(clean_word_list)
-        if len(self.thousand_text) >= self.collector_size:
-            ans = self.update_model(self.thousand_text)
+        self.cleaned_text.append(clean_word_list)
+        if len(self.cleaned_text) >= self.collector_size:
+            ans = self.update_model(self.cleaned_text)
             return ans
         else:
             return ('collecting', '1')
@@ -117,7 +117,6 @@ class unsupervised_OSA(MapFunction):
     def model_prune(self, model):
 
         if len(model.wv.index_to_key) <= self.LRU_cache_size:
-            self.vocabulary = list(model.wv.index_to_key)
             return model
         else:
             word_to_prune = list(self.LRU_index[30000:])
@@ -183,10 +182,6 @@ class unsupervised_OSA(MapFunction):
             final_point = []
             for idx1 in range(len(words1)):
                 word = words1[idx1]
-                '''
-                if word == '现状':
-                    print(model1.wv.vocab['现状'].index)
-                '''
                 v1 = model1.wv[word]
                 syn11 = syn1s1[idx1]
                 syn1neg1 = syn1negs1[idx1]
@@ -306,7 +301,7 @@ class unsupervised_OSA(MapFunction):
                         self.true_ref_pos.append(words)
 
         classify_result = self.eval(new_sentences, call_model)
-        self.thousand_text = []
+        self.cleaned_text = []
         self.true_label = []
 
         if time() - self.timer >= self.time_to_reset:
@@ -322,8 +317,8 @@ class unsupervised_OSA(MapFunction):
         for tweet in tweets:
             self.predictions.append(self.predict(tweet, model))
 
-        self.time_finish.append(time())
-        # self.acc_to_plot.append(accuracy_score(self.true_label, self.predictions))
+        self.neg_coefficient = self.predictions.count(0)/self.predictions.count(1)
+        self.pos_coefficient = 1 - self.neg_coefficient
         ans = accuracy_score(self.true_label, self.predictions)
         self.predictions = []
 
@@ -366,17 +361,12 @@ class unsupervised_OSA(MapFunction):
 if __name__ == '__main__':
     from pyflink.datastream.connectors import StreamingFileSink
     from pyflink.common.serialization import Encoder
-    from pyflink.datastream.connectors import FileSink, OutputFileConfig
-    import sys
     from time import time
     import pandas as pd
 
-    parallelism = 4
-    # dataset = str(sys.argv[1])
-    # if dataset == 'yelp':
     f = pd.read_csv('./train.csv')  # , encoding='ISO-8859-1'
-    true_label = list(f.label)[:60000]
-    yelp_review = list(f.tweet)[:60000]
+    true_label = list(f.label)[:80000]
+    yelp_review = list(f.tweet)[:80000]
     data_stream = []
     for i in range(len(yelp_review)):
         data_stream.append((yelp_review[i], int(true_label[i])))
@@ -385,11 +375,9 @@ if __name__ == '__main__':
     print('===============================')
 
     env = StreamExecutionEnvironment.get_execution_environment()
-    env.set_parallelism(1)
+    env.set_parallelism(2)
     env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
-
-    # env.get_checkpoint_config().set_checkpointing_mode(checkpointing_mode=)
-    ds = env.from_collection(collection=data_stream)  # , output_type=Types.STRING()
+    ds = env.from_collection(collection=data_stream)
     ds.map(unsupervised_OSA()).set_parallelism(parallelism) \
         .filter(lambda x: x[0] != 'collecting') \
         .key_by(lambda x: x[0], key_type=Types.STRING()) \
