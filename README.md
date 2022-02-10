@@ -25,8 +25,11 @@ relative python packages are summerized in `requirements.txt`
 
 ## Quick Start
 ### 1. Install required environment of PLStream
-`pip install -r requirements.txt`
-### 2. Open Redis-server in a terminal
-`redis-server`
+```pip install -r requirements.txt```
+### 2. Start Redis-Server in a terminal
+```redis-server```
 ### 3. Run PLStream
-`python PLStream.py`
+```
+cd PLStream
+python PLStream.py
+```
