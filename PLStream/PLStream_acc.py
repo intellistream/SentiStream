@@ -366,9 +366,19 @@ if __name__ == '__main__':
     import pandas as pd
 
     parallelism = 4
+    
+    # the labels of dataset are only used for accuracy computation, since PLStream is unsupervised
     f = pd.read_csv('./train.csv')  # , encoding='ISO-8859-1'
+    f.columns = ["label","review"]
+    
+    # 80,000 data for quick testing
     true_label = list(f.label)[:80000]
-    yelp_review = list(f.tweet)[:80000]
+    for i in range(len(true_label)):
+        if true_label[i] == 1:
+            true_label[i] = 0
+        else:
+            true_label[i] = 1
+    yelp_review = list(f.review)[:80000]
     data_stream = []
     for i in range(len(yelp_review)):
         data_stream.append((yelp_review[i], int(true_label[i])))
