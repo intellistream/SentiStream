@@ -366,7 +366,7 @@ if __name__ == '__main__':
     import pandas as pd
 
     parallelism = 4
-    f = pd.read_csv('./yelp.csv')  # , encoding='ISO-8859-1'
+    f = pd.read_csv('./train.csv')  # , encoding='ISO-8859-1'
     true_label = list(f.label)[:80000]
     yelp_review = list(f.tweet)[:80000]
     data_stream = []
