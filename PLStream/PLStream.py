@@ -322,7 +322,12 @@ class unsupervised_OSA(MapFunction):
 
     def eval(self, tweets, model):
         for i in range(len(tweets)):
-            self.labelled_dataset += (self.collector[i]+' '+self.predict(tweets[i], model)+'@@@@')
+            predict_result = self.predict(tweets[i], model)
+            self.predictions.append(predict_result)
+            self.labelled_dataset += (self.collector[i]+' '+predict_result+'@@@@')
+        self.neg_coefficient = self.predictions.count('0')/self.predictions.count('1')
+        self.pos_coefficient = 1 - self.neg_coefficient
+        self.predictions = []
         ans = self.labelled_dataset
         return ans
 
