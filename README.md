@@ -44,6 +44,13 @@ redis-server
 ```
 python PLStream.py
 ```
+The outputs are "original text" + "label" + "@@@@":
+```
+e.g.
+Had a beer and an appetizer, so-so.  Service was nice and quick, which is about all I need with the kids.  Kids seemed to like their kids meals, the usual Mac and cheese, grilled cheese, chicken fingers.  Huge line at Mad Mex on Friday night, none here.  I doubt we will go back, too many other choices. 0@@@@Not up to it's previous brunch standards. Buffet has scaled back in variety and quality.   Still good but no longer excellent. 0@@@@
+....
+```
+with help of a split("@@@@") function we can further reorganize the labelled dataset.
 
 ### Optional
 to see the labelling accuracy, simply run:
