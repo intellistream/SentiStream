@@ -2,6 +2,7 @@ import random
 import copy
 import re
 import numpy as np
+
 np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)
 
 from numpy import dot
@@ -40,10 +41,10 @@ class unsupervised_OSA(MapFunction):
         self.collector_size = 2000
 
         # model pruning
-        self.LRU_index = ['good','bad']
+        self.LRU_index = ['good', 'bad']
         self.max_index = max(self.LRU_index)
         self.LRU_cache_size = 30000
-#         self.sno = nltk.stem.SnowballStemmer('english')
+        #         self.sno = nltk.stem.SnowballStemmer('english')
 
         # model merging
         self.flag = True
@@ -69,7 +70,6 @@ class unsupervised_OSA(MapFunction):
         self.confidence = 0.5
         self.acc_to_plot = []
         self.predictions = []
-
 
     def open(self, runtime_context: RuntimeContext):
         # redis-server parameters
@@ -318,7 +318,7 @@ class unsupervised_OSA(MapFunction):
         for tweet in tweets:
             self.predictions.append(self.predict(tweet, model))
 
-        self.neg_coefficient = self.predictions.count(0)/self.predictions.count(1)
+        self.neg_coefficient = self.predictions.count(0) / self.predictions.count(1)
         self.pos_coefficient = 1 - self.neg_coefficient
         ans = accuracy_score(self.true_label, self.predictions)
         self.predictions = []
@@ -364,7 +364,7 @@ if __name__ == '__main__':
     from pyflink.common.serialization import Encoder
     from time import time
     import pandas as pd
-    
+
     parallelism = 4
     f = pd.read_csv('./train.csv')  # , encoding='ISO-8859-1'
     true_label = list(f.label)[:80000]
