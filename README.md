@@ -33,13 +33,18 @@ tar zxvf yelp_review_polarity_csv.tgz
 mv yelp_review_polarity_csv/train.csv train.csv
 ```
 ### 1. Install required environment of PLStream
-```pip install -r requirements.txt```
+```
+pip install -r requirements.txt
+```
 ### 2. Start Redis-Server in a terminal
-```redis-server```
+```
+redis-server
+```
 ### 3. Run PLStream
 ```
 python PLStream.py
 ```
+
 ### Optional
 to see the labelling accuracy, simply run:
 `python PLStream_acc.py`
