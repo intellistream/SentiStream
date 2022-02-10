@@ -44,8 +44,8 @@ redis-server
 ```
 python PLStream.py
 ```
-The outputs' form is "original text" + "label" + "@@@@":
-with help of a split("@@@@") function we can further reorganize the labelled dataset.
+* The outputs' form is "original text" + "label" + "@@@@":
+* With help of a split("@@@@") function we can further reorganize the labelled dataset.
 
 ### Optional
 to see the labelling accuracy, simply run:
