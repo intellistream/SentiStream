@@ -24,12 +24,18 @@ relative python packages are summerized in `requirements.txt`
 * Source:[Amazon product review polarity](https://s3.amazonaws.com/fast-ai-nlp/amazon_review_polarity_csv.tgz)
 
 ## Quick Start
+### Data Prepare
+```
+cd PLStream
+weget https://s3.amazonaws.com/fast-ai-nlp/yelp_review_polarity_csv.tgz
+tar zxvf yelp_review_polarity_csv.tgz
+cd yelp_review_polarity_csv
+```
 ### 1. Install required environment of PLStream
 ```pip install -r requirements.txt```
 ### 2. Start Redis-Server in a terminal
 ```redis-server```
 ### 3. Run PLStream
 ```
-cd PLStream
 python PLStream.py
 ```
