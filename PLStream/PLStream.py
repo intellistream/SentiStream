@@ -376,7 +376,7 @@ if __name__ == '__main__':
     print('===============================')
 
     env = StreamExecutionEnvironment.get_execution_environment()
-    env.set_parallelism(2)
+    env.set_parallelism(1)
     env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
     ds = env.from_collection(collection=data_stream)
     ds.map(unsupervised_OSA()).set_parallelism(parallelism) \
