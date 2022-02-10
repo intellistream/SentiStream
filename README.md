@@ -40,6 +40,6 @@ mv yelp_review_polarity_csv/train.csv train.csv
 ```
 python PLStream.py
 ```
-### Option
+### Optional
 to see the labelling accuracy, simply run:
 `python PLStream_acc.py`
