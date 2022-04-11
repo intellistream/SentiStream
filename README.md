@@ -28,7 +28,7 @@ quick try PLStream on yelp review dataset
 ### Data Prepare
 ```
 cd PLStream
-weget https://s3.amazonaws.com/fast-ai-nlp/yelp_review_polarity_csv.tgz
+wget https://s3.amazonaws.com/fast-ai-nlp/yelp_review_polarity_csv.tgz
 tar zxvf yelp_review_polarity_csv.tgz
 mv yelp_review_polarity_csv/train.csv train.csv
 ```
