@@ -6,10 +6,9 @@
 
 ## Environment Requirements
 relative python packages are summerized in `requirements.txt`
-1. Flink v1.13
-2. Python 3.7
-3. Java 8
-4. Redis server v6.2.6
+1. Python 3.7
+2. Java 8
+3. Redis server v7.0.0
 
 ## DataSource
 * Dataset quick access in https://course.fast.ai/datasets#nlp
