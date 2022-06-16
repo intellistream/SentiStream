@@ -2,8 +2,6 @@ import random
 import copy
 import re
 import numpy as np
-import argparse
-
 np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)
 
 from numpy import dot
@@ -22,7 +20,7 @@ from pyflink.datastream.functions import RuntimeContext, MapFunction
 from pyflink.common.typeinfo import Types
 from pyflink.datastream import StreamExecutionEnvironment
 from pyflink.datastream import CheckpointingMode
-
+LOG_FILE_NAME='log_PLStream'
 
 class for_output(MapFunction):
     def __init__(self):
@@ -43,7 +41,7 @@ class unsupervised_OSA(MapFunction):
         self.collector_size = 2000
 
         # model pruning
-        self.LRU_index = ['good', 'bad']
+        self.LRU_index = ['good','bad']
         self.max_index = max(self.LRU_index)
         self.LRU_cache_size = 30000
         self.sno = nltk.stem.SnowballStemmer('english')
@@ -69,10 +67,10 @@ class unsupervised_OSA(MapFunction):
         self.neg_coefficient = 0.5
 
         # results
-        self.confidence = 0.5
         self.acc_to_plot = []
         self.predictions = []
         self.labelled_dataset = ''
+
 
     def open(self, runtime_context: RuntimeContext):
         # redis-server parameters
@@ -113,12 +111,14 @@ class unsupervised_OSA(MapFunction):
             clean_word_list.remove('')
         self.cleaned_text.append(clean_word_list)
         if len(self.cleaned_text) >= self.collector_size:
+            self.logFile(LOG_FILE_NAME,'text to word list update model')
             ans = self.update_model(self.cleaned_text)
             return ans
         else:
             return ('collecting', '1')
 
     def model_prune(self, model):
+        self.logFile(LOG_FILE_NAME,'model prune')
 
         if len(model.wv.index_to_key) <= self.LRU_cache_size:
             return model
@@ -155,9 +155,8 @@ class unsupervised_OSA(MapFunction):
     def model_merge(self, model1, model2):
         if model1[0] == 'labelled':
             return (model1[1]) + (model2[1])
-        elif model1[0] == 'acc':
-            return (float(model1[1]) + float(model2[1])) / 2
         elif model1[0] == 'model':
+            self.logFile(LOG_FILE_NAME,'model')
             model1 = model1[1]
             model2 = model2[1]
             words1 = copy.deepcopy(model1.wv.index_to_key)
@@ -267,10 +266,11 @@ class unsupervised_OSA(MapFunction):
             return model_new
 
     def map(self, tweet):
-
+        # with open('hello.txt','a') as wr:
+        #     wr.write(tweet[0],twe)
+        self.logFile(LOG_FILE_NAME,tweet[0][:20]+'... '+str(tweet[1]))
         self.true_label.append(int(tweet[1]))
-        if MODE == "LABEL":
-            self.collector.append(tweet[0])
+        self.collector.append(tweet[0])
         return self.text_to_word_list(tweet[0])
 
     def update_model(self, new_sentences):
@@ -318,26 +318,19 @@ class unsupervised_OSA(MapFunction):
             self.timer = time()
             return model_to_merge
         else:
-            if MODE == 'LABEL':
-                not_yet = ('labelled', classify_result)
-            else:
-                not_yet = ('acc', classify_result)
+            not_yet = ('labelled', classify_result)
             return not_yet
 
     def eval(self, tweets, model):
-        for t in range(len(tweets)):
-            predict_result = self.predict(tweets[t], model)
+        for i in range(len(tweets)):
+            predict_result = self.predict(tweets[i], model)
             self.predictions.append(predict_result)
-            if MODE == "LABEL":
-                self.labelled_dataset += (self.collector[t] + ' ' + predict_result + '@@@@')
-        self.neg_coefficient = self.predictions.count(0) / self.predictions.count(1)
+            self.labelled_dataset += (self.collector[i]+' '+predict_result+'@@@@')
+        self.neg_coefficient = self.predictions.count('0')/self.predictions.count('1')
         self.pos_coefficient = 1 - self.neg_coefficient
-        if MODE == "LABEL":
-            self.collector = []
-            ans = self.labelled_dataset
-        else:
-            ans = accuracy_score(self.true_label, self.predictions)
         self.predictions = []
+        self.collector = []
+        ans = self.labelled_dataset
         return ans
 
     def predict(self, tweet, model):
@@ -345,6 +338,7 @@ class unsupervised_OSA(MapFunction):
         counter = 0
         cos_sim_bad, cos_sim_good = 0, 0
         for words in tweet:
+
             try:
                 sentence += model.wv[words]  # np.array(list(model.wv[words]) + new_feature)
                 counter += 1
@@ -364,23 +358,19 @@ class unsupervised_OSA(MapFunction):
             except:
                 pass
         if cos_sim_bad - cos_sim_good > 0.5:
-            return 0
+            return '0'
         elif cos_sim_bad - cos_sim_good < -0.5:
-            return 1
+            return '1'
         else:
             if cos_sim_bad * self.neg_coefficient >= cos_sim_good * self.pos_coefficient:
-                return 0
+                return '0'
             else:
-                return 1
+                return '1'
 
-
+    def logFile(self,file,msg):
+        with open(file, 'a') as wr:
+            wr.write(msg + '\n')
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Run PLStream in two modes, labelling and accuracy. Accuracy mode is\
-     default')
-    parser.add_argument('-l', dest='mode', action='store_const', const='LABEL', default='ACC',
-                        help='Generate label(default: print accuracy)')
-    args = parser.parse_args()
-    MODE = args.mode
     from pyflink.datastream.connectors import StreamingFileSink
     from pyflink.common.serialization import Encoder
     from time import time
@@ -389,21 +379,20 @@ if __name__ == '__main__':
     parallelism = 4
     # the labels of dataset are only used for accuracy computation, since PLStream is unsupervised
     f = pd.read_csv('./train.csv')  # , encoding='ISO-8859-1'
-    f.columns = ["label", "review"]
-
+    f.columns = ["label","review"]
+    
     # 20,000 data for quick testing
-    test_N=20000
-    true_label = list(f.label)[:test_N]
+    n =20000
+    true_label = list(f.label)[:n]
     for i in range(len(true_label)):
         if true_label[i] == 1:
             true_label[i] = 0
         else:
             true_label[i] = 1
-    yelp_review = list(f.review)[:test_N]
+    yelp_review = list(f.review)[:n]
     data_stream = []
     for i in range(len(yelp_review)):
         data_stream.append((yelp_review[i], int(true_label[i])))
-
     print('Coming Stream is ready...')
     print('===============================')
 
