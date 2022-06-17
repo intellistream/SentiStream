@@ -278,7 +278,7 @@ class unsupervised_OSA(MapFunction):
             return model_new
 
     def map(self, tweet):
-        logger.info(tweet[0][:20] + '... ' + str(tweet[1]))
+        # logger.info(tweet[0][:20] + '... ' + str(tweet[1]))
         self.true_label.append(int(tweet[1]))
         if MODE == "LABEL":
             self.collector.append(tweet[0])
@@ -390,7 +390,7 @@ class unsupervised_OSA(MapFunction):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run PLStream in two modes, labelling and accuracy. Accuracy mode is\
      default')
-    parser.add_argument('-a', dest='mode', action='store_const', default='ACC', const='LABEL',
+    parser.add_argument('-l', dest='mode', action='store_const', default='ACC', const='LABEL',
                         help='Generate label(default: print accuracy)')
     args = parser.parse_args()
     MODE = args.mode
@@ -406,7 +406,7 @@ if __name__ == '__main__':
     f = pd.read_csv('./train.csv')  # , encoding='ISO-8859-1'
     f.columns = ["label", "review"]
     # 20,000 data for quick testing
-    test_N = 20000
+    test_N = 80000
     true_label = list(f.label)[:test_N]
     for i in range(len(true_label)):
         if true_label[i] == 1:
@@ -415,23 +415,24 @@ if __name__ == '__main__':
             true_label[i] = 1
     yelp_review = list(f.review)[:test_N]
     data_stream = []
-    for i in range(len(yelp_review)):
-        data_stream.append((yelp_review[i], int(true_label[i])))
+    for j in range(2):
+        for i in range(len(yelp_review)):
+            data_stream.append((yelp_review[i], int(true_label[i])))
 
-    print('Coming Stream is ready...')
-    print('===============================')
+        print('Coming Stream is ready...')
+        print('===============================')
 
-    env = StreamExecutionEnvironment.get_execution_environment()
-    env.set_parallelism(1)
-    env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
-    ds = env.from_collection(collection=data_stream)
-    ds.map(unsupervised_OSA()).set_parallelism(parallelism) \
-        .filter(lambda x: x[0] != 'collecting') \
-        .key_by(lambda x: x[0], key_type=Types.STRING()) \
-        .reduce(lambda x, y: (x[0], unsupervised_OSA().model_merge(x, y))).set_parallelism(2) \
-        .filter(lambda x: x[0] != 'model') \
-        .map(for_output(), output_type=Types.STRING()).set_parallelism(1) \
-        .add_sink(StreamingFileSink  # .set_parallelism(2)
-                  .for_row_format('./output', Encoder.simple_string_encoder())
-                  .build())
-    env.execute("osa_job")
+        env = StreamExecutionEnvironment.get_execution_environment()
+        env.set_parallelism(1)
+        env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
+        ds = env.from_collection(collection=data_stream)
+        ds.map(unsupervised_OSA()).set_parallelism(parallelism) \
+            .filter(lambda x: x[0] != 'collecting') \
+            .key_by(lambda x: x[0], key_type=Types.STRING()) \
+            .reduce(lambda x, y: (x[0], unsupervised_OSA().model_merge(x, y))).set_parallelism(2) \
+            .filter(lambda x: x[0] != 'model') \
+            .map(for_output(), output_type=Types.STRING()).set_parallelism(1) \
+            .add_sink(StreamingFileSink  # .set_parallelism(2)
+                      .for_row_format('./output', Encoder.simple_string_encoder())
+                      .build())
+        env.execute("osa_job")
