@@ -1,0 +1,1 @@
+python -c "import pyflink;import os;print(os.path.dirname(os.path.abspath(pyflink.__file__))+'/log/flink-$USER-python-$(hostname).log')"
