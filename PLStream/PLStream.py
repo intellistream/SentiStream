@@ -340,12 +340,10 @@ class unsupervised_OSA(MapFunction):
             self.predictions.append(predict_result)
             if MODE == "LABEL":
                 self.labelled_dataset += (self.collector[t] + ' ' + str(predict_result) + '@@@@')
-                if self.predictions.count(1) == 0:
-                    logger.info(self.labelled_dataset)
         logger.info('prediction count:negative prediction = ' + str(self.predictions.count(0)) + ' positive prediction '
                                                                                                  '= ' + str(
             self.predictions.count(1)))
-        self.neg_coefficient = self.predictions.count(0) / self.predictions.count(1)
+        self.neg_coefficient = self.predictions.count(0) / (self.predictions.count(1)+self.predictions.count(0))
         self.pos_coefficient = 1 - self.neg_coefficient
         if MODE == "LABEL":
             self.collector = []
@@ -392,7 +390,7 @@ class unsupervised_OSA(MapFunction):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run PLStream in two modes, labelling and accuracy. Accuracy mode is\
      default')
-    parser.add_argument('-a', dest='mode', action='store_const', default='LABEL', const='ACC',
+    parser.add_argument('-a', dest='mode', action='store_const', default='ACC', const='LABEL',
                         help='Generate label(default: print accuracy)')
     args = parser.parse_args()
     MODE = args.mode
