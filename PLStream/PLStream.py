@@ -23,6 +23,14 @@ from pyflink.common.typeinfo import Types
 from pyflink.datastream import StreamExecutionEnvironment
 from pyflink.datastream import CheckpointingMode
 
+logger = logging.getLogger('PLStream')
+logger.setLevel(logging.DEBUG)
+fh = logging.FileHandler('plstream.log', mode='w')
+formatter = logging.Formatter('PLStream:%(thread)d %(lineno)d: %(levelname)s: %(asctime)s %(message)s',
+                              datefmt='%m/%d/%Y %I:%M:%S %p', )
+fh.setFormatter(formatter)
+logger.addHandler(fh)
+
 
 class for_output(MapFunction):
     def __init__(self):
@@ -94,13 +102,13 @@ class unsupervised_OSA(MapFunction):
 
     def load_model(self):
         self.redis_param = redis.StrictRedis(host='localhost', port=6379, db=0)
-        try:
-            called_model = pickle.loads(self.redis_param.get('osamodel'))
-            return called_model
-        except TypeError:
-            logging.info('The model name you entered cannot be found in redis')
-        except (redis.exceptions.RedisError, TypeError, Exception):
-            logging.warning('Unable to call the model from Redis server, please check your model')
+        # try:
+        called_model = pickle.loads(self.redis_param.get('osamodel'))
+        return called_model
+        # except TypeError:
+        #     logging.info('The model name you entered cannot be found in redis')
+        # except (redis.exceptions.RedisError, TypeError, Exception):
+        #     logging.warning('Unable to call the model from Redis server, please check your model')
 
     # tweet preprocessing
     def text_to_word_list(self, text):
@@ -113,14 +121,15 @@ class unsupervised_OSA(MapFunction):
             clean_word_list.remove('')
         self.cleaned_text.append(clean_word_list)
         if len(self.cleaned_text) >= self.collector_size:
+            logger.info('text to word list update model')
             ans = self.update_model(self.cleaned_text)
             return ans
         else:
             return ('collecting', '1')
 
     def model_prune(self, model):
-
         if len(model.wv.index_to_key) <= self.LRU_cache_size:
+            logger.info('model prune')
             return model
         else:
             word_to_prune = list(self.LRU_index[30000:])
@@ -158,6 +167,7 @@ class unsupervised_OSA(MapFunction):
         elif model1[0] == 'acc':
             return (float(model1[1]) + float(model2[1])) / 2
         elif model1[0] == 'model':
+            logger.info('model_merge model')
             model1 = model1[1]
             model2 = model2[1]
             words1 = copy.deepcopy(model1.wv.index_to_key)
@@ -267,7 +277,7 @@ class unsupervised_OSA(MapFunction):
             return model_new
 
     def map(self, tweet):
-
+        logger.info(tweet[0][:20] + '... ' + str(tweet[1]))
         self.true_label.append(int(tweet[1]))
         if MODE == "LABEL":
             self.collector.append(tweet[0])
@@ -311,7 +321,6 @@ class unsupervised_OSA(MapFunction):
         classify_result = self.eval(new_sentences, call_model)
         self.cleaned_text = []
         self.true_label = []
-
         if time() - self.timer >= self.time_to_reset:
             call_model = self.model_prune(call_model)
             model_to_merge = ('model', call_model)
@@ -329,7 +338,12 @@ class unsupervised_OSA(MapFunction):
             predict_result = self.predict(tweets[t], model)
             self.predictions.append(predict_result)
             if MODE == "LABEL":
-                self.labelled_dataset += (self.collector[t] + ' ' + predict_result + '@@@@')
+                self.labelled_dataset += (self.collector[t] + ' ' + str(predict_result) + '@@@@')
+                if self.predictions.count(1) == 0:
+                    logger.info(self.labelled_dataset)
+        logger.info('prediction count:negative prediction = ' + str(self.predictions.count(0)) + ' positive prediction '
+                                                                                                 '= ' + str(
+            self.predictions.count(1)))
         self.neg_coefficient = self.predictions.count(0) / self.predictions.count(1)
         self.pos_coefficient = 1 - self.neg_coefficient
         if MODE == "LABEL":
@@ -377,10 +391,12 @@ class unsupervised_OSA(MapFunction):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run PLStream in two modes, labelling and accuracy. Accuracy mode is\
      default')
-    parser.add_argument('-l', dest='mode', action='store_const', const='LABEL', default='ACC',
+    parser.add_argument('-a', dest='mode', action='store_const', default='LABEL', const='ACC',
                         help='Generate label(default: print accuracy)')
     args = parser.parse_args()
     MODE = args.mode
+    logging.basicConfig(filename='plstream.log')
+    logger.info('logger initiated')
     from pyflink.datastream.connectors import StreamingFileSink
     from pyflink.common.serialization import Encoder
     from time import time
@@ -390,9 +406,8 @@ if __name__ == '__main__':
     # the labels of dataset are only used for accuracy computation, since PLStream is unsupervised
     f = pd.read_csv('./train.csv')  # , encoding='ISO-8859-1'
     f.columns = ["label", "review"]
-
     # 20,000 data for quick testing
-    test_N=20000
+    test_N = 20000
     true_label = list(f.label)[:test_N]
     for i in range(len(true_label)):
         if true_label[i] == 1:
