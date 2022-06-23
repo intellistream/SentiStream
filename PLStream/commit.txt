@@ -1,0 +1,1 @@
+created FastTextInit.ipynb it crates a bare minimum fastText model just like the word2vec model that is used to train with in PLStream with all the jyper  parameters kept same
