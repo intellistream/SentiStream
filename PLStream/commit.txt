@@ -1,0 +1,1 @@
+created fasttext.py which is based on refactored plstream.py code and changes word2vec model to fastText model
