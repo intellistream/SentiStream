@@ -1,0 +1,1 @@
+created a bash script that finds out where the pyflink log is located as logger can only print in that file
