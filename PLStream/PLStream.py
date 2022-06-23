@@ -5,12 +5,13 @@ import re
 import numpy as np
 import argparse
 
+
 np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)
 
 from numpy import dot
 from numpy.linalg import norm
 from gensim.models import Word2Vec
-
+import os
 import redis
 import pickle
 import logging
@@ -26,6 +27,7 @@ from pyflink.datastream import CheckpointingMode
 
 logger = logging.getLogger('PLStream')
 logger.setLevel(logging.DEBUG)
+LOG_FILE='plstream.log'
 fh = logging.FileHandler('plstream.log', mode='w')
 formatter = logging.Formatter('PLStream:%(thread)d %(lineno)d: %(levelname)s: %(asctime)s %(message)s',
                               datefmt='%m/%d/%Y %I:%M:%S %p', )
@@ -82,6 +84,8 @@ class unsupervised_OSA(MapFunction):
         self.acc_to_plot = []
         self.predictions = []
         self.labelled_dataset = ''
+        logger.info('object created')
+        self.logFile(LOG_FILE,'object created')
 
     def open(self, runtime_context: RuntimeContext):
         # redis-server parameters
@@ -90,16 +94,17 @@ class unsupervised_OSA(MapFunction):
         # load initial model
         self.initial_model = Word2Vec.load('PLS_c10.model')
         self.vocabulary = list(self.initial_model.wv.index_to_key)
-
+        logger.info('in open')
+        self.logFile(LOG_FILE,'in open')
         # save model to redis
         self.save_model(self.initial_model)
 
     def save_model(self, model):
         self.redis_param = redis.StrictRedis(host='localhost', port=6379, db=0)
-        try:
-            self.redis_param.set('osamodel', pickle.dumps(model, protocol=pickle.HIGHEST_PROTOCOL))
-        except (redis.exceptions.RedisError, TypeError, Exception):
-            logging.warning('Unable to save model to Redis server, please check your model')
+        # try:
+        self.redis_param.set('osamodel', pickle.dumps(model, protocol=pickle.HIGHEST_PROTOCOL))
+        # except (redis.exceptions.RedisError, TypeError, Exception):
+        #     logging.warning('Unable to save model to Redis server, please check your model')
 
     def load_model(self):
         self.redis_param = redis.StrictRedis(host='localhost', port=6379, db=0)
@@ -386,7 +391,9 @@ class unsupervised_OSA(MapFunction):
             else:
                 return 1
 
-
+    def logFile(self,file,msg):
+        with open(file,'a')as wr:
+            wr.write(msg+'\n')
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run PLStream in two modes, labelling and accuracy. Accuracy mode is\
      default')
@@ -415,7 +422,7 @@ if __name__ == '__main__':
             true_label[i] = 1
     yelp_review = list(f.review)[:test_N]
     data_stream = []
-    for j in range(2):
+    for j in range(1):
         for i in range(len(yelp_review)):
             data_stream.append((yelp_review[i], int(true_label[i])))
 

@@ -23,6 +23,8 @@ from pyflink.datastream.functions import RuntimeContext, MapFunction
 from pyflink.common.typeinfo import Types
 from pyflink.datastream import StreamExecutionEnvironment
 from pyflink.datastream import CheckpointingMode
+from pyflink.common import Configuration
+from pyflink.util.java_utils import get_j_env_configuration
 
 logger = logging.getLogger('plstream-fasttext-fasttext')
 logger.setLevel(logging.DEBUG)
@@ -419,7 +421,7 @@ if __name__ == '__main__':
     f = pd.read_csv('./train.csv')  # , encoding='ISO-8859-1'
     f.columns = ["label", "review"]
     # 20,000 data for quick testing
-    test_N = 80000
+    test_N = 40000
     true_label = list(f.label)[:test_N]
     for i in range(len(true_label)):
         if true_label[i] == 1:
@@ -438,6 +440,8 @@ if __name__ == '__main__':
         env = StreamExecutionEnvironment.get_execution_environment()
         env.set_parallelism(1)
         env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
+        config = Configuration(j_configuration=get_j_env_configuration(env._j_stream_execution_environment))
+        # config.set_integer("env.java.opts", '-Xmsm10g -Xmx20g'  )
         ds = env.from_collection(collection=data_stream)
         ds.map(unsupervised_OSA()).set_parallelism(parallelism) \
             .filter(lambda x: x[0] != 'collecting') \
