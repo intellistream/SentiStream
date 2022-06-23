@@ -1,0 +1,1 @@
+created a fasText linear.ipynb notebook to simulate fasttext implementation of PLStream for developing and debugging purposes
