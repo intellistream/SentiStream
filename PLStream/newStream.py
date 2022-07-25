@@ -33,16 +33,16 @@ fh.setFormatter(formatter)
 logger.addHandler(fh)
 
 
-class for_output(MapFunction):
-    def __init__(self):
-        pass
-
-    def map(self, value):
-        return str(value[1])
-
-    def logFile(self, f, m):
-        with open(f, 'a') as wr:
-            wr.write(m)
+# class for_output(MapFunction):
+#     def __init__(self):
+#         pass
+#
+#     def map(self, value):
+#         return str(value[1])
+#
+#     def logFile(self, f, m):
+#         with open(f, 'a') as wr:
+#             wr.write(m)
 
 
 class unsupervised_OSA(MapFunction):
@@ -86,7 +86,7 @@ class unsupervised_OSA(MapFunction):
         # self.acc_to_plot = []
         # self.acc_to_plot = []
         self.predictions = []
-        self.labelled_dataset = ''
+        self.labelled_dataset = []
         self.confidence_list = []
         logger.info('Object created')
 
@@ -353,10 +353,8 @@ class unsupervised_OSA(MapFunction):
             self.confidence_list.append(predict_result[0])
             self.predictions.append(predict_result[1])
             if MODE == "LABEL":
-                self.labelled_dataset += (
-                        '"' + str(self.collector[t][0]) + '"' + ',' + '"' + str(
-                    predict_result[0]) + '"' + ',' + '"' + str(predict_result[1]) + '"' + ',' + '"' +
-                        self.collector[t][1] + '"' + '\n')
+                self.labelled_dataset.append([
+                    self.collector[t][0], predict_result[0], predict_result[1], self.collector[t][1]])
         logger.info('prediction count:negative prediction = ' + str(self.predictions.count(0)) + ' positive prediction '
                                                                                                  '= ' + str(
             self.predictions.count(1)))
@@ -409,22 +407,22 @@ class unsupervised_OSA(MapFunction):
 
 
 def split(ls):
-    logging.warning('split')
-    logging.warning(ls)
-    for s in ls.split('\n'):
-        logging.warning(s)
-        yield str(s)
+    logging.warning('split' + str(ls))
+    logging.warning(type(ls))
+    for e in ls:
+        logging.warning(e)
+        yield e
 
 
 def unsupervised_stream(ds):
     # ds.print()
-    ds = ds.map(unsupervised_OSA()).set_parallelism(parallelism) \
-        .filter(lambda x: x[0] != 'collecting') \
-        .key_by(lambda x: x[0], key_type=Types.STRING()) \
-        .reduce(lambda x, y: (x[0], unsupervised_OSA().model_merge(x, y))).set_parallelism(1) \
-        .filter(lambda x: x[0] != 'model') \
-        .map(for_output(), output_type=Types.STRING()).set_parallelism(1)
-    ds = ds.flat_map(split, output_type=Types.STRING())  # always put output type before passing it to file sink
+    ds = ds.map(unsupervised_OSA()).set_parallelism(parallelism)
+    ds = ds.filter(lambda x: x[0] != 'collecting')
+    ds = ds.key_by(lambda x: x[0], key_type=Types.STRING())
+    ds = ds.reduce(lambda x, y: (x[0], unsupervised_OSA().model_merge(x, y))).set_parallelism(1)
+    ds = ds.filter(lambda x: x[0] != 'model').map(lambda x: x[1])
+    # ds = ds.map(for_output()).set_parallelism(1))
+    ds = ds.flat_map(split)  # always put output type before passing it to file sink
     # ds = ds.add_sink(StreamingFileSink  # .set_parallelism(2)
     #                  .for_row_format('./output', Encoder.simple_string_encoder())
     #                  .build())
