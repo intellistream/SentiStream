@@ -38,8 +38,8 @@ class for_output(MapFunction):
         pass
 
     def map(self, value):
-        self.logFile('plstream.log', value[0] + '\n')
-        return str(value[1])
+        logging.warning("outputstream: "+value)
+        return str(value)
 
     def logFile(self, f, m):
         with open(f, 'a') as wr:
@@ -54,7 +54,7 @@ class unsupervised_OSA(MapFunction):
         self.collector = []
         self.cleaned_text = []
         self.stop_words = stopwords.words('english')
-        self.collector_size = 200
+        self.collector_size = 2
 
         # model pruning
         self.LRU_index = ['good', 'bad']
@@ -172,7 +172,9 @@ class unsupervised_OSA(MapFunction):
 
     def model_merge(self, model1, model2):
         # prediction or accuracy not merging
+        logging.warning("model merge")
         if model1[0] == 'labelled':
+            logging.warning(model1)
             return (model1[1]) + (model2[1])
         elif model1[0] == 'acc':
             return (float(model1[1]) + float(model2[1])) / 2
@@ -353,7 +355,8 @@ class unsupervised_OSA(MapFunction):
             self.predictions.append(predict_result[1])
             if MODE == "LABEL":
                 self.labelled_dataset += (
-                        '"' + str(self.collector[t][0]) + '"' + ',' + '"' + str(predict_result[0]) + '"' + ',' + '"' + str(predict_result[1]) + '"' + ',' + '"' +
+                        '"' + str(self.collector[t][0]) + '"' + ',' + '"' + str(
+                    predict_result[0]) + '"' + ',' + '"' + str(predict_result[1]) + '"' + ',' + '"' +
                         self.collector[t][1] + '"' + '\n')
         logger.info('prediction count:negative prediction = ' + str(self.predictions.count(0)) + ' positive prediction '
                                                                                                  '= ' + str(
@@ -406,6 +409,11 @@ class unsupervised_OSA(MapFunction):
             wr.write(m)
 
 
+def split(ls):
+    for s in ls[1].split('\n'):
+        yield str(s)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run PLStream in two modes, labelling and accuracy. Accuracy mode is\
      default')
@@ -422,10 +430,10 @@ if __name__ == '__main__':
 
     parallelism = 1
     # the labels of dataset are only used for accuracy computation, since PLStream is unsupervised
-    f = pd.read_csv('./train.csv')  # , encoding='ISO-8859-1'
+    f = pd.read_csv('./exp_train.csv')  # , encoding='ISO-8859-1'
     f.columns = ["label", "review"]
     # 20,000 data for quick testing
-    test_N = 500
+    test_N = 5
     true_label = list(f.label)[:test_N]
     for i in range(len(true_label)):
         if true_label[i] == 1:
@@ -447,13 +455,15 @@ if __name__ == '__main__':
     env.set_parallelism(1)
     env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
     ds = env.from_collection(collection=data_stream)
-    ds.map(unsupervised_OSA()).set_parallelism(parallelism) \
+    #always update ds variable
+    ds=ds.map(unsupervised_OSA()).set_parallelism(parallelism) \
         .filter(lambda x: x[0] != 'collecting') \
         .key_by(lambda x: x[0], key_type=Types.STRING()) \
         .reduce(lambda x, y: (x[0], unsupervised_OSA().model_merge(x, y))).set_parallelism(1) \
-        .filter(lambda x: x[0] != 'model') \
-        .map(for_output(), output_type=Types.STRING()).set_parallelism(1) \
-        .add_sink(StreamingFileSink  # .set_parallelism(2)
-                  .for_row_format('./output', Encoder.simple_string_encoder())
-                  .build())
+        .filter(lambda x: x[0] != 'model').flat_map(split) \
+        .map(for_output(), output_type=Types.STRING()).set_parallelism(1)
+    # ds=ds.add_sink(StreamingFileSink  # .set_parallelism(2)
+    #             .for_row_format('./output', Encoder.simple_string_encoder())
+    #             .build())
+    ds.print()
     env.execute("osa_job")
