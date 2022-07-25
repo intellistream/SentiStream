@@ -415,12 +415,7 @@ def split(ls):
         logging.warning(s)
         yield str(s)
 
-def unsupervised_stream(data_stream):
-    env = StreamExecutionEnvironment.get_execution_environment()
-    env.set_parallelism(1)
-    env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
-    ds = env.from_collection(collection=data_stream)
-    # always update ds variable
+def unsupervised_stream(ds):
     ds = ds.map(unsupervised_OSA()).set_parallelism(parallelism) \
         .filter(lambda x: x[0] != 'collecting') \
         .key_by(lambda x: x[0], key_type=Types.STRING()) \
@@ -431,8 +426,7 @@ def unsupervised_stream(data_stream):
     # ds = ds.add_sink(StreamingFileSink  # .set_parallelism(2)
     #                  .for_row_format('./output', Encoder.simple_string_encoder())
     #                  .build())
-    ds.print()
-    env.execute("osa_job")
+    return ds
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run PLStream in two modes, labelling and accuracy. Accuracy mode is\
@@ -470,5 +464,13 @@ if __name__ == '__main__':
         # print(i, int(true_label[i]), yelp_review[i])
     print('Coming Stream is ready...')
     print('===============================')
-    unsupervised_stream(data_stream)
+    env = StreamExecutionEnvironment.get_execution_environment()
+    env.set_parallelism(1)
+    env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
+    ds = env.from_collection(collection=data_stream)
+    # always update ds variable
+    unsupervised_stream(ds)
+
+    ds.print()
+    env.execute("osa_job")
 
