@@ -101,17 +101,19 @@ class Evaluation(CoMapFunction):
         s = collect(ls, myDict, otherDict, log)
         if s == 'eval':
             confidence = self.evaluation(ls, myDict, otherDict)
-            if confidence >= 0.5:
-                ls[2] = 1
-                return ls[2:]
-            elif confidence <= -0.5:
-                ls[2] = 0
-                return ls[2:]
-            else:
-                return 'low_confidence', confidence, ls[-1]
-
+            return self.top_50(confidence,ls)
         else:
             return s
+
+    def top_50(self,confidence,ls):
+        if confidence >= 0.5:
+            ls[2] = 1
+            return ls[2:]
+        elif confidence <= -0.5:
+            ls[2] = 0
+            return ls[2:]
+        else:
+            return 'low_confidence', confidence, ls[-1]
 
     def map1(self, ls):
         # logging.warning("map1")
