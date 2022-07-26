@@ -77,6 +77,12 @@ class RFClassifier(MapFunction):
 
         return ls
 
+def clasifier(ds):
+
+    ds = ds.map(Supervised_OSA_inferrence()).filter(lambda i: i != 'collecting')
+    # ds.flat_map(split).print() #data size is uneven due to use of collector
+    ds = ds.map(RFClassifier()).flat_map(split)
+    return ds
 
 if __name__ == '__main__':
     logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
@@ -104,9 +110,7 @@ if __name__ == '__main__':
 
     #  always specify output_type when writing to file
 
-    ds = ds.map(Supervised_OSA_inferrence()).filter(lambda i: i != 'collecting')
-    # ds.flat_map(split).print() #data size is uneven due to use of collector
-    ds = ds.map(RFClassifier()).flat_map(split)
+    ds = clasifier(ds)
 
     # .key_by(lambda x: x[0])
     ds.print()
