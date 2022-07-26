@@ -72,7 +72,7 @@ class Evaluation(CoMapFunction):
         else:
             return -1
 
-    def evaluation(self, ls, myDict):
+    def evaluation(self, ls, myDict, otherDict):
         logging.warning('dict1:' + str(self.dict1.items()))
         logging.warning('dict2:' + str(self.dict2.items()))
         logging.warning(ls)
@@ -84,12 +84,12 @@ class Evaluation(CoMapFunction):
         con1 = self.dict1[ls[0]][1]
         con2 = self.dict2[ls[0]][1]
 
-
         # polarity
         sign1 = self.polarity(l1)
         sign2 = self.polarity(l2)
 
         myDict[ls[0]] = False
+        otherDict[ls[0]] = False
 
         return self.w1 * con1 * sign1 + self.w2 * con2 * sign2
 
@@ -100,7 +100,7 @@ class Evaluation(CoMapFunction):
             logging.warning(self.dict2.items())
         s = collect(ls, myDict, otherDict, log)
         if s == 'eval':
-            confidence = self.evaluation(ls, myDict)
+            confidence = self.evaluation(ls, myDict, otherDict)
             if confidence >= 0.5:
                 ls[2] = 1
                 return ls[2:]
