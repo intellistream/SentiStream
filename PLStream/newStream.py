@@ -24,6 +24,8 @@ from pyflink.common.typeinfo import Types
 from pyflink.datastream import StreamExecutionEnvironment
 from pyflink.datastream import CheckpointingMode
 
+from utils import process, split
+
 logger = logging.getLogger('PLStream')
 logger.setLevel(logging.DEBUG)
 fh = logging.FileHandler('plstream.log', mode='w')
@@ -120,11 +122,13 @@ class unsupervised_OSA(MapFunction):
 
     # tweet preprocessing
     def text_to_word_list(self, text):
-        text = re.sub("@\w+ ", "", text)
-        text = re.sub("[!~#$+%*:()'?-]", ' ', text)
-        text = re.sub('[^a-zA-Z]', ' ', text)
-        clean_word_list = text.strip().split(' ')
-        clean_word_list = [w for w in clean_word_list if w not in self.stop_words]
+        # text = re.sub("@\w+ ", "", text)
+        # text = re.sub("[!~#$+%*:()'?-]", ' ', text)
+        # text = re.sub('[^a-zA-Z]', ' ', text)
+        # clean_word_list = text.strip().split(' ')
+        # clean_word_list = [w for w in clean_word_list if w not in self.stop_words]
+        clean_word_list = process(text)
+        logging.warning("clean_word_list: "+str(clean_word_list))
         while '' in clean_word_list:
             clean_word_list.remove('')
         self.cleaned_text.append(clean_word_list)
@@ -406,14 +410,6 @@ class unsupervised_OSA(MapFunction):
             wr.write(m)
 
 
-def split(ls):
-    logging.warning('split' + str(ls))
-    logging.warning(type(ls))
-    for e in ls:
-        logging.warning(e)
-        yield e
-
-
 def unsupervised_stream(ds):
     # ds.print()
     ds = ds.map(unsupervised_OSA()).set_parallelism(parallelism)
@@ -422,7 +418,7 @@ def unsupervised_stream(ds):
     ds = ds.reduce(lambda x, y: (x[0], unsupervised_OSA().model_merge(x, y))).set_parallelism(1)
     ds = ds.filter(lambda x: x[0] != 'model').map(lambda x: x[1])
     # ds = ds.map(for_output()).set_parallelism(1))
-    ds = ds.flat_map(split)  # always put output type before passing it to file sink
+    ds = ds.flat_map(split)  # always put output_type before passing it to file sink
     # ds = ds.add_sink(StreamingFileSink  # .set_parallelism(2)
     #                  .for_row_format('./output', Encoder.simple_string_encoder())
     #                  .build())
