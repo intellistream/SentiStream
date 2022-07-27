@@ -32,12 +32,13 @@ import os
 pseudo_data_size = 0
 test_data_size = 0
 
+
 class Supervised_OSA_inferrence(MapFunction):
     def __init__(self):
         self.model = None
         self.collector = []
         self.output = []
-        self.collector_size = int(test_data_size/parallelism)
+        self.collector_size = int(test_data_size / parallelism)
         # logging.warning("pseudo_data_size: " + str(pseudo_data_size))
 
     def open(self, runtime_context: RuntimeContext):
@@ -60,7 +61,7 @@ class Supervised_OSA_inferrence(MapFunction):
         logging.warning(self.collector_size)
         logging.warning(len(self.collector))
         if len(self.collector) >= self.collector_size:
-            logging.warning("in condintion:"+str(len(self.collector)))
+            logging.warning("in condintion:" + str(len(self.collector)))
             for e in self.collector:
                 self.output.append(e)
             self.collector = []
@@ -81,7 +82,6 @@ class RFClassifier(MapFunction):
     def open(self, runtime_context: RuntimeContext):
         file = open('randomforest_classifier', 'rb')
         self.model = pickle.load(file)
-        self.redis_param = redis.StrictRedis(host='localhost', port=6379, db=0)
 
     def map(self, ls):
         for i in range(len(ls)):
@@ -93,19 +93,23 @@ class RFClassifier(MapFunction):
 
         predictions = self.model.predict(self.data)
         accuracy = accuracy_score(self.labels, predictions)
-        self.redis_param.set('batch_inferrence_accuracy', accuracy)
         return 1, accuracy
 
 
 def batch_inference(ds, supervised_parallelism=1, clasifier_parallelism=1):
     global parallelism
-    parallelism=supervised_parallelism
+    redis_param = redis.StrictRedis(host='localhost', port=6379, db=0)
+    parallelism = supervised_parallelism
     ds = ds.map(Supervised_OSA_inferrence()).set_parallelism(supervised_parallelism).filter(lambda i: i != 'collecting')
     # ds.flat_map(split).print() #data size is uneven due to use of collector
     ds = ds.map(RFClassifier()).set_parallelism(clasifier_parallelism) \
-        .key_by(lambda x: x[0] ).reduce(lambda x, y: (1, (x[1]+y[1]) / 2))
+        .key_by(lambda x: x[0]).reduce(lambda x, y: (1, (x[1] + y[1]) / 2))
 
-    return ds
+    with ds.execute_and_collect() as results:
+        for accuracy in results:
+            redis_param.set('batch_inferrence_accuracy', accuracy[1].item())
+            print(type(accuracy[1].item()))
+    return accuracy[1]
 
 
 if __name__ == '__main__':
@@ -135,6 +139,6 @@ if __name__ == '__main__':
     env.set_parallelism(1)
     env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
     ds = env.from_collection(collection=data_stream)
-    ds = batch_inference(ds)
-    ds.print()
-    env.execute()
+    accuracy = batch_inference(ds)
+    print(accuracy)
+    # env.execute()
