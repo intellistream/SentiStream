@@ -1,26 +1,7 @@
 #!/usr/bin/env python3
-import random
-import copy
-import re
 import numpy as np
-import argparse
-
-np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)
-
-from numpy import dot
-from numpy.linalg import norm
-from gensim.models import Word2Vec
-
-import redis
-import pickle
 import logging
-from newStream import unsupervised_OSA
-import nltk
-from nltk.corpus import stopwords
-from sklearn.metrics import accuracy_score
 
-from pyflink.datastream.functions import RuntimeContext, MapFunction
-from pyflink.common.typeinfo import Types
 from pyflink.datastream import StreamExecutionEnvironment
 from pyflink.datastream import CheckpointingMode
 import pandas as pd
@@ -39,6 +20,8 @@ formatter = logging.Formatter('PLStream:%(thread)d %(lineno)d: %(levelname)s: %(
 fh.setFormatter(formatter)
 logger.addHandler(fh)
 
+np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)
+
 
 def collect(ls, myDict, otherDict, log=False):
     if otherDict[ls[0]] is not None and otherDict[ls[0]] is not False:
@@ -53,6 +36,22 @@ def collect(ls, myDict, otherDict, log=False):
 
     logging.warning('mydict in collecting:' + str(myDict.items()))
     return 'collecting'
+
+
+def top_50(confidence, ls):
+    if confidence >= 0.5:
+        ls[2] = 1
+        return ls[2:]
+    elif confidence <= -0.5:
+        ls[2] = 0
+        return ls[2:]
+    else:
+        if confidence < 0:
+            ls[2] = 0
+        else:
+            ls[2] = 1
+        # returns tag,confidence,label,tweet
+        return 'low_confidence', confidence, ls[2], ls[-1]
 
 
 class Evaluation(CoMapFunction):
@@ -72,7 +71,7 @@ class Evaluation(CoMapFunction):
         else:
             return -1
 
-    def evaluation(self, ls, myDict, otherDict):
+    def evaluate(self, ls, myDict, otherDict):
         logging.warning('dict1:' + str(self.dict1.items()))
         logging.warning('dict2:' + str(self.dict2.items()))
         logging.warning(ls)
@@ -100,20 +99,10 @@ class Evaluation(CoMapFunction):
             logging.warning(self.dict2.items())
         s = collect(ls, myDict, otherDict, log)
         if s == 'eval':
-            confidence = self.evaluation(ls, myDict, otherDict)
-            return self.top_50(confidence, ls)
+            confidence = self.evaluate(ls, myDict, otherDict)
+            return top_50(confidence, ls)
         else:
             return s
-
-    def top_50(self, confidence, ls):
-        if confidence >= 0.5:
-            ls[2] = 1
-            return ls[2:]
-        elif confidence <= -0.5:
-            ls[2] = 0
-            return ls[2:]
-        else:
-            return 'low_confidence', confidence, ls[-1]
 
     def map1(self, ls):
         # logging.warning("map1")
@@ -169,5 +158,5 @@ if __name__ == '__main__':
     #  always specify output_type when writing to file
     ds.print()
     env.execute()
-    # supervised_learning(known_args.input, known_args.output)
     logging.info("time taken for execution is: " + str(time() - start_time))
+    # supervised_learning(known_args.input, known_args.output)
