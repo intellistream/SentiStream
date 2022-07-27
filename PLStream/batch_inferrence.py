@@ -107,7 +107,7 @@ def batch_inference(ds, supervised_parallelism=1, clasifier_parallelism=1):
 
     with ds.execute_and_collect() as results:
         for accuracy in results:
-            redis_param.set('batch_inferrence_accuracy', accuracy[1].item())
+            redis_param.set('batch_inference_accuracy', accuracy[1].item())
             print(type(accuracy[1].item()))
     return accuracy[1]
 
