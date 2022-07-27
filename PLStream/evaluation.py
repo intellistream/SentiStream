@@ -101,11 +101,11 @@ class Evaluation(CoMapFunction):
         s = collect(ls, myDict, otherDict, log)
         if s == 'eval':
             confidence = self.evaluation(ls, myDict, otherDict)
-            return self.top_50(confidence,ls)
+            return self.top_50(confidence, ls)
         else:
             return s
 
-    def top_50(self,confidence,ls):
+    def top_50(self, confidence, ls):
         if confidence >= 0.5:
             ls[2] = 1
             return ls[2:]
@@ -124,10 +124,7 @@ class Evaluation(CoMapFunction):
         return self.map(ls, self.dict2, self.dict1, True)
 
 
-def evaluation(ds):
-    ds1 = unsupervised_stream(ds)
-    # ds1.print()
-    ds2 = clasifier(ds)
+def evaluation(ds1, ds2):
     # ds2.print()
     ds = ds1.connect(ds2) \
         .map(Evaluation()).filter(lambda x: x != 'collecting' and x != 'done') \
@@ -164,7 +161,10 @@ if __name__ == '__main__':
     env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
     ds = env.from_collection(collection=data_stream)
 
-    ds = evaluation(ds)
+    ds1 = unsupervised_stream(ds)
+    # ds1.print()
+    ds2 = clasifier(ds)
+    ds = evaluation(ds1, ds2)
 
     #  always specify output_type when writing to file
     ds.print()
