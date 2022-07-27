@@ -34,7 +34,7 @@ test_data_size = 0
 
 
 class Supervised_OSA_inferrence(MapFunction):
-    def __init__(self):
+    def __init__(self,test_data_size,parallelism):
         self.model = None
         self.collector = []
         self.output = []
@@ -96,11 +96,12 @@ class RFClassifier(MapFunction):
         return 1, accuracy
 
 
-def batch_inference(ds, supervised_parallelism=1, clasifier_parallelism=1):
-    global parallelism
+def batch_inference(ds,test_data_size, supervised_parallelism=1, clasifier_parallelism=1):
+    # global parallelism
     redis_param = redis.StrictRedis(host='localhost', port=6379, db=0)
-    parallelism = supervised_parallelism
-    ds = ds.map(Supervised_OSA_inferrence()).set_parallelism(supervised_parallelism).filter(lambda i: i != 'collecting')
+    # parallelism = supervised_parallelism
+    ds = ds.map(Supervised_OSA_inferrence(test_data_size,supervised_parallelism))\
+        .set_parallelism(supervised_parallelism).filter(lambda i: i != 'collecting')
     # ds.flat_map(split).print() #data size is uneven due to use of collector
     ds = ds.map(RFClassifier()).set_parallelism(clasifier_parallelism) \
         .key_by(lambda x: x[0]).reduce(lambda x, y: (1, (x[1] + y[1]) / 2))
@@ -108,7 +109,7 @@ def batch_inference(ds, supervised_parallelism=1, clasifier_parallelism=1):
     with ds.execute_and_collect() as results:
         for accuracy in results:
             redis_param.set('batch_inference_accuracy', accuracy[1].item())
-            print(type(accuracy[1].item()))
+            # print(type(accuracy[1].item()))
     return accuracy[1]
 
 
@@ -139,6 +140,6 @@ if __name__ == '__main__':
     env.set_parallelism(1)
     env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
     ds = env.from_collection(collection=data_stream)
-    accuracy = batch_inference(ds)
+    accuracy = batch_inference(ds,test_data_size)
     print(accuracy)
     # env.execute()

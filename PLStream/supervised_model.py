@@ -21,7 +21,7 @@ train_data_size = 0
 
 
 class Supervised_OSA(MapFunction):
-    def __init__(self):
+    def __init__(self, train_data_size):
         self.model = None
         self.sentences = []
         self.labels = []
@@ -61,24 +61,10 @@ class Supervised_OSA(MapFunction):
                          epochs=self.model.epochs)
 
 
-def superveised_model(ds):
-    ds = ds.map(pre_process).set_parallelism(1).map(Supervised_OSA())
-
-
-if __name__ == '__main__':
-    logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
-    # data source
-    pseudo_data_folder = './senti_output'
-    train_data_file = './exp_train.csv'
-
-    # data sets
-    pseudo_data_size, train_df = load_and_augment_data(pseudo_data_folder, train_data_file)
-
-    train_data_size = len(train_df)
-
-    redis_param = redis.StrictRedis(host='localhost', port=6379, db=0)
-    accuracy = float(redis_param.get('batch_inference_accuracy').decode())
-
+def supervised_model(data_process_parallelism, train_df, train_data_size, pseudo_data_size,
+                     PSEUDO_DATA_COLLECTION_THRESHOLD,
+                     accuracy,
+                     ACCURACY_THRESHOLD):
     if pseudo_data_size > PSEUDO_DATA_COLLECTION_THRESHOLD and accuracy < ACCURACY_THRESHOLD:
         true_label = train_df.label
         yelp_review = train_df.review
@@ -94,7 +80,31 @@ if __name__ == '__main__':
         env.set_parallelism(1)
         env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
         ds = env.from_collection(collection=data_stream)
-        ds=superveised_model(ds)
+
+        ds = ds.map(pre_process).set_parallelism(data_process_parallelism).map(Supervised_OSA(train_data_size)) \
+            .filter(lambda x: x != 'collecting')
         # ds = batch_inference(ds)
         ds.print()
         env.execute()
+    else:
+        print("accuracy below threshold: " + str(accuracy < ACCURACY_THRESHOLD))
+        print("pseudo data above threshold: " + str(pseudo_data_size > PSEUDO_DATA_COLLECTION_THRESHOLD))
+        print("Too soon to update model")
+
+
+if __name__ == '__main__':
+    logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
+    # data source
+    pseudo_data_folder = './senti_output'
+    train_data_file = './exp_train.csv'
+
+    # data sets
+    pseudo_data_size, train_df = load_and_augment_data(pseudo_data_folder, train_data_file)
+
+    train_data_size = len(train_df)
+
+    redis_param = redis.StrictRedis(host='localhost', port=6379, db=0)
+    accuracy = float(redis_param.get('batch_inference_accuracy').decode())
+    supervised_model(parallelism, train_df, train_data_size, pseudo_data_size, PSEUDO_DATA_COLLECTION_THRESHOLD,
+                     accuracy,
+                     ACCURACY_THRESHOLD)
