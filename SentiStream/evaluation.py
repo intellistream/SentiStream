@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import argparse
+
 import numpy as np
 import logging
 
@@ -6,11 +8,17 @@ from pyflink.datastream import StreamExecutionEnvironment
 from pyflink.datastream import CheckpointingMode
 import pandas as pd
 import sys
+
+from pyflink.datastream.connectors import StreamingFileSink
+from sklearn.metrics import accuracy_score
+
 from modified_PLStream import unsupervised_stream
 from classifier import clasifier
 from time import time
 from pyflink.datastream import CoMapFunction
 from collections import defaultdict
+from pyflink.datastream.connectors import StreamingFileSink
+from pyflink.common.serialization import Encoder
 
 logger = logging.getLogger('PLStream')
 logger.setLevel(logging.DEBUG)
@@ -26,19 +34,19 @@ np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)
 def collect(ls, myDict, otherDict, log=False):
     if otherDict[ls[0]] is not None and otherDict[ls[0]] is not False:
         if myDict[ls[0]] is None:
-            myDict[ls[0]] = ls[:-1]
+            myDict[ls[0]] = ls[:-2]
             return 'eval'
         else:
             return 'done'
     else:
         if myDict[ls[0]] is None:
-            myDict[ls[0]] = ls[:-1]
+            myDict[ls[0]] = ls[:-2]
 
     logging.warning('mydict in collecting:' + str(myDict.items()))
     return 'collecting'
 
 
-def top_50(confidence, ls):
+def generate_labels_and_confidence(confidence, ls):
     if confidence >= 0.5:
         ls[2] = 1
         return ls[2:]
@@ -51,7 +59,7 @@ def top_50(confidence, ls):
         else:
             ls[2] = 1
         # returns tag,confidence,label,tweet
-        return 'low_confidence', confidence, ls[2], ls[-1]
+        return ['low_confidence', confidence, *ls[2:]]
 
 
 class Evaluation(CoMapFunction):
@@ -100,12 +108,13 @@ class Evaluation(CoMapFunction):
         s = collect(ls, myDict, otherDict, log)
         if s == 'eval':
             confidence = self.evaluate(ls, myDict, otherDict)
-            return top_50(confidence, ls)
+            return generate_labels_and_confidence(confidence, ls)
         else:
             return s
 
     def map1(self, ls):
-        # logging.warning("map1")
+        logging.warning("map1")
+        # logging.warning(ls)
         return self.map(ls, self.dict1, self.dict2)
 
     def map2(self, ls):
@@ -113,16 +122,46 @@ class Evaluation(CoMapFunction):
         return self.map(ls, self.dict2, self.dict1, True)
 
 
-def evaluation(ds1, ds2):
+def merged_stream(ds1, ds2):
     # ds2.print()
     ds = ds1.connect(ds2) \
         .map(Evaluation()).filter(lambda x: x != 'collecting' and x != 'done') \
         .filter(lambda x: x[0] != 'low_confidence')
+
     # .key_by(lambda x: x[0])
     return ds
 
 
+def generate_new_label(ds, ds_print=None):
+    ds = ds.map(lambda x: x[:-1])
+    if not ds_print:
+        ds = ds.map(lambda x: str(x[:-1])).add_sink(StreamingFileSink  # .set_parallelism(2)
+                                                    .for_row_format('./evaluation', Encoder.simple_string_encoder())
+                                                    .build())
+    return ds
+
+
+def calculate_accuracy(ds, ds_print=None):
+    data = ds.execute_and_collect()
+    true_label = []
+    predicted_label = []
+    for results in data:
+        true_label.append(results[-1])
+        predicted_label.append(results[0])
+        if ds_print == 'PRINT':
+            print(results)
+    return accuracy_score(true_label, predicted_label)
+
+
 if __name__ == '__main__':
+    mode = None
+    ds_print = None
+    parser = argparse.ArgumentParser(description='Run evaluation in two modes, labels and accuracy. Accuracy mode is\
+     default')
+    parser.add_argument('-l', dest='mode', action='store_const', default='ACC', const='LABEL',
+                        help='Generate label(default: print accuracy)')
+    parser.add_argument('-p', dest='ds_print', action='store_const', default='PRINT', const=None,
+                        help='Generate label(default: print accuracy)')
     logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 
     start_time = time()
@@ -153,10 +192,15 @@ if __name__ == '__main__':
     ds1 = unsupervised_stream(ds)
     # ds1.print()
     ds2 = clasifier(ds)
-    ds = evaluation(ds1, ds2)
+    # ds2.print()
+    ds = merged_stream(ds1, ds2)
+    if mode == 'LABEL':
+        ds = generate_new_label(ds,ds_print)
+        ds.print()
+        env.execute()
+    else:
+        print(calculate_accuracy(ds,ds_print))
 
     #  always specify output_type when writing to file
-    ds.print()
-    env.execute()
     logging.info("time taken for execution is: " + str(time() - start_time))
     # supervised_learning(known_args.input, known_args.output)

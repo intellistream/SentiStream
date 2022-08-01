@@ -44,7 +44,7 @@ class Supervised_OSA_inferrence(MapFunction):
             vector_mean = np.zeros(self.model.vector_size)
         else:
             vector_mean = (np.mean(word_vector, axis=0)).tolist()
-        self.collector.append([tweet[0], vector_mean, tweet[2]])
+        self.collector.append([tweet[0], vector_mean, tweet[2], tweet[1]])
         if len(self.collector) >= self.collector_size:
             for e in self.collector:
                 self.output.append(e)
@@ -77,12 +77,14 @@ class RFClassifier(MapFunction):
 
         return ls
 
-def clasifier(ds):
 
+def clasifier(ds):
     ds = ds.map(Supervised_OSA_inferrence()).filter(lambda i: i != 'collecting')
+    # ds.print()
     # ds.flat_map(split).print() #data size is uneven due to use of collector
     ds = ds.map(RFClassifier()).flat_map(split)
     return ds
+
 
 if __name__ == '__main__':
     logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
@@ -110,7 +112,7 @@ if __name__ == '__main__':
 
     #  always specify output_type when writing to file
 
-    ds = clasifier(ds)
+    ds = clasifier(ds).map(lambda x: x[:-1])
 
     # .key_by(lambda x: x[0])
     ds.print()

@@ -1,14 +1,10 @@
 #!/usr/bin/env python3
-import random
-import copy
-import re
 import numpy as np
-import argparse
 
 from pyflink.datastream.execution_mode import RuntimeExecutionMode
 
 from batch_inferrence import batch_inference
-from evaluation import evaluation
+from evaluation import generate_new_label,merged_stream
 from supervised_model import supervised_model
 from utils import load_and_augment_data
 
@@ -70,9 +66,10 @@ if __name__ == '__main__':
     ds1.print()
     ds2 = clasifier(ds)
     ds2.print()
-    ds = evaluation(ds1, ds2, to_file=False)
+    ds=merged_stream(ds1,ds2)
+    ds = generate_new_label(ds)
     # .key_by(lambda x: x[0])
-    ds.print()
+    # ds.print()
     env.execute()
 
     # data source for batch_inferrence and supervised_model
