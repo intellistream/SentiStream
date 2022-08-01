@@ -6,7 +6,7 @@ from pyflink.datastream import StreamExecutionEnvironment
 from pyflink.datastream import CheckpointingMode
 import pandas as pd
 import sys
-from newStream import unsupervised_stream
+from modified_PLStream import unsupervised_stream
 from classifier import clasifier
 from time import time
 from pyflink.datastream import CoMapFunction
@@ -129,7 +129,7 @@ if __name__ == '__main__':
 
     # input_path = './yelp_review_polarity_csv/test.csv'
     # if input_path is not None:
-    f = pd.read_csv('./train.csv', header=None)  # , encoding='ISO-8859-1'
+    f = pd.read_csv('./exp_train.csv', header=None)  # , encoding='ISO-8859-1'
     # f = pd.read_csv('./exp_train.csv', header=None)  # , encoding='ISO-8859-1'
     f.columns = ["label", "review"]
     test_N = 100
