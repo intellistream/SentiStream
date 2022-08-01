@@ -23,6 +23,8 @@ from pyflink.datastream.functions import RuntimeContext, MapFunction
 from pyflink.common.typeinfo import Types
 from pyflink.datastream import StreamExecutionEnvironment
 from pyflink.datastream import CheckpointingMode
+from pyflink.datastream.connectors import StreamingFileSink
+from pyflink.common.serialization import Encoder
 
 from utils import process, split
 
@@ -37,7 +39,6 @@ formatter = logging.Formatter('PLStream:%(thread)d %(lineno)d: %(levelname)s: %(
 fh.setFormatter(formatter)
 logger.addHandler(fh)
 
-
 # class for_output(MapFunction):
 #     def __init__(self):
 #         pass
@@ -49,16 +50,22 @@ logger.addHandler(fh)
 #         with open(f, 'a') as wr:
 #             wr.write(m)
 
-MODE='LABEL'
+MODE = 'LABEL'
+
+
 class unsupervised_OSA(MapFunction):
 
     def __init__(self):
+        self.initial_model = None
+        self.redis_param = None
+        self.start_timer = time()
         # collection
+        self.vocabulary = []
         self.true_label = []
         self.collector = []
         self.cleaned_text = []
         self.stop_words = stopwords.words('english')
-        self.collector_size = 2
+        self.collector_size = 2000
 
         # model pruning
         self.LRU_index = ['good', 'bad']
@@ -130,16 +137,15 @@ class unsupervised_OSA(MapFunction):
         # clean_word_list = text.strip().split(' ')
         # clean_word_list = [w for w in clean_word_list if w not in self.stop_words]
         clean_word_list = process(text)
-        logging.warning("clean_word_list: " + str(clean_word_list))
+        # logging.warning("clean_word_list: " + str(clean_word_list))
         while '' in clean_word_list:
             clean_word_list.remove('')
         self.cleaned_text.append(clean_word_list)
         if len(self.cleaned_text) >= self.collector_size:
-            logger.info('text to word list update model')
-            ans = self.update_model(self.cleaned_text)
-            return ans
-        else:
-            return ('collecting', '1')
+            # logger.info('text to word list update model')
+            # ans = self.update_model(self.cleaned_text)
+            # return ans
+            return 'update_model'
 
     def model_prune(self, model):
         if len(model.wv.index_to_key) <= self.LRU_cache_size:
@@ -177,6 +183,7 @@ class unsupervised_OSA(MapFunction):
 
     def model_merge(self, model1, model2):
         # prediction or accuracy not merging
+        logger.warning('model_merge')
         logging.warning("model merge")
         if model1[0] == 'labelled':
             logging.warning(model1)
@@ -292,6 +299,8 @@ class unsupervised_OSA(MapFunction):
                                            model1)
             self.save_model(model_new)
             self.flag = True
+            logging.warning("model 1 merge time: " + str(time() - model1[2]))
+            logging.warning("model 2 merge time: " + str(time() - model2[2]))
             return model_new
 
     def map(self, tweet):
@@ -301,7 +310,56 @@ class unsupervised_OSA(MapFunction):
         # return "ping"
         if MODE == "LABEL":
             self.collector.append((tweet[0], tweet[2]))
-        return self.text_to_word_list(tweet[2])
+        tokenise_text = self.text_to_word_list(tweet[2])
+        if tokenise_text == 'update model':
+            return self.update_model(self.cleaned_text)
+
+            self.cleaned_text = []
+            self.true_label = []
+            classify_result = self.classify_result(new_sentences, self.model_to_train)
+
+            if time() - self.timer >= self.time_to_reset:  # prune and return model
+                self.model_to_train = self.model_prune(self.model_to_train)
+                model_to_merge = ('model', self.model_to_train, self.start_timer)
+                self.timer = time()
+                return model_to_merge
+            else:
+                if MODE == 'LABEL':
+                    not_yet = ('labelled', classify_result)
+                else:
+                    not_yet = ('acc', classify_result)
+                return not_yet
+        else:
+            return ('collecting', '1')
+
+    def incremental_training(self, new_sentences):
+        self.model_to_train.build_vocab(new_sentences, update=True)  # 1) update vocabulary
+        self.model_to_train.train(new_sentences,  # 2) incremental training
+                                  total_examples=self.model_to_train.corpus_count,
+                                  epochs=self.model_to_train.epochs)
+
+    def update_LRU_index(self):
+        for word in self.model_to_train.wv.index_to_key:
+            if word not in self.vocabulary:  # new words
+                self.LRU_index.insert(0, word)
+            else:  # duplicate words
+                self.LRU_index.remove(word)
+                self.LRU_index.insert(0, word)
+        self.vocabulary = list(self.model_to_train.wv.index_to_key)
+
+    def update_true_ref(self):
+        if len(self.ref_neg) > 0:
+            for words in self.ref_neg:
+                if words in self.model_to_train.wv:
+                    self.ref_neg.remove(words)
+                    if words not in self.true_ref_neg:
+                        self.true_ref_neg.append(words)
+        if len(self.ref_pos) > 0:
+            for words in self.ref_pos:
+                if words in self.model_to_train.wv:
+                    self.ref_pos.remove(words)
+                    if words not in self.true_ref_pos:
+                        self.true_ref_pos.append(words)
 
     def update_model(self, new_sentences):
 
@@ -312,58 +370,27 @@ class unsupervised_OSA(MapFunction):
             call_model = self.model_to_train
 
         # incremental learning
-        call_model.build_vocab(new_sentences, update=True)  # 1) update vocabulary
-        call_model.train(new_sentences,  # 2) incremental training
-                         total_examples=call_model.corpus_count,
-                         epochs=call_model.epochs)
-        for word in call_model.wv.index_to_key:
-            if word not in self.vocabulary:  # new words
-                self.LRU_index.insert(0, word)
-            else:  # duplicate words
-                self.LRU_index.remove(word)
-                self.LRU_index.insert(0, word)
-        self.vocabulary = list(call_model.wv.index_to_key)
-        self.model_to_train = call_model
+        self.incremental_training(new_sentences)
+        self.update_LRU_index()
+        self.update_true_ref()
 
-        if len(self.ref_neg) > 0:
-            for words in self.ref_neg:
-                if words in call_model.wv:
-                    self.ref_neg.remove(words)
-                    if words not in self.true_ref_neg:
-                        self.true_ref_neg.append(words)
-        if len(self.ref_pos) > 0:
-            for words in self.ref_pos:
-                if words in call_model.wv:
-                    self.ref_pos.remove(words)
-                    if words not in self.true_ref_pos:
-                        self.true_ref_pos.append(words)
-
-        classify_result = self.eval(new_sentences, call_model)
-        self.cleaned_text = []
-        self.true_label = []
-        if time() - self.timer >= self.time_to_reset:
-            call_model = self.model_prune(call_model)
-            model_to_merge = ('model', call_model)
-            self.timer = time()
-            return model_to_merge
-        else:
-            if MODE == 'LABEL':
-                not_yet = ('labelled', classify_result)
-            else:
-                not_yet = ('acc', classify_result)
-            return not_yet
-
-    def eval(self, tweets, model):
+    def classify_result(self, tweets):
         for t in range(len(tweets)):
-            predict_result = self.predict(tweets[t], model)
+            predict_result = self.predict(tweets[t], self.model_to_train)
             self.confidence_list.append(predict_result[0])
-            self.predictions.append(predict_result[1])
+
             if MODE == "LABEL":
+                d = {'true_label': self.true_label[t],
+                     'neg_coefficient': self.neg_coefficient,
+                     'pos_coefficient': self.pos_coefficient}
                 self.labelled_dataset.append([
-                    self.collector[t][0], predict_result[0], predict_result[1], self.collector[t][1]])
+                    self.collector[t][0], predict_result[0], predict_result[1], self.collector[t][1], d])
+            self.predictions.append(predict_result[1])
+
         logger.info('prediction count:negative prediction = ' + str(self.predictions.count(0)) + ' positive prediction '
                                                                                                  '= ' + str(
             self.predictions.count(1)))
+
         self.neg_coefficient = self.predictions.count(0) / (self.predictions.count(1) + self.predictions.count(0))
         self.pos_coefficient = 1 - self.neg_coefficient
         if MODE == "LABEL":
@@ -436,17 +463,13 @@ if __name__ == '__main__':
     MODE = 'LABEL'
     logging.basicConfig(filename='plstream.log')
     logger.info('logger initiated')
-    from pyflink.datastream.connectors import StreamingFileSink
-    from pyflink.common.serialization import Encoder
-    from time import time
-    import pandas as pd
 
-    parallelism = 1
+    parallelism = 4
     # the labels of dataset are only used for accuracy computation, since PLStream is unsupervised
-    f = pd.read_csv('./exp_train.csv', header=None)  # , encoding='ISO-8859-1'
+    f = pd.read_csv('./train.csv', header=None)  # , encoding='ISO-8859-1'
     f.columns = ["label", "review"]
     # 20,000 data for quick testing
-    test_N = 5
+    test_N = 150000
     true_label = list(f.label)[:test_N]
     for i in range(len(true_label)):
         if true_label[i] == 1:
@@ -463,12 +486,14 @@ if __name__ == '__main__':
         # print(i, int(true_label[i]), yelp_review[i])
     print('Coming Stream is ready...')
     print('===============================')
+    start_time = time()
     env = StreamExecutionEnvironment.get_execution_environment()
     env.set_parallelism(1)
     env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
     ds = env.from_collection(collection=data_stream)
     # always update ds variable
-    ds = unsupervised_stream(ds)
+    ds = unsupervised_stream(ds).map(lambda x: x[:-1])
 
     ds.print()
     env.execute("osa_job")
+    print(time() - start_time)
