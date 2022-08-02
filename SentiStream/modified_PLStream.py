@@ -311,12 +311,14 @@ class unsupervised_OSA(MapFunction):
         if MODE == "LABEL":
             self.collector.append((tweet[0], tweet[2]))
         tokenise_text = self.text_to_word_list(tweet[2])
-        if tokenise_text == 'update model':
-            return self.update_model(self.cleaned_text)
+        if tokenise_text == 'update_model':
+            logging.warning('in update_model map')
+            logging.warning(self.model_to_train)
+            self.update_model(self.cleaned_text)
 
+            classify_result = self.classify_result(self.cleaned_text)
             self.cleaned_text = []
             self.true_label = []
-            classify_result = self.classify_result(new_sentences, self.model_to_train)
 
             if time() - self.timer >= self.time_to_reset:  # prune and return model
                 self.model_to_train = self.model_prune(self.model_to_train)
@@ -364,10 +366,10 @@ class unsupervised_OSA(MapFunction):
     def update_model(self, new_sentences):
 
         if self.flag:
-            call_model = self.load_model()
+            self.model_to_train = self.load_model()
             self.flag = False
-        else:
-            call_model = self.model_to_train
+        # else:
+        #     call_model = self.model_to_train
 
         # incremental learning
         self.incremental_training(new_sentences)
@@ -439,7 +441,7 @@ class unsupervised_OSA(MapFunction):
             wr.write(m)
 
 
-def unsupervised_stream(ds, map_parallelism=1, reduce_parallelism=1):
+def unsupervised_stream(ds, map_parallelism=1, reduce_parallelism=2):
     # ds.print()
     ds = ds.map(unsupervised_OSA()).set_parallelism(map_parallelism)
     ds = ds.filter(lambda x: x[0] != 'collecting')
@@ -469,7 +471,7 @@ if __name__ == '__main__':
     f = pd.read_csv('./train.csv', header=None)  # , encoding='ISO-8859-1'
     f.columns = ["label", "review"]
     # 20,000 data for quick testing
-    test_N = 150000
+    test_N = 100000
     true_label = list(f.label)[:test_N]
     for i in range(len(true_label)):
         if true_label[i] == 1:
