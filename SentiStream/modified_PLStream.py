@@ -65,7 +65,7 @@ class unsupervised_OSA(MapFunction):
         self.collector = []
         self.cleaned_text = []
         self.stop_words = stopwords.words('english')
-        self.collector_size = 2000
+        self.collector_size = 10
 
         # model pruning
         self.LRU_index = ['good', 'bad']
@@ -77,8 +77,8 @@ class unsupervised_OSA(MapFunction):
         self.flag = True
         self.model_to_train = None
         self.timer = time()
+        # self.time_to_reset = 30
         self.time_to_reset = 30
-
         # similarity-based classification preparation
         self.true_ref_neg = []
         self.true_ref_pos = []
@@ -184,9 +184,8 @@ class unsupervised_OSA(MapFunction):
     def model_merge(self, model1, model2):
         # prediction or accuracy not merging
         logger.warning('model_merge')
-        logging.warning("model merge")
         if model1[0] == 'labelled':
-            logging.warning(model1)
+            # logging.warning(model1)
             return (model1[1]) + (model2[1])
         elif model1[0] == 'acc':
             return (float(model1[1]) + float(model2[1])) / 2
@@ -471,7 +470,7 @@ if __name__ == '__main__':
     f = pd.read_csv('./train.csv', header=None)  # , encoding='ISO-8859-1'
     f.columns = ["label", "review"]
     # 20,000 data for quick testing
-    test_N = 100000
+    test_N = 100
     true_label = list(f.label)[:test_N]
     for i in range(len(true_label)):
         if true_label[i] == 1:
@@ -494,7 +493,7 @@ if __name__ == '__main__':
     env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
     ds = env.from_collection(collection=data_stream)
     # always update ds variable
-    ds = unsupervised_stream(ds).map(lambda x: x[:-1])
+    ds = unsupervised_stream(ds,map_parallelism=parallelism).map(lambda x: x[:-1])
 
     ds.print()
     env.execute("osa_job")
