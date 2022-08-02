@@ -24,7 +24,7 @@ from pyflink.datastream import CheckpointingMode
 from pyflink.datastream.connectors import StreamingFileSink
 from pyflink.common.serialization import Encoder
 
-from utils import process, split
+from utils import process_text_and_generate_tokens, split
 
 from time import time
 import pandas as pd
@@ -38,19 +38,9 @@ fh.setFormatter(formatter)
 logger.addHandler(fh)
 
 
-def process_text_and_generate_tokens(text, func=process):
-    """
-    :param func: funct(text) returns tokenised text in the form of a list. e.g: ['eat','rice']
-    :param text: expects text in the format of a string:"i eat rice"
-    :return: tokenized text
-    """
-
-    return func(text)
-
-
 class unsupervised_OSA(MapFunction):
 
-    def __init__(self):
+    def __init__(self, with_accuracy=True):
         self.initial_model = None
         self.redis_param = None
         self.start_timer = time()
@@ -96,6 +86,7 @@ class unsupervised_OSA(MapFunction):
         self.predictions = []
         self.labelled_dataset = []
         self.confidence_list = []
+        self.with_accuracy = with_accuracy
 
     def open(self, runtime_context: RuntimeContext):
         # redis-server parameters
@@ -296,11 +287,19 @@ class unsupervised_OSA(MapFunction):
             return model_new
 
     def map(self, tweet):
-        self.true_label.append(int(tweet[1]))
-        # return "ping"
-        self.collector.append((tweet[0], tweet[2]))
-        tokenise_text = self.text_to_word_list(tweet[2])
-        if tokenise_text == 'update_model':
+        """
+        :param tweet: expects tweet in the format [index,label,string] or [index,string]
+        :return: tag,data
+        """
+        if self.with_accuracy:
+            content = tweet[2]
+            self.true_label.append(int(tweet[1]))
+            self.collector.append((tweet[0], content))
+        else:
+            content = tweet[1]
+            self.collector.append((tweet[0], content))
+        tokenize_text_done = self.text_to_word_list(content)
+        if tokenize_text_done == 'update_model':
             logging.warning('in update_model map')
             logging.warning(self.model_to_train)
             self.update_model(self.cleaned_text)
@@ -318,7 +317,7 @@ class unsupervised_OSA(MapFunction):
                 not_yet = ('labelled', classify_result)
                 return not_yet
         else:
-            return ('collecting', '1')
+            return 'collecting', '1'
 
     def incremental_training(self, new_sentences):
         self.model_to_train.build_vocab(new_sentences, update=True)  # 1) update vocabulary
@@ -367,11 +366,9 @@ class unsupervised_OSA(MapFunction):
             predict_result = self.predict(tweets[t], self.model_to_train)
             self.confidence_list.append(predict_result[0])
 
-            d = {'true_label': self.true_label[t],
-                 'neg_coefficient': self.neg_coefficient,
-                 'pos_coefficient': self.pos_coefficient
-                 }
-
+            d = {'neg_coefficient': self.neg_coefficient, 'pos_coefficient': self.pos_coefficient}
+            if self.with_accuracy:
+                d['true_label'] = self.true_label[t]
             self.labelled_dataset.append([
                 self.collector[t][0], predict_result[0], predict_result[1], self.collector[t][1], d])
             self.predictions.append(predict_result[1])
