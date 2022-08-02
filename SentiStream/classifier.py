@@ -20,6 +20,9 @@ def join(x, y):
 
 class Supervised_OSA_inference(MapFunction):
     def __init__(self, with_accuracy=True):
+        """
+        :param with_accuracy: True if labels are provided to the datastream. default value is True
+        """
         self.model = None
         self.data = []
         self.collector = []

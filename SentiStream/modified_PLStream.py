@@ -41,6 +41,9 @@ logger.addHandler(fh)
 class unsupervised_OSA(MapFunction):
 
     def __init__(self, with_accuracy=True):
+        """
+        :param with_accuracy: True if labels are provided to the datastream. default value is True
+        """
         self.initial_model = None
         self.redis_param = None
         self.start_timer = time()
