@@ -52,6 +52,16 @@ logger.addHandler(fh)
 #             wr.write(m)
 
 
+def process_text_and_generate_tokens(text, func=process):
+    """
+    :param func: funct(text) returns tokenised text in the form of a list. e.g: ['eat','rice']
+    :param text: expects text in the format of a string:"i eat rice"
+    :return: tokenized text
+    """
+
+    return func(text)
+
+
 class unsupervised_OSA(MapFunction):
 
     def __init__(self):
@@ -130,18 +140,9 @@ class unsupervised_OSA(MapFunction):
 
     # tweet preprocessing
 
-    def process_text_and_generate_tokens(self, text, func=process):
-        """
-        :param func: funct(text) returns tokenised text in the form of a list. e.g: ['eat','rice']
-        :param text: expects text in the format of a string:"i eat rice"
-        :return: tokenised_text
-        """
-
-        return func(text)
-
     def text_to_word_list(self, text):
 
-        clean_word_list = self.process_text_and_generate_tokens(text)
+        clean_word_list = process_text_and_generate_tokens(text)
 
         while '' in clean_word_list:
             clean_word_list.remove('')
