@@ -39,6 +39,7 @@ formatter = logging.Formatter('PLStream:%(thread)d %(lineno)d: %(levelname)s: %(
 fh.setFormatter(formatter)
 logger.addHandler(fh)
 
+
 # class for_output(MapFunction):
 #     def __init__(self):
 #         pass
@@ -49,8 +50,6 @@ logger.addHandler(fh)
 #     def logFile(self, f, m):
 #         with open(f, 'a') as wr:
 #             wr.write(m)
-
-MODE = 'LABEL'
 
 
 class unsupervised_OSA(MapFunction):
@@ -303,12 +302,9 @@ class unsupervised_OSA(MapFunction):
             return model_new
 
     def map(self, tweet):
-        # logger.info(tweet[0][:20] + '... ' + str(tweet[1]))
-        # self.logFile('plstream.log',str(self)+'\n')
         self.true_label.append(int(tweet[1]))
         # return "ping"
-        if MODE == "LABEL":
-            self.collector.append((tweet[0], tweet[2]))
+        self.collector.append((tweet[0], tweet[2]))
         tokenise_text = self.text_to_word_list(tweet[2])
         if tokenise_text == 'update_model':
             logging.warning('in update_model map')
@@ -325,10 +321,7 @@ class unsupervised_OSA(MapFunction):
                 self.timer = time()
                 return model_to_merge
             else:
-                if MODE == 'LABEL':
-                    not_yet = ('labelled', classify_result)
-                else:
-                    not_yet = ('acc', classify_result)
+                not_yet = ('labelled', classify_result)
                 return not_yet
         else:
             return ('collecting', '1')
@@ -380,12 +373,13 @@ class unsupervised_OSA(MapFunction):
             predict_result = self.predict(tweets[t], self.model_to_train)
             self.confidence_list.append(predict_result[0])
 
-            if MODE == "LABEL":
-                d = {'true_label': self.true_label[t],
-                     'neg_coefficient': self.neg_coefficient,
-                     'pos_coefficient': self.pos_coefficient}
-                self.labelled_dataset.append([
-                    self.collector[t][0], predict_result[0], predict_result[1], self.collector[t][1], d])
+            d = {'true_label': self.true_label[t],
+                 'neg_coefficient': self.neg_coefficient,
+                 'pos_coefficient': self.pos_coefficient
+                 }
+
+            self.labelled_dataset.append([
+                self.collector[t][0], predict_result[0], predict_result[1], self.collector[t][1], d])
             self.predictions.append(predict_result[1])
 
         logger.info('prediction count:negative prediction = ' + str(self.predictions.count(0)) + ' positive prediction '
@@ -394,11 +388,10 @@ class unsupervised_OSA(MapFunction):
 
         self.neg_coefficient = self.predictions.count(0) / (self.predictions.count(1) + self.predictions.count(0))
         self.pos_coefficient = 1 - self.neg_coefficient
-        if MODE == "LABEL":
-            self.collector = []
-            ans = self.labelled_dataset
-        else:
-            ans = accuracy_score(self.true_label, self.predictions)
+        self.collector = []
+        ans = self.labelled_dataset
+        # else:
+        #     ans = accuracy_score(self.true_label, self.predictions)
         self.predictions = []
         return ans
 
@@ -456,12 +449,7 @@ def unsupervised_stream(ds, map_parallelism=1, reduce_parallelism=2):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Run PLStream in two modes, labelling and accuracy. Accuracy mode is\
-     default')
-    # parser.add_argument('-l', dest='mode', action='store_const', default='ACC', const='LABEL',
-    #                     help='Generate label(default: print accuracy)')
-    args = parser.parse_args()
-    MODE = 'LABEL'
+
     logging.basicConfig(filename='plstream.log')
     logger.info('logger initiated')
 
@@ -493,7 +481,7 @@ if __name__ == '__main__':
     env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
     ds = env.from_collection(collection=data_stream)
     # always update ds variable
-    ds = unsupervised_stream(ds,map_parallelism=parallelism).map(lambda x: x[:-1])
+    ds = unsupervised_stream(ds, map_parallelism=parallelism).map(lambda x: x[:-1])
 
     ds.print()
     env.execute("osa_job")
