@@ -129,14 +129,20 @@ class unsupervised_OSA(MapFunction):
         #     logging.warning('Unable to call the model from Redis server, please check your model')
 
     # tweet preprocessing
+
+    def process_text_and_generate_tokens(self, text, func=process):
+        """
+        :param func: funct(text) returns tokenised text in the form of a list. e.g: ['eat','rice']
+        :param text: expects text in the format of a string:"i eat rice"
+        :return: tokenised_text
+        """
+
+        return func(text)
+
     def text_to_word_list(self, text):
-        # text = re.sub("@\w+ ", "", text)
-        # text = re.sub("[!~#$+%*:()'?-]", ' ', text)
-        # text = re.sub('[^a-zA-Z]', ' ', text)
-        # clean_word_list = text.strip().split(' ')
-        # clean_word_list = [w for w in clean_word_list if w not in self.stop_words]
-        clean_word_list = process(text)
-        # logging.warning("clean_word_list: " + str(clean_word_list))
+
+        clean_word_list = self.process_text_and_generate_tokens(text)
+
         while '' in clean_word_list:
             clean_word_list.remove('')
         self.cleaned_text.append(clean_word_list)
