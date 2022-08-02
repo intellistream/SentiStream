@@ -15,16 +15,12 @@ import redis
 import pickle
 import logging
 
-import nltk
 from nltk.corpus import stopwords
-from sklearn.metrics import accuracy_score
 
 from pyflink.datastream.functions import RuntimeContext, MapFunction
 from pyflink.common.typeinfo import Types
 from pyflink.datastream import StreamExecutionEnvironment
 from pyflink.datastream import CheckpointingMode
-from pyflink.datastream.connectors import StreamingFileSink
-from pyflink.common.serialization import Encoder
 
 from utils import process, split
 
