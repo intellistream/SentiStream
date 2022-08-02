@@ -5,7 +5,6 @@ import logging
 from os import walk
 import os
 
-
 def tokenise(line):
     return simple_preprocess(line, deacc=True)
     # remove punctuations and lowercase words also tokenise them
@@ -25,7 +24,6 @@ def process(line):
 
 def clean(line):
     return remove_stopwords(line)
-
 
 def load_and_augment_data(pseudo_data_folder, ground_data_file):
     # get pseudo data files
@@ -58,7 +56,6 @@ def load_and_augment_data(pseudo_data_folder, ground_data_file):
     # test_df = test_df.append(pdf, ignore_index=True)
 
     return pseudo_size, new_df
-
 
 def pre_process(tweet):
     return tweet[0], process(tweet[1])

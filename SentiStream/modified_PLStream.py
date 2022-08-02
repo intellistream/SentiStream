@@ -21,6 +21,8 @@ from pyflink.datastream.functions import RuntimeContext, MapFunction
 from pyflink.common.typeinfo import Types
 from pyflink.datastream import StreamExecutionEnvironment
 from pyflink.datastream import CheckpointingMode
+from pyflink.datastream.connectors import StreamingFileSink
+from pyflink.common.serialization import Encoder
 
 from utils import process, split
 
@@ -34,18 +36,6 @@ formatter = logging.Formatter('PLStream:%(thread)d %(lineno)d: %(levelname)s: %(
                               datefmt='%m/%d/%Y %I:%M:%S %p', )
 fh.setFormatter(formatter)
 logger.addHandler(fh)
-
-
-# class for_output(MapFunction):
-#     def __init__(self):
-#         pass
-#
-#     def map(self, value):
-#         return str(value[1])
-#
-#     def logFile(self, f, m):
-#         with open(f, 'a') as wr:
-#             wr.write(m)
 
 
 def process_text_and_generate_tokens(text, func=process):
@@ -84,6 +74,7 @@ class unsupervised_OSA(MapFunction):
         self.timer = time()
         # self.time_to_reset = 30
         self.time_to_reset = 30
+
         # similarity-based classification preparation
         self.true_ref_neg = []
         self.true_ref_pos = []
@@ -452,7 +443,6 @@ def unsupervised_stream(ds, map_parallelism=1, reduce_parallelism=2):
 
 
 if __name__ == '__main__':
-
     logging.basicConfig(filename='plstream.log')
     logger.info('logger initiated')
 
@@ -469,7 +459,7 @@ if __name__ == '__main__':
         else:
             true_label[i] = 1
 
-    yelp_review = list(f.review)
+    # yelp_review = list(f.review)
     yelp_review = list(f.review)[:test_N]
     print(len(yelp_review))
     data_stream = []
