@@ -471,7 +471,7 @@ if __name__ == '__main__':
     env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
     ds = env.from_collection(collection=data_stream)
     # always update ds variable
-    ds = unsupervised_stream(ds, map_parallelism=parallelism).map(lambda x: x[:-1])
+    ds = unsupervised_stream(ds, map_parallelism=parallelism)
 
     ds.print()
     env.execute("osa_job")
