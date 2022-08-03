@@ -46,7 +46,7 @@ class Supervised_OSA_inference(MapFunction):
 
         processed_text = process_text_and_generate_tokens(content)
         # logging.warning(processed_text)
-        vector_mean = generate_vector_mean(self, processed_text)
+        vector_mean = generate_vector_mean(self.model, processed_text)
         self.collector.append([tweet[0], vector_mean, content])
 
         if self.with_accuracy:
