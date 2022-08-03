@@ -9,11 +9,10 @@ from pyflink.datastream import CheckpointingMode
 import pandas as pd
 import sys
 
-from pyflink.datastream.connectors import StreamingFileSink
 from sklearn.metrics import accuracy_score
 
 from modified_PLStream import unsupervised_stream
-from classifier import clasifier
+from classifier import classifier
 from time import time
 from pyflink.datastream import CoMapFunction
 from collections import defaultdict
@@ -31,27 +30,53 @@ logger.addHandler(fh)
 np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)
 
 
+def default_confidence(ls, myDict, otherDict):
+    # logging.warning('dict1:' + str(myDict.items()))
+    # logging.warning('dict2:' + str(myDict.items()))
+    logging.warning(ls)
+    # labels
+    l1 = myDict[ls[0]][1]
+    l2 = otherDict[ls[0]][1]
+
+    # confidence
+    con1 = myDict[ls[0]][0]
+    con2 = otherDict[ls[0]][0]
+
+    # polarity
+    sign1 = polarity(l1)
+    sign2 = polarity(l2)
+
+    myDict[ls[0]] = False
+    otherDict[ls[0]] = False
+
+    return Evaluation.w1 * con1 * sign1 + Evaluation.w2 * con2 * sign2
+
+
 def collect(ls, myDict, otherDict, log=False):
     if otherDict[ls[0]] is not None and otherDict[ls[0]] is not False:
         if myDict[ls[0]] is None:
-            myDict[ls[0]] = ls[:-2]
+            myDict[ls[0]] = ls[1:-2] + [ls[-1]]
             return 'eval'
         else:
             return 'done'
     else:
         if myDict[ls[0]] is None:
-            myDict[ls[0]] = ls[:-2]
+            myDict[ls[0]] = ls[1:-2] + [ls[-1]]
 
     logging.warning('mydict in collecting:' + str(myDict.items()))
     return 'collecting'
 
 
-def generate_labels_and_confidence(confidence, ls):
+def generate_label_from_confidence(confidence, ls):
     if confidence >= 0.5:
         ls[2] = 1
+        # logging.warning(ls)
+        # logging.warning("high positive confidence")
         return ls[2:]
     elif confidence <= -0.5:
         ls[2] = 0
+        # logging.warning("high negative confidence")
+        # logging.warning(ls)
         return ls[2:]
     else:
         if confidence < 0:
@@ -62,53 +87,51 @@ def generate_labels_and_confidence(confidence, ls):
         return ['low_confidence', confidence, *ls[2:]]
 
 
+def polarity(label):
+    if label == 1:
+        return 1
+    else:
+        return -1
+
+
 class Evaluation(CoMapFunction):
+    PLSTREAM_ACC = 0.75  # based on test results
+    RF_CLASIFIER_ACC = 0.87  # based on test results
+    # weights
+    w1 = PLSTREAM_ACC / (PLSTREAM_ACC + RF_CLASIFIER_ACC)
+    w2 = RF_CLASIFIER_ACC / (PLSTREAM_ACC + RF_CLASIFIER_ACC)
+
     def __init__(self):
         self.dict1 = defaultdict(lambda: None)  # for first stream
         self.dict2 = defaultdict(lambda: None)  # for second stream
         self.confidence = 0.5
-        self.PLSTREAM_ACC = 0.75  # based on test results
-        self.RF_CLASIFIER_ACC = 0.87  # based on test results
-        # weights
-        self.w1 = self.PLSTREAM_ACC / (self.PLSTREAM_ACC + self.RF_CLASIFIER_ACC)
-        self.w2 = self.RF_CLASIFIER_ACC / (self.PLSTREAM_ACC + self.RF_CLASIFIER_ACC)
 
-    def polarity(self, label):
-        if label == 1:
-            return 1
-        else:
-            return -1
+    def calculate_confidence(self, ls, myDict, otherDict, func=default_confidence):
+        """
+        :param ls: list from merged_stream e.g [int(index),float(confidence),int(new_label),string(tweet),{dict}]
+        from PLStream or [int(index),float(confidence),int(new_label),string(tweet),int(true_label)] from classifier
+        :param myDict: dict corresponding to the current element of the string
+            e.g. {int :[float(confidence),int(new_label),{dict}]}
+        :param otherDict: dict corresponding to the sibling element from another substream
+            e.g. {int :[float(confidence),int(new_label),int(true_label)]}
 
-    def evaluate(self, ls, myDict, otherDict):
-        logging.warning('dict1:' + str(self.dict1.items()))
-        logging.warning('dict2:' + str(self.dict2.items()))
-        logging.warning(ls)
-        # labels
-        l1 = self.dict1[ls[0]][2]
-        l2 = self.dict2[ls[0]][2]
+        myDict and otherDict might contain either of the two formats in the examples above
+        :param func: expects a list of current element, one dictionary corresponding to the current element and another
+        to the sibling element
+        :return: a float value with confidence
+        """
 
-        # confidence
-        con1 = self.dict1[ls[0]][1]
-        con2 = self.dict2[ls[0]][1]
-
-        # polarity
-        sign1 = self.polarity(l1)
-        sign2 = self.polarity(l2)
-
-        myDict[ls[0]] = False
-        otherDict[ls[0]] = False
-
-        return self.w1 * con1 * sign1 + self.w2 * con2 * sign2
+        return func(ls, myDict, otherDict)
 
     def map(self, ls, myDict, otherDict, log=False):
-        if log == True:
+        if log:
             logging.warning("in map: " + str(ls))
             logging.warning(self.dict1.items())
             logging.warning(self.dict2.items())
         s = collect(ls, myDict, otherDict, log)
         if s == 'eval':
-            confidence = self.evaluate(ls, myDict, otherDict)
-            return generate_labels_and_confidence(confidence, ls)
+            confidence = self.calculate_confidence(ls, myDict, otherDict)
+            return generate_label_from_confidence(confidence, ls)
         else:
             return s
 
@@ -125,8 +148,9 @@ class Evaluation(CoMapFunction):
 def merged_stream(ds1, ds2):
     # ds2.print()
     ds = ds1.connect(ds2) \
-        .map(Evaluation()).filter(lambda x: x != 'collecting' and x != 'done') \
-        .filter(lambda x: x[0] != 'low_confidence')
+        .map(Evaluation()).filter(lambda x: x != 'collecting' and x != 'done')
+    # ds.print()
+    ds=ds.filter(lambda x: x[0] != 'low_confidence')
 
     # .key_by(lambda x: x[0])
     return ds
@@ -141,37 +165,61 @@ def generate_new_label(ds, ds_print=None):
     return ds
 
 
-def calculate_accuracy(ds, ds_print=None):
+def calculate_accuracy(ds):
     data = ds.execute_and_collect()
     true_label = []
     predicted_label = []
-    for results in data:
+    results = []
+    # print(data)
+    for result in data:
         true_label.append(results[-1])
         predicted_label.append(results[0])
-        if ds_print == 'PRINT':
-            print(results)
+        results.append(results)
+    if true_label:
+        return accuracy_score(true_label, predicted_label)
+    return 'no data for accuracy'
+
+
+
+def calculate_PLStream_accuracy(ds):
+    elements = ds.execute_and_collect()
+    true_label = []
+    predicted_label = []
+    for element in elements:
+        true_label.append(element[4]['true_label'])
+        predicted_label.append(element[2])
+    return accuracy_score(true_label, predicted_label)
+
+
+def calculate_classifier_accuracy(ds):
+    elements = ds.execute_and_collect()
+    true_label = []
+    predicted_label = []
+    for element in elements:
+        true_label.append(element[4])
+        predicted_label.append(element[2])
     return accuracy_score(true_label, predicted_label)
 
 
 if __name__ == '__main__':
-    mode = None
-    ds_print = None
     parser = argparse.ArgumentParser(description='Run evaluation in two modes, labels and accuracy. Accuracy mode is\
-     default')
+     default. Labels generated can be printed or stored in ./evaluation folder.')
     parser.add_argument('-l', dest='mode', action='store_const', default='ACC', const='LABEL',
-                        help='Generate label(default: print accuracy)')
+                        help='Generate label(default: get accuracy, else get label)')
     parser.add_argument('-p', dest='ds_print', action='store_const', default='PRINT', const=None,
-                        help='Generate label(default: print accuracy)')
+                        help='Generate label(default: print generated labels, else store to ./evaluation folder)')
+    args = parser.parse_args()
+    mode=args.mode
+    ds_print=args.ds_print
     logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
-
     start_time = time()
 
     # input_path = './yelp_review_polarity_csv/test.csv'
     # if input_path is not None:
-    f = pd.read_csv('./exp_train.csv', header=None)  # , encoding='ISO-8859-1'
-    # f = pd.read_csv('./exp_train.csv', header=None)  # , encoding='ISO-8859-1'
+    # f = pd.read_csv('./yelp_review_polarity_csv/test.csv', header=None)  # , encoding='ISO-8859-1'
+    f = pd.read_csv('./exp_test.csv', header=None)  # , encoding='ISO-8859-1'
     f.columns = ["label", "review"]
-    test_N = 100
+    test_N = 10
     f.loc[f['label'] == 1, 'label'] = 0
     f.loc[f['label'] == 2, 'label'] = 1
 
@@ -191,16 +239,18 @@ if __name__ == '__main__':
 
     ds1 = unsupervised_stream(ds)
     # ds1.print()
-    ds2 = clasifier(ds)
+    # print(calculate_PLStream_accuracy(ds1))
+    ds2 = classifier(ds)
     # ds2.print()
+    # print(calculate_classifier_accuracy(ds2))
     ds = merged_stream(ds1, ds2)
     if mode == 'LABEL':
-        ds = generate_new_label(ds,ds_print)
-        ds.print()
+        ds = generate_new_label(ds, ds_print)
+        if ds_print:
+            ds.print()
         env.execute()
     else:
-        print(calculate_accuracy(ds,ds_print))
+        print(calculate_accuracy(ds))
 
     #  always specify output_type when writing to file
     logging.info("time taken for execution is: " + str(time() - start_time))
-    # supervised_learning(known_args.input, known_args.output)
