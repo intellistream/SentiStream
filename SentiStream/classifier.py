@@ -6,15 +6,16 @@ from pyflink.datastream.functions import RuntimeContext, MapFunction
 import pickle
 from gensim.models import Word2Vec
 import time
-from utils import process_text_and_generate_tokens, split, generate_vector_mean, get_model
+from utils import process_text_and_generate_tokens, split, generate_vector_mean, default_model_pretrain, \
+    default_model_classifier
 import pandas as pd
 import numpy as np
 from pyflink.datastream import CheckpointingMode
 
 
 def join(x, y):
-    logging.warning('x is: ' + str(x))
-    logging.warning('y is: ' + str(y))
+    # logging.warning('x is: ' + str(x))
+    # logging.warning('y is: ' + str(y))
     return x + y[1]
 
 
@@ -28,20 +29,23 @@ class Supervised_OSA_inference(MapFunction):
         self.collector = []
         self.output = []
         self.collector_size = 5
-        self.with_accuracy=with_accuracy
+        self.with_accuracy = with_accuracy
 
     def open(self, runtime_context: RuntimeContext):
-        self.model = Word2Vec.load(get_model())
+        """
+        upload model here in runtime
+        """
+        self.model = default_model_pretrain()  # change to your model here
 
     def map(self, tweet):
-        logging.warning(tweet)
+        # logging.warning(tweet)
         self.data.append(tweet)
 
         if self.with_accuracy:
             content = tweet[2]
 
         processed_text = process_text_and_generate_tokens(content)
-        logging.warning(processed_text)
+        # logging.warning(processed_text)
         vector_mean = generate_vector_mean(self, processed_text)
         self.collector.append([tweet[0], vector_mean, content])
 
@@ -67,8 +71,10 @@ class Classifier(MapFunction):
         self.data = []
 
     def open(self, runtime_context: RuntimeContext):
-        file = open('randomforest_classifier', 'rb')
-        self.model = pickle.load(file)
+        """
+        upload model here  in runtime
+        """
+        self.model = default_model_classifier()  # change to your model
 
     def get_confidence(self, func=default_confidence):
         """
