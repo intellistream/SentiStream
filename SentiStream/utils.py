@@ -1,9 +1,13 @@
+import pickle
+
 from gensim.utils import simple_preprocess
 from gensim.parsing.preprocessing import remove_stopwords
 import pandas as pd
 import logging
 from os import walk
 import os
+import numpy as np
+from gensim.models import Word2Vec
 
 
 def tokenise(line):
@@ -60,5 +64,62 @@ def load_and_augment_data(pseudo_data_folder, ground_data_file):
     return pseudo_size, new_df
 
 
-def pre_process(tweet):
-    return tweet[0], process(tweet[1])
+def pre_process(tweet, func=process):
+    """
+
+    :param tweet:expects tweet in the format of a label,string: 1,"i love rice"
+    :param func: funct(text) returns tokenized text in the form of a list. e.g: ['eat','rice']
+    :return: label,[tokens]
+    """
+    return tweet[0], process_text_and_generate_tokens(tweet[1], func)
+
+
+def process_text_and_generate_tokens(text, func=process):
+    """
+    :param func: funct(text) returns tokenized text in the form of a list. e.g: ['eat','rice']
+    :param text: expects text in the format of a string:"i eat rice"
+    :return: [tokens]
+    """
+
+    return func(text)
+
+
+def default_vector_mean(model, tokenized_text):
+    word_vector = []
+    for token in tokenized_text:
+        try:
+            word_vector.append(model.wv[token])
+        except:
+            pass
+    if len(word_vector) == 0:
+        return np.zeros(model.vector_size)
+    else:
+        return (np.mean(word_vector, axis=0)).tolist()
+
+
+def generate_vector_mean(model, tokenized_text, func=default_vector_mean):
+    """
+    :param model: pretrained model
+    :param tokenized_text: list e.g. "['eat','rice']"
+    :param func: custom function to generate vector mean with
+    :return: vector mean in the form of list e.g. [0.1,0.2,0.4]
+    """
+    return func(model, tokenized_text)
+
+
+def default_model_pretrain():
+    path_to_model = 'word2vec20tokenised.model'
+    return Word2Vec.load(path_to_model)
+
+
+def default_model_classifier():
+    path_to_model = 'randomforest_classifier'
+    file = open(path_to_model, 'rb')
+    return pickle.load(file)
+
+
+def train_word2vec(model, sentences):
+    model.build_vocab(sentences, update=True)
+    model.train(sentences,
+                total_examples=model.corpus_count,
+                epochs=model.epochs)
