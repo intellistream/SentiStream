@@ -12,7 +12,8 @@ from pyflink.datastream.execution_mode import RuntimeExecutionMode
 from pyflink.datastream import CheckpointingMode
 import sys
 
-from utils import process, load_and_augment_data
+from utils import load_and_augment_data, process_text_and_generate_tokens, generate_vector_mean, \
+    default_model_classifier, default_model_pretrain
 
 logger = logging.getLogger('PLStream')
 logger.setLevel(logging.DEBUG)
@@ -23,18 +24,14 @@ fh.setFormatter(formatter)
 logger.addHandler(fh)
 
 np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)
-from numpy import dot
-from numpy.linalg import norm
 from gensim.models import Word2Vec
-from os import walk
-import os
 
 pseudo_data_size = 0
 test_data_size = 0
 
 
-class Supervised_OSA_inferrence(MapFunction):
-    def __init__(self,test_data_size,parallelism):
+class Supervised_OSA_inference(MapFunction):
+    def __init__(self, test_data_size, parallelism):
         self.model = None
         self.collector = []
         self.output = []
@@ -42,24 +39,20 @@ class Supervised_OSA_inferrence(MapFunction):
         # logging.warning("pseudo_data_size: " + str(pseudo_data_size))
 
     def open(self, runtime_context: RuntimeContext):
-        self.model = Word2Vec.load('word2vec20tokenised.model')
+        """
+        upload model here  in runtime
+        """
+        self.model = default_model_pretrain()  # change to your model
 
     def map(self, tweet):
         # logging.warning(tweet)
-        processed_text = process(tweet[1])
-        word_vector = []
-        for token in processed_text:
-            try:
-                word_vector.append(self.model.wv[token])
-            except:
-                pass
-        if len(word_vector) == 0:
-            vector_mean = np.zeros(self.model.vector_size)
-        else:
-            vector_mean = (np.mean(word_vector, axis=0)).tolist()
+        processed_text = process_text_and_generate_tokens(tweet[1])
+        vector_mean = generate_vector_mean(self, processed_text)
         self.collector.append([tweet[0], vector_mean])
-        logging.warning(self.collector_size)
-        logging.warning(len(self.collector))
+
+        # logging.warning(self.collector_size)
+        # logging.warning(len(self.collector))
+
         if len(self.collector) >= self.collector_size:
             for e in self.collector:
                 self.output.append(e)
@@ -79,8 +72,26 @@ class RFClassifier(MapFunction):
         self.redis_param = None
 
     def open(self, runtime_context: RuntimeContext):
-        file = open('randomforest_classifier', 'rb')
-        self.model = pickle.load(file)
+        """
+        upload model here  in runtime
+        """
+        self.model = default_model_classifier()  # change to your model
+
+    def get_accuracy(self, predictions, func=accuracy_score):
+        """
+        :param predictions: a list with predicted values
+        :param func: a function to calculate accuracy
+        :return: accuracy
+        """
+        return func(self.labels, predictions)
+
+    def get_prediction(self, func):
+        """
+
+        :param func: a custom function to predict from  data stored in this object
+        :return:  returns predicted values in list format
+        """
+        return func(self.data)
 
     def map(self, ls):
         for i in range(len(ls)):
@@ -90,18 +101,18 @@ class RFClassifier(MapFunction):
         # logging.warning(self.labels)
         # logging.warning(self.data)
 
-        predictions = self.model.predict(self.data)
-        accuracy = accuracy_score(self.labels, predictions)
+        predictions = self.get_prediction(self.model.predict)  # change to your prediction function
+        accuracy = self.get_accuracy(predictions)  # change to your accuracy function
         return 1, accuracy
 
 
-def batch_inference(ds,test_data_size, supervised_parallelism=1, clasifier_parallelism=1):
-    # global parallelism
+def batch_inference(ds, test_data_size, supervised_parallelism=1, clasifier_parallelism=1):
     redis_param = redis.StrictRedis(host='localhost', port=6379, db=0)
-    # parallelism = supervised_parallelism
-    ds = ds.map(Supervised_OSA_inferrence(test_data_size,supervised_parallelism))\
+    ds = ds.map(Supervised_OSA_inference(test_data_size, supervised_parallelism)) \
         .set_parallelism(supervised_parallelism).filter(lambda i: i != 'collecting')
+
     # ds.flat_map(split).print() #data size is uneven due to use of collector
+
     ds = ds.map(RFClassifier()).set_parallelism(clasifier_parallelism) \
         .key_by(lambda x: x[0]).reduce(lambda x, y: (1, (x[1] + y[1]) / 2))
 
@@ -139,6 +150,6 @@ if __name__ == '__main__':
     env.set_parallelism(1)
     env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
     ds = env.from_collection(collection=data_stream)
-    accuracy = batch_inference(ds,test_data_size)
+    accuracy = batch_inference(ds, test_data_size)
     print(accuracy)
     # env.execute()
