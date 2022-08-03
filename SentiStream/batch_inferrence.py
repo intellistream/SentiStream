@@ -63,7 +63,7 @@ class Supervised_OSA_inference(MapFunction):
             return 'collecting'
 
 
-class RFClassifier(MapFunction):
+class Classifier(MapFunction):
     def __init__(self):
         self.model = None
         self.vectors = []
@@ -113,7 +113,7 @@ def batch_inference(ds, test_data_size, supervised_parallelism=1, clasifier_para
 
     # ds.flat_map(split).print() #data size is uneven due to use of collector
 
-    ds = ds.map(RFClassifier()).set_parallelism(clasifier_parallelism) \
+    ds = ds.map(Classifier()).set_parallelism(clasifier_parallelism) \
         .key_by(lambda x: x[0]).reduce(lambda x, y: (1, (x[1] + y[1]) / 2))
 
     with ds.execute_and_collect() as results:
