@@ -160,7 +160,7 @@ def generate_new_label(ds, ds_print=None):
     ds = ds.map(lambda x: x[:-1])
     if not ds_print:
         ds = ds.map(lambda x: str(x[:-1])).add_sink(StreamingFileSink  # .set_parallelism(2)
-                                                    .for_row_format('./evaluation', Encoder.simple_string_encoder())
+                                                    .for_row_format('./senti_output', Encoder.simple_string_encoder())
                                                     .build())
     return ds
 
@@ -202,11 +202,11 @@ def calculate_classifier_accuracy(ds):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run evaluation in two modes, labels and accuracy. Accuracy mode is\
-     default. Labels generated can be printed or stored in ./evaluation folder.')
+     default. Labels generated can be printed or stored in ./senti_output folder.')
     parser.add_argument('-l', dest='mode', action='store_const', default='ACC', const='LABEL',
                         help='Generate label(default: get accuracy, else get label)')
     parser.add_argument('-p', dest='ds_print', action='store_const', default='PRINT', const=None,
-                        help='Generate label(default: print generated labels, else store to ./evaluation folder)')
+                        help='Generate label(default: print generated labels, else store to ./senti_output folder)')
     args = parser.parse_args()
     mode = args.mode
     ds_print = args.ds_print
