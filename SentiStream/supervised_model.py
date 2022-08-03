@@ -10,8 +10,7 @@ import logging
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 
-from utils import load_and_augment_data, pre_process
-from gensim.models import Word2Vec
+from utils import load_and_augment_data, pre_process, default_model_pretrain, train_word2vec, generate_vector_mean
 
 # global variables
 PSEUDO_DATA_COLLECTION_THRESHOLD = 0
@@ -31,7 +30,29 @@ class Supervised_OSA(MapFunction):
         # logging.warning("pseudo_data_size: " + str(pseudo_data_size))
 
     def open(self, runtime_context: RuntimeContext):
-        self.model = Word2Vec.load('word2vec20tokenised.model')
+        """
+        upload model here  in runtime
+        """
+        self.model = default_model_pretrain()  # change to your model
+
+    def initialise_classifier_and_fit(self, mean_vectors, classifier=RandomForestClassifier):
+        """
+        :param mean_vectors: list of mean_vectors of all the train sentences
+        :param classifier: choice of classifier
+        :return: a fitted classifier
+        """
+        clf = classifier()
+        self.classifier_fit(mean_vectors, clf.fit)  # change to another fit function from your model if applicable
+        return clf
+
+    def classifier_fit(self, mean_vectors, func):
+        """
+
+        :param mean_vectors: list of mean_vectors of all the train sentences
+        :param func: a function to fit classifier
+        :return: None, only fits the classifier
+        """
+        func(mean_vectors, self.labels)
 
     def map(self, tweet):
         # logging.warning(tweet)
@@ -39,26 +60,28 @@ class Supervised_OSA(MapFunction):
         self.sentences.append(tweet[1])
         self.labels.append(tweet[0])
         if len(self.labels) >= self.collection_threshold:
-            self.train_word2vec()
+            self.train_model()
 
-            model_vector = [(np.mean([self.model.wv[token] for token in row], axis=0)).tolist() for row in
-                            self.sentences]
+            mean_vectors = []
+            for sentence in self.sentences:
+                mean_vectors.append(generate_vector_mean(self.model, sentence))  # change to custom vector mean function
 
-            clf_word2vec = RandomForestClassifier()
-            clf_word2vec.fit(model_vector, self.labels)
+            clf = self.initialise_classifier_and_fit(mean_vectors)  # change to your model
 
             filename = 'supervised.model'
-            pickle.dump(clf_word2vec, open(filename, 'wb'))
+            pickle.dump(clf, open(filename, 'wb'))
 
             return "finished training"
         else:
             return 'collecting'
 
-    def train_word2vec(self):
-        self.model.build_vocab(self.sentences, update=True)
-        self.model.train(self.sentences,
-                         total_examples=self.model.corpus_count,
-                         epochs=self.model.epochs)
+    def train_model(self, func=train_word2vec):
+        """
+
+        :param func: a function that expects a pretraining model and the sentences to train
+        :return: None. it trains self.model of this object
+        """
+        func(self.model, self.sentences)
 
 
 def supervised_model(data_process_parallelism, train_df, train_data_size, pseudo_data_size,
@@ -66,25 +89,32 @@ def supervised_model(data_process_parallelism, train_df, train_data_size, pseudo
                      accuracy,
                      ACCURACY_THRESHOLD):
     if pseudo_data_size > PSEUDO_DATA_COLLECTION_THRESHOLD and accuracy < ACCURACY_THRESHOLD:
+
+        # data preparation
         true_label = train_df.label
         yelp_review = train_df.review
         data_stream = []
         for i in range(len(yelp_review)):
             data_stream.append((int(true_label[i]), yelp_review[i]))
 
-        print('Coming Stream is ready...')
-        print('===============================')
-
+        # stream environment setup
         env = StreamExecutionEnvironment.get_execution_environment()
         env.set_runtime_mode(RuntimeExecutionMode.BATCH)
         env.set_parallelism(1)
         env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
-        ds = env.from_collection(collection=data_stream)
 
-        ds = ds.map(pre_process).set_parallelism(data_process_parallelism).map(Supervised_OSA(train_data_size)) \
-            .filter(lambda x: x != 'collecting')
+        print('Coming Stream is ready...')
+        print('===============================')
+
+        # data stream pipline
+        ds = env.from_collection(collection=data_stream)
+        ds = ds.map(pre_process)  # change to your pre_processing function,
+        ds = ds.set_parallelism(data_process_parallelism).map(Supervised_OSA(train_data_size))
+        ds = ds.filter(lambda x: x != 'collecting')
         # ds = batch_inference(ds)
+
         ds.print()
+
         env.execute()
     else:
         print("accuracy below threshold: " + str(accuracy < ACCURACY_THRESHOLD))
@@ -104,7 +134,8 @@ if __name__ == '__main__':
     train_data_size = len(train_df)
 
     redis_param = redis.StrictRedis(host='localhost', port=6379, db=0)
-    accuracy = float(redis_param.get('batch_inference_accuracy').decode())
+    # accuracy = float(redis_param.get('batch_inference_accuracy').decode())
+    accuracy = 0.4
     supervised_model(parallelism, train_df, train_data_size, pseudo_data_size, PSEUDO_DATA_COLLECTION_THRESHOLD,
                      accuracy,
                      ACCURACY_THRESHOLD)
