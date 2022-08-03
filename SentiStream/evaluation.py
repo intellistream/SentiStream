@@ -150,7 +150,7 @@ def merged_stream(ds1, ds2):
     ds = ds1.connect(ds2) \
         .map(Evaluation()).filter(lambda x: x != 'collecting' and x != 'done')
     # ds.print()
-    ds=ds.filter(lambda x: x[0] != 'low_confidence')
+    ds = ds.filter(lambda x: x[0] != 'low_confidence')
 
     # .key_by(lambda x: x[0])
     return ds
@@ -178,7 +178,6 @@ def calculate_accuracy(ds):
     if true_label:
         return accuracy_score(true_label, predicted_label)
     return 'no data for accuracy'
-
 
 
 def calculate_PLStream_accuracy(ds):
@@ -209,8 +208,8 @@ if __name__ == '__main__':
     parser.add_argument('-p', dest='ds_print', action='store_const', default='PRINT', const=None,
                         help='Generate label(default: print generated labels, else store to ./evaluation folder)')
     args = parser.parse_args()
-    mode=args.mode
-    ds_print=args.ds_print
+    mode = args.mode
+    ds_print = args.ds_print
     logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
     start_time = time()
 
