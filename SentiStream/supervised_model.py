@@ -33,7 +33,7 @@ class Supervised_OSA(MapFunction):
         """
         upload model here  in runtime
         """
-        self.model = default_model_pretrain()  # change to your model
+        self.model = default_model_pretrain("PLS_c10.model")  # change to your model
         self.redis = redis.StrictRedis(host='localhost', port=6379, db=0)
 
     def initialise_classifier_and_fit(self, mean_vectors, classifier=RandomForestClassifier):
@@ -94,8 +94,9 @@ class Supervised_OSA(MapFunction):
 def supervised_model(data_process_parallelism, train_df, train_data_size, pseudo_data_size,
                      PSEUDO_DATA_COLLECTION_THRESHOLD,
                      accuracy,
-                     ACCURACY_THRESHOLD):
-    if pseudo_data_size > PSEUDO_DATA_COLLECTION_THRESHOLD and accuracy < ACCURACY_THRESHOLD:
+                     ACCURACY_THRESHOLD,
+                     init=False):
+    if init or (pseudo_data_size > PSEUDO_DATA_COLLECTION_THRESHOLD and accuracy < ACCURACY_THRESHOLD):
 
         # data preparation
         true_label = train_df.label
