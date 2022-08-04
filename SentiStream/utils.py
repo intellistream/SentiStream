@@ -107,8 +107,7 @@ def generate_vector_mean(model, tokenized_text, func=default_vector_mean):
     return func(model, tokenized_text)
 
 
-def default_model_pretrain():
-    path_to_model = 'word2vec20tokenised.model'
+def default_model_pretrain(path_to_model='word2vec20tokenised.model'):
     return Word2Vec.load(path_to_model)
 
 
