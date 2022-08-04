@@ -54,7 +54,7 @@ class unsupervised_OSA(MapFunction):
         # model pruning
         self.LRU_index = ['good', 'bad']
         self.max_index = max(self.LRU_index)
-        self.LRU_cache_size = 30000
+        self.LRU_cache_size = 10
         self.sno = nltk.stem.SnowballStemmer('english')
 
         # model merging
@@ -368,11 +368,13 @@ class unsupervised_OSA(MapFunction):
         k_cur = min(len(self.true_ref_neg), len(self.true_ref_pos))
         for neg_word in self.true_ref_neg[:k_cur]:
             try:
+                logging.warning("pos dot products "+str(dot(sentence_vec, model.wv[neg_word]) / (norm(sentence_vec) * norm(model.wv[neg_word]))))
                 cos_sim_bad += dot(sentence_vec, model.wv[neg_word]) / (norm(sentence_vec) * norm(model.wv[neg_word]))
             except:
                 pass
         for pos_word in self.true_ref_pos[:k_cur]:
             try:
+                logging.warning("neg do prodcuts: "+str( dot(sentence_vec, model.wv[pos_word]) / (norm(sentence_vec) * norm(model.wv[pos_word]))))
                 cos_sim_good += dot(sentence_vec, model.wv[pos_word]) / (norm(sentence_vec) * norm(model.wv[pos_word]))
             except:
                 pass
@@ -406,7 +408,7 @@ if __name__ == '__main__':
     f = pd.read_csv('./train.csv')  # , encoding='ISO-8859-1'
     f.columns = ["label", "review"]
     # 20,000 data for quick testing
-    test_N = 80000
+    test_N = 80
     true_label = list(f.label)[:test_N]
     for i in range(len(true_label)):
         if true_label[i] == 1:
@@ -415,7 +417,7 @@ if __name__ == '__main__':
             true_label[i] = 1
     yelp_review = list(f.review)[:test_N]
     data_stream = []
-    for j in range(2):
+    for j in range(1):
         for i in range(len(yelp_review)):
             data_stream.append((yelp_review[i], int(true_label[i])))
 
@@ -426,13 +428,14 @@ if __name__ == '__main__':
         env.set_parallelism(1)
         env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
         ds = env.from_collection(collection=data_stream)
-        ds.map(unsupervised_OSA()).set_parallelism(parallelism) \
+        ds=ds.map(unsupervised_OSA()).set_parallelism(parallelism) \
             .filter(lambda x: x[0] != 'collecting') \
             .key_by(lambda x: x[0], key_type=Types.STRING()) \
             .reduce(lambda x, y: (x[0], unsupervised_OSA().model_merge(x, y))).set_parallelism(2) \
             .filter(lambda x: x[0] != 'model') \
             .map(for_output(), output_type=Types.STRING()).set_parallelism(1) \
-            .add_sink(StreamingFileSink  # .set_parallelism(2)
-                      .for_row_format('./output', Encoder.simple_string_encoder())
-                      .build())
+            # .add_sink(StreamingFileSink  # .set_parallelism(2)
+            #           .for_row_format('./output', Encoder.simple_string_encoder())
+            #           .build())
+        ds.print()
         env.execute("osa_job")
