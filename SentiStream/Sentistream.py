@@ -4,7 +4,7 @@ import numpy as np
 from pyflink.datastream.execution_mode import RuntimeExecutionMode
 
 from batch_inferrence import batch_inference
-from evaluation import generate_new_label,merged_stream
+from evaluation import generate_new_label, merged_stream
 from supervised_model import supervised_model
 from utils import load_and_augment_data
 
@@ -16,7 +16,7 @@ from pyflink.datastream import CheckpointingMode
 import pandas as pd
 import sys
 from modified_PLStream import unsupervised_stream
-from classifier import clasifier
+from classifier import classifier
 from time import time
 
 logger = logging.getLogger('PLStream')
@@ -37,8 +37,8 @@ if __name__ == '__main__':
 
     start_time = time()
 
-    # input_path = './yelp_review_polarity_csv/test.csv'
-    # if input_path is not None:
+    # get and prepare data set
+    input_path = './exp_test.csv'
     f = pd.read_csv('./exp_train.csv', header=None)  # , encoding='ISO-8859-1'
     f.columns = ["label", "review"]
 
@@ -50,34 +50,36 @@ if __name__ == '__main__':
     data_stream = []
     for i in range(len(yelp_review)):
         data_stream.append((i, int(true_label[i]), yelp_review[i]))
-        # print((i, int(true_label[i]), yelp_review[i]))
 
-    print("unsupervised stream,classifier and evaluation")
-    print('Coming Stream is ready...')
-    print('===============================')
+    # prepare stream env
     env = StreamExecutionEnvironment.get_execution_environment()
     env.set_parallelism(1)
     env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
     ds = env.from_collection(collection=data_stream)
 
-    #  always specify output_type when writing to file
+    print("unsupervised stream,classifier and evaluation")
+    print('Coming Stream is ready...')
+    print('===============================')
 
+    # data stream functions
     ds1 = unsupervised_stream(ds)
     ds1.print()
-    ds2 = clasifier(ds)
+    ds2 = classifier(ds)
     ds2.print()
-    ds=merged_stream(ds1,ds2)
+    ds = merged_stream(ds1, ds2)
     ds = generate_new_label(ds)
-    # .key_by(lambda x: x[0])
-    # ds.print()
     env.execute()
+
+    print("Finished running datastream")
+
+    ####### Run supersied part of sentistream on batch mode
 
     # data source for batch_inferrence and supervised_model
     pseudo_data_folder = './senti_output'
     test_data_file = './exp_test.csv'
     train_data_file = './exp_train.csv'
 
-    # data sets
+    # data sets prep
     pseudo_data_size, test_df = load_and_augment_data(pseudo_data_folder, test_data_file)
     test_data_size = len(test_df)
     true_label = test_df.label
@@ -86,19 +88,29 @@ if __name__ == '__main__':
     for i in range(len(yelp_review)):
         data_stream.append((int(true_label[i]), yelp_review[i]))
 
+
+
     print("batch_inference")
     print('Coming Stream is ready...')
     print('===============================')
 
+    # batch stream set up
     env = StreamExecutionEnvironment.get_execution_environment()
     env.set_runtime_mode(RuntimeExecutionMode.BATCH)
     env.set_parallelism(1)
     env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
+
+
+
     ds = env.from_collection(collection=data_stream)
     accuracy = batch_inference(ds, test_data_size)
     print(accuracy)
 
+
     print("supervised_model_train")
+
+
+    # train model on pseudo data with supervised mode
     pseudo_data_size, train_df = load_and_augment_data(pseudo_data_folder, train_data_file)
     train_data_size = len(train_df)
 
