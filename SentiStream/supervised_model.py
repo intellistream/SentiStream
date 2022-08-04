@@ -61,7 +61,7 @@ class Supervised_OSA(MapFunction):
         self.sentences.append(tweet[1])
         self.labels.append(tweet[0])
         if len(self.labels) >= self.collection_threshold:
-            self.train_model()
+            self.train_wordvector_model()  # pretraining model
 
             mean_vectors = []
             for sentence in self.sentences:
@@ -71,13 +71,18 @@ class Supervised_OSA(MapFunction):
 
             filename = 'supervised.model'
             pickle.dump(clf, open(filename, 'wb'))
-            self.redis.set('supervised_update', int(True))
+
+            try:
+                self.redis.set('word_vector_update', int(True))
+                self.redis.set('classifier_update', int(True))
+            except ConnectionError:
+                raise ConnectionError('Failed to open redis')
 
             return "finished training"
         else:
             return 'collecting'
 
-    def train_model(self, func=train_word2vec):
+    def train_wordvector_model(self, func=train_word2vec):
         """
 
         :param func: a function that expects a pretraining model and the sentences to train
