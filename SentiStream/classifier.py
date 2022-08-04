@@ -53,7 +53,7 @@ class Supervised_OSA_inference(MapFunction):
                     self.model = default_model_pretrain()  # change to your model here
                     self.redis.set('word_vector_update', int(False))
                 elif flag is None:
-                    raise RuntimeError('word_vector model update flag not set. Train model before running')
+                    logging.warning('word_vector model update flag not set. Train model before running')
             except:
                 raise ConnectionError('Failed to open redis')
 
@@ -113,7 +113,7 @@ class Classifier(MapFunction):
                     self.model = default_model_classifier()  # change to your model here
                     self.redis.set('classifier_update', int(False))
                 elif flag is None:
-                    raise RuntimeError('classifier_model update flag not set. Train model before running')
+                    logging.warning('classifier_model update flag not set. Train model before running')
             except:
                 raise ConnectionError('Failed to open redis')
 
