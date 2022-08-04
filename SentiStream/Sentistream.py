@@ -45,12 +45,14 @@ if __name__ == '__main__':
     f.loc[f['label'] == 1, 'label'] = 0
     f.loc[f['label'] == 2, 'label'] = 1
 
+    # train initial supervised model
+    supervised_model(parallelism, f, len(f), 0, 0, 0, 0, init=True)
+
     true_label = f.label
     yelp_review = f.review
     data_stream = []
     for i in range(len(yelp_review)):
         data_stream.append((i, int(true_label[i]), yelp_review[i]))
-
     # prepare stream env
     env = StreamExecutionEnvironment.get_execution_environment()
     env.set_parallelism(1)
@@ -88,8 +90,6 @@ if __name__ == '__main__':
     for i in range(len(yelp_review)):
         data_stream.append((int(true_label[i]), yelp_review[i]))
 
-
-
     print("batch_inference")
     print('Coming Stream is ready...')
     print('===============================')
@@ -100,15 +100,11 @@ if __name__ == '__main__':
     env.set_parallelism(1)
     env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
 
-
-
     ds = env.from_collection(collection=data_stream)
     accuracy = batch_inference(ds, test_data_size)
     print(accuracy)
 
-
     print("supervised_model_train")
-
 
     # train model on pseudo data with supervised mode
     pseudo_data_size, train_df = load_and_augment_data(pseudo_data_folder, train_data_file)
