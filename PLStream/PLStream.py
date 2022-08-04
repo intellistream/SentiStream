@@ -49,12 +49,12 @@ class unsupervised_OSA(MapFunction):
         self.collector = []
         self.cleaned_text = []
         self.stop_words = stopwords.words('english')
-        self.collector_size = 2000
+        self.collector_size = 10
 
         # model pruning
         self.LRU_index = ['good', 'bad']
         self.max_index = max(self.LRU_index)
-        self.LRU_cache_size = 10
+        self.LRU_cache_size = 30000
         self.sno = nltk.stem.SnowballStemmer('english')
 
         # model merging
@@ -433,7 +433,7 @@ if __name__ == '__main__':
             .key_by(lambda x: x[0], key_type=Types.STRING()) \
             .reduce(lambda x, y: (x[0], unsupervised_OSA().model_merge(x, y))).set_parallelism(2) \
             .filter(lambda x: x[0] != 'model') \
-            .map(for_output(), output_type=Types.STRING()).set_parallelism(1) \
+            .map(for_output(), output_type=Types.STRING()).set_parallelism(1) 
             # .add_sink(StreamingFileSink  # .set_parallelism(2)
             #           .for_row_format('./output', Encoder.simple_string_encoder())
             #           .build())
