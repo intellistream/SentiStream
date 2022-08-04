@@ -26,7 +26,7 @@ class Supervised_OSA(MapFunction):
         self.labels = []
         self.output = []
         self.collection_threshold = train_data_size
-
+        self.redis = None  # do not set redis variable here it gives error
         # logging.warning("pseudo_data_size: " + str(pseudo_data_size))
 
     def open(self, runtime_context: RuntimeContext):
@@ -34,6 +34,7 @@ class Supervised_OSA(MapFunction):
         upload model here  in runtime
         """
         self.model = default_model_pretrain()  # change to your model
+        self.redis = redis.StrictRedis(host='localhost', port=6379, db=0)
 
     def initialise_classifier_and_fit(self, mean_vectors, classifier=RandomForestClassifier):
         """
@@ -70,6 +71,7 @@ class Supervised_OSA(MapFunction):
 
             filename = 'supervised.model'
             pickle.dump(clf, open(filename, 'wb'))
+            self.redis.set('supervised_update', int(True))
 
             return "finished training"
         else:
