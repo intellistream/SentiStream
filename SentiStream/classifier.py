@@ -3,14 +3,13 @@ import sys
 
 from pyflink.datastream import StreamExecutionEnvironment
 from pyflink.datastream.functions import RuntimeContext, MapFunction
-import pickle
-from gensim.models import Word2Vec
 import time
 from utils import process_text_and_generate_tokens, split, generate_vector_mean, default_model_pretrain, \
     default_model_classifier
 import pandas as pd
-import numpy as np
 from pyflink.datastream import CheckpointingMode
+import redis
+from time import time
 
 
 def join(x, y):
@@ -30,12 +29,33 @@ class Supervised_OSA_inference(MapFunction):
         self.output = []
         self.collector_size = 5
         self.with_accuracy = with_accuracy
+        self.redis = None  # do not set redis variable here it gives error
+        self.time_threshold = 10 * 60  # time threshold set to 10 mins
+        self.start_time = time()
 
     def open(self, runtime_context: RuntimeContext):
         """
         upload model here in runtime
         """
         self.model = default_model_pretrain()  # change to your model here
+        self.redis = redis.StrictRedis(host='localhost', port=6379, db=0)
+
+    def load(self):
+        """
+        upload model periodically
+        """
+        #  periodic load
+        if time() - self.start_time >= self.time_threshold:
+            self.start_time = 0
+            try:
+                flag = int(self.redis.get('word_vector_update'))
+                if flag == 1:
+                    self.model = default_model_pretrain()  # change to your model here
+                    self.redis.set('word_vector_update', int(False))
+                elif flag is None:
+                    raise RuntimeError('word_vector model update flag not set. Train model before running')
+            except:
+                raise ConnectionError('Failed to open redis')
 
     def map(self, tweet):
         # logging.warning(tweet)
@@ -69,12 +89,33 @@ class Classifier(MapFunction):
     def __init__(self):
         self.model = None
         self.data = []
+        self.redis = None  # setting redis-param here gives errors
+        self.time_threshold = 10 * 60  # time threshold set to 10 mins
+        self.start_time = time()
 
     def open(self, runtime_context: RuntimeContext):
         """
         upload model here  in runtime
         """
         self.model = default_model_classifier()  # change to your model
+        self.redis = redis.StrictRedis(host='localhost', port=6379, db=0)
+
+    def load(self):
+        """
+        upload model periodically
+        """
+        #  periodic load
+        if time() - self.start_time >= self.time_threshold:
+            self.start_time = 0
+            try:
+                flag = int(self.redis.get('classifier_update'))
+                if flag == 1:
+                    self.model = default_model_classifier()  # change to your model here
+                    self.redis.set('classifier_update', int(False))
+                elif flag is None:
+                    raise RuntimeError('classifier_model update flag not set. Train model before running')
+            except:
+                raise ConnectionError('Failed to open redis')
 
     def get_confidence(self, func=default_confidence):
         """
@@ -110,7 +151,7 @@ def classifier(ds):
 if __name__ == '__main__':
     logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 
-    start_time = time.time()
+    start_time = time()
 
     # input_path = './yelp_review_polarity_csv/test.csv'
     # if input_path is not None:
@@ -142,4 +183,4 @@ if __name__ == '__main__':
     ds.print()
     env.execute()
     # supervised_learning(known_args.input, known_args.output)
-    logging.info("time taken for execution is: " + str(time.time() - start_time))
+    logging.info("time taken for execution is: " + str(time() - start_time))
