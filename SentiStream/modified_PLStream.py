@@ -1,7 +1,10 @@
+#!/usr/bin/env python3
 import random
 import copy
 import re
 import numpy as np
+import argparse
+
 np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)
 
 from numpy import dot
@@ -12,44 +15,57 @@ import redis
 import pickle
 import logging
 
-import nltk
 from nltk.corpus import stopwords
-from sklearn.metrics import accuracy_score
 
 from pyflink.datastream.functions import RuntimeContext, MapFunction
 from pyflink.common.typeinfo import Types
 from pyflink.datastream import StreamExecutionEnvironment
 from pyflink.datastream import CheckpointingMode
-LOG_FILE_NAME='log_PLStream'
+from pyflink.datastream.connectors import StreamingFileSink
+from pyflink.common.serialization import Encoder
 
-class for_output(MapFunction):
-    def __init__(self):
-        pass
+from utils import process_text_and_generate_tokens, split
 
-    def map(self, value):
-        return str(value[1])
+from time import time
+import pandas as pd
+
+logger = logging.getLogger('PLStream')
+logger.setLevel(logging.DEBUG)
+fh = logging.FileHandler('plstream.log', mode='w')
+formatter = logging.Formatter('PLStream:%(thread)d %(lineno)d: %(levelname)s: %(asctime)s %(message)s',
+                              datefmt='%m/%d/%Y %I:%M:%S %p', )
+fh.setFormatter(formatter)
+logger.addHandler(fh)
 
 
 class unsupervised_OSA(MapFunction):
 
-    def __init__(self):
+    def __init__(self, with_accuracy=True):
+        """
+        :param with_accuracy: True if labels are provided to the datastream. default value is True
+        """
+        self.initial_model = None
+        self.redis_param = None
+        self.start_timer = time()
         # collection
+        self.vocabulary = []
         self.true_label = []
         self.collector = []
         self.cleaned_text = []
         self.stop_words = stopwords.words('english')
-        self.collector_size = 2000
+        self.collector_size = 10
 
         # model pruning
-        self.LRU_index = ['good','bad']
-        self.max_index = max(self.LRU_index)
-        self.LRU_cache_size = 30000
-        self.sno = nltk.stem.SnowballStemmer('english')
+        self.LRU_index = ['good', 'bad']
+        # self.max_index = max(self.LRU_index)
+        self.LRU_cache_size = 300000
+        # self.sno = nltk.stem.SnowballStemmer('english')
 
         # model merging
         self.flag = True
         self.model_to_train = None
         self.timer = time()
+        # self.time_to_reset = 30
         self.time_to_reset = 30
 
         # similarity-based classification preparation
@@ -67,10 +83,13 @@ class unsupervised_OSA(MapFunction):
         self.neg_coefficient = 0.5
 
         # results
-        self.acc_to_plot = []
+        self.confidence = 0.5
+        # self.acc_to_plot = []
+        # self.acc_to_plot = []
         self.predictions = []
-        self.labelled_dataset = ''
-
+        self.labelled_dataset = []
+        self.confidence_list = []
+        self.with_accuracy = with_accuracy
 
     def open(self, runtime_context: RuntimeContext):
         # redis-server parameters
@@ -92,35 +111,32 @@ class unsupervised_OSA(MapFunction):
 
     def load_model(self):
         self.redis_param = redis.StrictRedis(host='localhost', port=6379, db=0)
-        try:
-            called_model = pickle.loads(self.redis_param.get('osamodel'))
-            return called_model
-        except TypeError:
-            logging.info('The model name you entered cannot be found in redis')
-        except (redis.exceptions.RedisError, TypeError, Exception):
-            logging.warning('Unable to call the model from Redis server, please check your model')
+        # try:
+        called_model = pickle.loads(self.redis_param.get('osamodel'))
+        return called_model
+        # except TypeError:
+        #     logging.info('The model name you entered cannot be found in redis')
+        # except (redis.exceptions.RedisError, TypeError, Exception):
+        #     logging.warning('Unable to call the model from Redis server, please check your model')
 
     # tweet preprocessing
+
     def text_to_word_list(self, text):
-        text = re.sub("@\w+ ", "", text)
-        text = re.sub("[!~#$+%*:()'?-]", ' ', text)
-        text = re.sub('[^a-zA-Z]', ' ', text)
-        clean_word_list = text.strip().split(' ')
-        clean_word_list = [w for w in clean_word_list if w not in self.stop_words]
+
+        clean_word_list = process_text_and_generate_tokens(text)
+
         while '' in clean_word_list:
             clean_word_list.remove('')
         self.cleaned_text.append(clean_word_list)
         if len(self.cleaned_text) >= self.collector_size:
-            self.logFile(LOG_FILE_NAME,'text to word list update model')
-            ans = self.update_model(self.cleaned_text)
-            return ans
-        else:
-            return ('collecting', '1')
+            # logger.info('text to word list update model')
+            # ans = self.update_model(self.cleaned_text)
+            # return ans
+            return 'update_model'
 
     def model_prune(self, model):
-        self.logFile(LOG_FILE_NAME,'model prune')
-
         if len(model.wv.index_to_key) <= self.LRU_cache_size:
+            logger.info('model prune')
             return model
         else:
             word_to_prune = list(self.LRU_index[30000:])
@@ -139,7 +155,7 @@ class unsupervised_OSA(MapFunction):
         model_new.wv.index_to_key = final_words
         model_new.wv.key_to_index = {word: idx for idx, word in enumerate(final_words)}
         model_new.wv.vectors = final_vectors
-        model_new.syn1 = final_syn1
+        model_new.syn1 = final_syn1  # dk why this is important
         model_new.syn1neg = final_syn1neg
         model_new.syn1 = final_syn1
         model_new.syn1neg = final_syn1neg
@@ -153,10 +169,16 @@ class unsupervised_OSA(MapFunction):
         return model_new
 
     def model_merge(self, model1, model2):
+        # prediction or accuracy not merging
+        logger.warning('model_merge')
         if model1[0] == 'labelled':
+            # logging.warning(model1)
             return (model1[1]) + (model2[1])
+        elif model1[0] == 'acc':
+            return (float(model1[1]) + float(model2[1])) / 2
+        # actual merging taking place
         elif model1[0] == 'model':
-            self.logFile(LOG_FILE_NAME,'model')
+            logger.info('model_merge model')
             model1 = model1[1]
             model2 = model2[1]
             words1 = copy.deepcopy(model1.wv.index_to_key)
@@ -257,80 +279,114 @@ class unsupervised_OSA(MapFunction):
                 final_point.append(point)
 
             model_new = self.get_model_new(final_words, np.array(final_vectors), np.array(final_syn1),
-                                           np.array(final_syn1neg), \
-                                           final_cum_table, corpus_count, np.array(final_count),
-                                           np.array(final_sample_int), \
-                                           np.array(final_code), np.array(final_point), model1)
+                                           np.array(final_syn1neg), final_cum_table, corpus_count,
+                                           np.array(final_count),
+                                           np.array(final_sample_int), np.array(final_code), np.array(final_point),
+                                           model1)
             self.save_model(model_new)
             self.flag = True
+            logging.warning("model 1 merge time: " + str(time() - model1[2]))
+            logging.warning("model 2 merge time: " + str(time() - model2[2]))
             return model_new
 
     def map(self, tweet):
-        # with open('hello.txt','a') as wr:
-        #     wr.write(tweet[0],twe)
-        self.logFile(LOG_FILE_NAME,tweet[0][:20]+'... '+str(tweet[1]))
-        self.true_label.append(int(tweet[1]))
-        self.collector.append(tweet[0])
-        return self.text_to_word_list(tweet[0])
-
-    def update_model(self, new_sentences):
-
-        if self.flag:
-            call_model = self.load_model()
-            self.flag = False
+        """
+        :param tweet: expects tweet in the format [index,label,string] or [index,string]
+        :return: tag,data
+        """
+        if self.with_accuracy:
+            content = tweet[2]
+            self.true_label.append(int(tweet[1]))
+            self.collector.append((tweet[0], content))
         else:
-            call_model = self.model_to_train
+            content = tweet[1]
+            self.collector.append((tweet[0], content))
+        tokenize_text_done = self.text_to_word_list(content)
+        if tokenize_text_done == 'update_model':
+            logging.warning('in update_model map')
+            logging.warning(self.model_to_train)
+            self.update_model(self.cleaned_text)
 
-        # incremental learning
-        call_model.build_vocab(new_sentences, update=True)  # 1) update vocabulary
-        call_model.train(new_sentences,  # 2) incremental training
-                         total_examples=call_model.corpus_count,
-                         epochs=call_model.epochs)
-        for word in call_model.wv.index_to_key:
+            classify_result = self.classify_result(self.cleaned_text)
+            self.cleaned_text = []
+            self.true_label = []
+
+            if time() - self.timer >= self.time_to_reset:  # prune and return model
+                self.model_to_train = self.model_prune(self.model_to_train)
+                model_to_merge = ('model', self.model_to_train, self.start_timer)
+                self.timer = time()
+                return model_to_merge
+            else:
+                not_yet = ('labelled', classify_result)
+                return not_yet
+        else:
+            return 'collecting', '1'
+
+    def incremental_training(self, new_sentences):
+        self.model_to_train.build_vocab(new_sentences, update=True)  # 1) update vocabulary
+        self.model_to_train.train(new_sentences,  # 2) incremental training
+                                  total_examples=self.model_to_train.corpus_count,
+                                  epochs=self.model_to_train.epochs)
+
+    def update_LRU_index(self):
+        for word in self.model_to_train.wv.index_to_key:
             if word not in self.vocabulary:  # new words
                 self.LRU_index.insert(0, word)
             else:  # duplicate words
                 self.LRU_index.remove(word)
                 self.LRU_index.insert(0, word)
-        self.vocabulary = list(call_model.wv.index_to_key)
-        self.model_to_train = call_model
+        self.vocabulary = list(self.model_to_train.wv.index_to_key)
 
+    def update_true_ref(self):
         if len(self.ref_neg) > 0:
             for words in self.ref_neg:
-                if words in call_model.wv:
+                if words in self.model_to_train.wv:
                     self.ref_neg.remove(words)
                     if words not in self.true_ref_neg:
                         self.true_ref_neg.append(words)
         if len(self.ref_pos) > 0:
             for words in self.ref_pos:
-                if words in call_model.wv:
+                if words in self.model_to_train.wv:
                     self.ref_pos.remove(words)
                     if words not in self.true_ref_pos:
                         self.true_ref_pos.append(words)
 
-        classify_result = self.eval(new_sentences, call_model)
-        self.cleaned_text = []
-        self.true_label = []
+    def update_model(self, new_sentences):
 
-        if time() - self.timer >= self.time_to_reset:
-            call_model = self.model_prune(call_model)
-            model_to_merge = ('model', call_model)
-            self.timer = time()
-            return model_to_merge
-        else:
-            not_yet = ('labelled', classify_result)
-            return not_yet
+        if self.flag:
+            self.model_to_train = self.load_model()
+            self.flag = False
+        # else:
+        #     call_model = self.model_to_train
 
-    def eval(self, tweets, model):
-        for i in range(len(tweets)):
-            predict_result = self.predict(tweets[i], model)
-            self.predictions.append(predict_result)
-            self.labelled_dataset += (self.collector[i]+' '+predict_result+'@@@@')
-        self.neg_coefficient = self.predictions.count('0')/self.predictions.count('1')
+        # incremental learning
+        self.incremental_training(new_sentences)
+        self.update_LRU_index()
+        self.update_true_ref()
+
+    def classify_result(self, tweets):
+        for t in range(len(tweets)):
+            predict_result = self.predict(tweets[t], self.model_to_train)
+            self.confidence_list.append(predict_result[0])
+
+            d = {'neg_coefficient': self.neg_coefficient, 'pos_coefficient': self.pos_coefficient}
+            if self.with_accuracy:
+                d['true_label'] = self.true_label[t]
+            self.labelled_dataset.append([
+                self.collector[t][0], predict_result[0], predict_result[1], self.collector[t][1], d])
+            self.predictions.append(predict_result[1])
+
+        logger.info('prediction count:negative prediction = ' + str(self.predictions.count(0)) + ' positive prediction '
+                                                                                                 '= ' + str(
+            self.predictions.count(1)))
+
+        self.neg_coefficient = self.predictions.count(0) / (self.predictions.count(1) + self.predictions.count(0))
         self.pos_coefficient = 1 - self.neg_coefficient
-        self.predictions = []
         self.collector = []
         ans = self.labelled_dataset
+        # else:
+        #     ans = accuracy_score(self.true_label, self.predictions)
+        self.predictions = []
         return ans
 
     def predict(self, tweet, model):
@@ -338,7 +394,6 @@ class unsupervised_OSA(MapFunction):
         counter = 0
         cos_sim_bad, cos_sim_good = 0, 0
         for words in tweet:
-
             try:
                 sentence += model.wv[words]  # np.array(list(model.wv[words]) + new_feature)
                 counter += 1
@@ -357,56 +412,70 @@ class unsupervised_OSA(MapFunction):
                 cos_sim_good += dot(sentence_vec, model.wv[pos_word]) / (norm(sentence_vec) * norm(model.wv[pos_word]))
             except:
                 pass
-        if cos_sim_bad - cos_sim_good > 0.5:
-            return '0'
-        elif cos_sim_bad - cos_sim_good < -0.5:
-            return '1'
+        if cos_sim_bad - cos_sim_good > self.confidence:
+            return cos_sim_bad - cos_sim_good, 0
+        elif cos_sim_bad - cos_sim_good < -self.confidence:
+            return cos_sim_good - cos_sim_bad, 1
         else:
             if cos_sim_bad * self.neg_coefficient >= cos_sim_good * self.pos_coefficient:
-                return '0'
+                return cos_sim_bad - cos_sim_good, 0
             else:
-                return '1'
+                return cos_sim_good - cos_sim_bad, 1
 
-    def logFile(self,file,msg):
-        with open(file, 'a') as wr:
-            wr.write(msg + '\n')
+    def logFile(self, f, m):
+        with open(f, 'a') as wr:
+            wr.write(m)
+
+
+def unsupervised_stream(ds, map_parallelism=1, reduce_parallelism=2):
+    # ds.print()
+    ds = ds.map(unsupervised_OSA()).set_parallelism(map_parallelism)
+    ds = ds.filter(lambda x: x[0] != 'collecting')
+    ds = ds.key_by(lambda x: x[0], key_type=Types.STRING())
+    ds = ds.reduce(lambda x, y: (x[0], unsupervised_OSA().model_merge(x, y))).set_parallelism(reduce_parallelism)
+    ds = ds.filter(lambda x: x[0] != 'model').map(lambda x: x[1])
+    # ds = ds.map(for_output()).set_parallelism(1))
+    ds = ds.flat_map(split)  # always put output_type before passing it to file sink
+    # ds = ds.add_sink(StreamingFileSink  # .set_parallelism(2)
+    #                  .for_row_format('./output', Encoder.simple_string_encoder())
+    #                  .build())
+    return ds
+
+
 if __name__ == '__main__':
-    from pyflink.datastream.connectors import StreamingFileSink
-    from pyflink.common.serialization import Encoder
-    from time import time
-    import pandas as pd
+    logging.basicConfig(filename='plstream.log')
+    logger.info('logger initiated')
 
     parallelism = 4
     # the labels of dataset are only used for accuracy computation, since PLStream is unsupervised
-    f = pd.read_csv('./train.csv')  # , encoding='ISO-8859-1'
-    f.columns = ["label","review"]
-    
+    f = pd.read_csv('./train.csv', header=None)  # , encoding='ISO-8859-1'
+    f.columns = ["label", "review"]
     # 20,000 data for quick testing
-    n =20000
-    true_label = list(f.label)[:n]
+    test_N = 100
+    true_label = list(f.label)[:test_N]
     for i in range(len(true_label)):
         if true_label[i] == 1:
             true_label[i] = 0
         else:
             true_label[i] = 1
-    yelp_review = list(f.review)[:n]
+
+    # yelp_review = list(f.review)
+    yelp_review = list(f.review)[:test_N]
+    print(len(yelp_review))
     data_stream = []
     for i in range(len(yelp_review)):
-        data_stream.append((yelp_review[i], int(true_label[i])))
+        data_stream.append((i, int(true_label[i]), yelp_review[i]))
+        # print(i, int(true_label[i]), yelp_review[i])
     print('Coming Stream is ready...')
     print('===============================')
-
+    start_time = time()
     env = StreamExecutionEnvironment.get_execution_environment()
     env.set_parallelism(1)
     env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
     ds = env.from_collection(collection=data_stream)
-    ds.map(unsupervised_OSA()).set_parallelism(parallelism) \
-        .filter(lambda x: x[0] != 'collecting') \
-        .key_by(lambda x: x[0], key_type=Types.STRING()) \
-        .reduce(lambda x, y: (x[0], unsupervised_OSA().model_merge(x, y))).set_parallelism(2) \
-        .filter(lambda x: x[0] != 'model') \
-        .map(for_output(), output_type=Types.STRING()).set_parallelism(1) \
-        .add_sink(StreamingFileSink  # .set_parallelism(2)
-                  .for_row_format('./output', Encoder.simple_string_encoder())
-                  .build())
+    # always update ds variable
+    ds = unsupervised_stream(ds, map_parallelism=parallelism)
+
+    ds.print()
     env.execute("osa_job")
+    print(time() - start_time)
