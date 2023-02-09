@@ -370,13 +370,13 @@ class unsupervised_OSA(MapFunction):
         k_cur = min(len(self.true_ref_neg), len(self.true_ref_pos))
         for neg_word in self.true_ref_neg[:k_cur]:
             try:
-                logging.warning("pos dot products "+str(dot(sentence_vec, model.wv[neg_word]) / (norm(sentence_vec) * norm(model.wv[neg_word]))))
+                logging.warning("neg dot products "+str(dot(sentence_vec, model.wv[neg_word]) / (norm(sentence_vec) * norm(model.wv[neg_word]))))
                 cos_sim_bad += dot(sentence_vec, model.wv[neg_word]) / (norm(sentence_vec) * norm(model.wv[neg_word]))
             except:
                 pass
         for pos_word in self.true_ref_pos[:k_cur]:
             try:
-                logging.warning("neg do prodcuts: "+str( dot(sentence_vec, model.wv[pos_word]) / (norm(sentence_vec) * norm(model.wv[pos_word]))))
+                logging.warning("pos do prodcuts: "+str( dot(sentence_vec, model.wv[pos_word]) / (norm(sentence_vec) * norm(model.wv[pos_word]))))
                 cos_sim_good += dot(sentence_vec, model.wv[pos_word]) / (norm(sentence_vec) * norm(model.wv[pos_word]))
             except:
                 pass
