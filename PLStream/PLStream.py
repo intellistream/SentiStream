@@ -55,7 +55,7 @@ class unsupervised_OSA(MapFunction):
         self.LRU_index = ['good', 'bad']
         self.max_index = max(self.LRU_index)
         self.LRU_cache_size = 30000
-        self.sno = nltk.stem.SnowballStemmer('english')
+        # self.sno = nltk.stem.SnowballStemmer('english')
 
         # model merging
         self.flag = True
