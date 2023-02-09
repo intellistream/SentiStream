@@ -332,15 +332,20 @@ class unsupervised_OSA(MapFunction):
             return not_yet
 
     def eval(self, tweets, model):
-        for t in range(len(tweets)):
+        ttl_tweets = len(tweets)
+
+        for t in range(ttl_tweets):
             predict_result = self.predict(tweets[t], model)
             self.predictions.append(predict_result)
             if MODE == "LABEL":
                 self.labelled_dataset += (self.collector[t] + ' ' + str(predict_result) + '@@@@')
-        logger.info('prediction count:negative prediction = ' + str(self.predictions.count(0)) + ' positive prediction '
+
+        neg_predictions = self.precitions.count(0)
+
+        logger.info('prediction count:negative prediction = ' + str(neg_predictions) + ' positive prediction '
                                                                                                  '= ' + str(
             self.predictions.count(1)))
-        self.neg_coefficient = self.predictions.count(0) / (self.predictions.count(1)+self.predictions.count(0))
+        self.neg_coefficient = neg_predictions / ttl_tweets
         self.pos_coefficient = 1 - self.neg_coefficient
         if MODE == "LABEL":
             self.collector = []
