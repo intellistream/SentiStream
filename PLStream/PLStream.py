@@ -150,8 +150,6 @@ class unsupervised_OSA(MapFunction):
         model_new.wv.vectors = final_vectors
         model_new.syn1 = final_syn1
         model_new.syn1neg = final_syn1neg
-        model_new.syn1 = final_syn1
-        model_new.syn1neg = final_syn1neg
         model_new.cum_table = final_cum_table
         model_new.corpus_count = corpus_count
         model_new.corpus_total_words = n_words
