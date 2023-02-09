@@ -350,7 +350,7 @@ class unsupervised_OSA(MapFunction):
                 pass
         if cos_sim_bad - cos_sim_good > self.confidence:
             return 0
-        elif cos_sim_bad - cos_sim_good < self.confidence * -1:
+        elif cos_sim_bad - cos_sim_good < -self.confidence:
             return 1
         else:
             if cos_sim_bad * self.neg_coefficient >= cos_sim_good * self.pos_coefficient:

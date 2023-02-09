@@ -380,9 +380,9 @@ class unsupervised_OSA(MapFunction):
                 cos_sim_good += dot(sentence_vec, model.wv[pos_word]) / (norm(sentence_vec) * norm(model.wv[pos_word]))
             except:
                 pass
-        if cos_sim_bad - cos_sim_good > 0.5:
+        if cos_sim_bad - cos_sim_good > self.confidence:
             return 0
-        elif cos_sim_bad - cos_sim_good < -0.5:
+        elif cos_sim_bad - cos_sim_good < -self.confidence:
             return 1
         else:
             if cos_sim_bad * self.neg_coefficient >= cos_sim_good * self.pos_coefficient:
