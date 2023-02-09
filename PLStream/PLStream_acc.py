@@ -318,7 +318,7 @@ class unsupervised_OSA(MapFunction):
         for tweet in tweets:
             self.predictions.append(self.predict(tweet, model))
 
-        self.neg_coefficient = self.predictions.count(0) / self.predictions.count(1)
+        self.neg_coefficient = self.predictions.count(0) / len(tweets)
         self.pos_coefficient = 1 - self.neg_coefficient
         ans = accuracy_score(self.true_label, self.predictions)
         self.predictions = []
