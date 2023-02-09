@@ -102,7 +102,6 @@ class unsupervised_OSA(MapFunction):
     # tweet preprocessing
     def text_to_word_list(self, text):
         text = re.sub("@\w+ ", "", text)
-        text = re.sub("[!~#$+%*:()'?-]", ' ', text)
         text = re.sub('[^a-zA-Z]', ' ', text)
         clean_word_list = text.strip().split(' ')
         clean_word_list = [w for w in clean_word_list if w not in self.stop_words]
@@ -136,8 +135,6 @@ class unsupervised_OSA(MapFunction):
         model_new.wv.index_to_key = final_words
         model_new.wv.key_to_index = {word: idx for idx, word in enumerate(final_words)}
         model_new.wv.vectors = final_vectors
-        model_new.syn1 = final_syn1
-        model_new.syn1neg = final_syn1neg
         model_new.syn1 = final_syn1
         model_new.syn1neg = final_syn1neg
         model_new.cum_table = final_cum_table
