@@ -344,7 +344,7 @@ class unsupervised_OSA(MapFunction):
 
         logger.info('prediction count:negative prediction = ' + str(neg_predictions) + ' positive prediction '
                                                                                                  '= ' + str(
-            self.predictions.count(1)))
+            ttl_tweets - neg_predictions))
         self.neg_coefficient = neg_predictions / ttl_tweets
         self.pos_coefficient = 1 - self.neg_coefficient
         if MODE == "LABEL":
