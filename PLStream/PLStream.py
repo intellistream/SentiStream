@@ -407,16 +407,15 @@ if __name__ == '__main__':
 
     parallelism = 4
     # the labels of dataset are only used for accuracy computation, since PLStream is unsupervised
-    f = pd.read_csv('./train.csv', header=None, names=['label', 'review'])  # , encoding='ISO-8859-1'
+    f = pd.read_csv('./train.csv', names=['label', 'review'])  # , encoding='ISO-8859-1'
     # 20,000 data for quick testing
     test_N = 80
-    true_label = list(f.label)[:test_N]
-    for i in range(len(true_label)):
-        if true_label[i] == 1:
-            true_label[i] = 0
-        else:
-            true_label[i] = 1
-    yelp_review = list(f.review)[:test_N]
+    df = f[:test_N]
+    df['label'] -= 1
+
+    true_label = df['label'].tolist()
+    yelp_review = df['review'].tolist()
+
     data_stream = []
     for j in range(1):
         for i in range(len(yelp_review)):
