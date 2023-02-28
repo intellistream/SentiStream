@@ -340,7 +340,7 @@ class unsupervised_OSA(MapFunction):
             if MODE == "LABEL":
                 self.labelled_dataset += (self.collector[t] + ' ' + str(predict_result) + '@@@@')
 
-        neg_predictions = self.precitions.count(0)
+        neg_predictions = self.predictions.count(0)
 
         logger.info('prediction count:negative prediction = ' + str(neg_predictions) + ' positive prediction '
                                                                                                  '= ' + str(

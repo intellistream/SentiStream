@@ -1,4 +1,3 @@
-import random
 import copy
 import re
 import numpy as np
@@ -13,7 +12,6 @@ import redis
 import pickle
 import logging
 
-import nltk
 from nltk.corpus import stopwords
 from sklearn.metrics import accuracy_score
 
@@ -38,6 +36,13 @@ class unsupervised_OSA(MapFunction):
         self.true_label = []
         self.cleaned_text = []
         self.stop_words = stopwords.words('english')
+        # self.stop_words = ['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', "you're", "you've", "you'll", "you'd", 'your', 'yours', 'yourself', 'yourselves', 'he', 'him', 'his',\
+        # 'himself', 'she', "she's", 'her', 'hers', 'herself', 'it', "it's", 'its', 'itself', 'they', 'them', 'their', 'theirs', 'themselves', 'what', 'which', 'who', 'whom', 'this',\
+        # 'that', "that'll", 'these', 'those', 'am', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'having', 'do', 'does', 'did', 'doing', 'a', 'an','the',\
+        # 'and', 'but', 'if', 'or', 'because', 'as', 'until', 'while', 'of', 'at', 'by', 'for', 'with', 'about', 'against', 'between', 'into', 'through', 'during', 'before','after',\
+        # 'above', 'below', 'to', 'from', 'up', 'down', 'in', 'out', 'on', 'off', 'over', 'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how',\
+        # 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 's', 't', 'can', 'will','just', 'should',\
+        # "should've", 'now', 'd', 'll', 'm', 'o', 're', 've', 'y', 'ma']
         self.collector_size = 2000
 
         # model pruning
@@ -59,6 +64,7 @@ class unsupervised_OSA(MapFunction):
                         'fantastic']
         self.ref_neg = ['bad', 'worst', 'stupid', 'disappointing', 'terrible', 'rubbish', 'boring', 'awful',
                         'unwatchable', 'awkward']
+    
         # self.ref_pos = [self.sno.stem(x) for x in self.ref_pos]
         # self.ref_neg = [self.sno.stem(x) for x in self.ref_neg]
 
@@ -101,8 +107,9 @@ class unsupervised_OSA(MapFunction):
 
     # tweet preprocessing
     def text_to_word_list(self, text):
+        text = text.lower()
         text = re.sub("@\w+ ", "", text)
-        text = re.sub('[^a-zA-Z]', ' ', text)
+        text = re.sub('[^a-z]', ' ', text)
         clean_word_list = text.strip().split(' ')
         clean_word_list = [w for w in clean_word_list if w not in self.stop_words]
         while '' in clean_word_list:
@@ -115,7 +122,6 @@ class unsupervised_OSA(MapFunction):
             return ('collecting', '1')
 
     def model_prune(self, model):
-
         if len(model.wv.index_to_key) <= self.LRU_cache_size:
             return model
         else:
@@ -259,12 +265,10 @@ class unsupervised_OSA(MapFunction):
             return model_new
 
     def map(self, tweet):
-
         self.true_label.append(int(tweet[1]))
         return self.text_to_word_list(tweet[0])
 
     def update_model(self, new_sentences):
-
         if self.flag:
             call_model = self.load_model()
             self.flag = False
@@ -365,12 +369,21 @@ if __name__ == '__main__':
     parallelism = 4
     
     # the labels of dataset are only used for accuracy computation, since PLStream is unsupervised
-    f = pd.read_csv('./train.csv', names=['label', 'review'])
+    df = pd.read_csv('./train.csv', names=['label', 'review'])
     # , encoding='ISO-8859-1'
     
     # 80,000 data for quick testing
-    df = f[:80000]
-    df['label'] -= 1
+    df = df[:8000]
+
+    df.loc[:,'label'] -= 1
+
+    # true_label = []
+    # yelp_review = []
+
+    # for idx, row in df.iterrows():
+    #     if 'not' in row['review']:
+    #         yelp_review.append(row['review'])
+    #         true_label.append(row['label'])
 
     true_label = df['label'].tolist()
     yelp_review = df['review'].tolist()
@@ -395,4 +408,5 @@ if __name__ == '__main__':
         .add_sink(StreamingFileSink  # .set_parallelism(2)
                   .for_row_format('./output', Encoder.simple_string_encoder())
                   .build())
+    # ds.print()
     env.execute("osa_job")
