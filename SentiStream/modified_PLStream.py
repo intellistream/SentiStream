@@ -461,7 +461,6 @@ if __name__ == '__main__':
 
     # yelp_review = list(f.review)
     yelp_review = list(f.review)[:test_N]
-    print(len(yelp_review))
     data_stream = []
     for i in range(len(yelp_review)):
         data_stream.append((i, int(true_label[i]), yelp_review[i]))
