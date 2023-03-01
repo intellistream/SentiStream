@@ -223,8 +223,7 @@ if __name__ == '__main__':
     # testing ONLY 100 reviews
     df = df.iloc[:100,:]
 
-    df.loc[df['label'] == 1, 'label'] = 0
-    df.loc[df['label'] == 2, 'label'] = 1
+    df['label'] -= 1
 
     true_label = df.label
     yelp_review = df.review
