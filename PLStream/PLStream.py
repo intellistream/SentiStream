@@ -14,7 +14,7 @@ from gensim.models import Word2Vec
 import redis
 import pickle
 import logging
-t
+
 import nltk
 from nltk.corpus import stopwords
 from sklearn.metrics import accuracy_score
@@ -55,7 +55,7 @@ class unsupervised_OSA(MapFunction):
         self.LRU_index = ['good', 'bad']
         self.max_index = max(self.LRU_index)
         self.LRU_cache_size = 30000
-        # self.sno = nltk.stem.SnowballStemmer('english')
+        self.sno = nltk.stem.SnowballStemmer('english')
 
         # model merging
         self.flag = True
@@ -114,6 +114,7 @@ class unsupervised_OSA(MapFunction):
     # tweet preprocessing
     def text_to_word_list(self, text):
         text = re.sub("@\w+ ", "", text)
+        text = re.sub("[!~#$+%*:()'?-]", ' ', text)
         text = re.sub('[^a-zA-Z]', ' ', text)
         clean_word_list = text.strip().split(' ')
         clean_word_list = [w for w in clean_word_list if w not in self.stop_words]
@@ -148,6 +149,8 @@ class unsupervised_OSA(MapFunction):
         model_new.wv.index_to_key = final_words
         model_new.wv.key_to_index = {word: idx for idx, word in enumerate(final_words)}
         model_new.wv.vectors = final_vectors
+        model_new.syn1 = final_syn1
+        model_new.syn1neg = final_syn1neg
         model_new.syn1 = final_syn1
         model_new.syn1neg = final_syn1neg
         model_new.cum_table = final_cum_table
@@ -332,20 +335,15 @@ class unsupervised_OSA(MapFunction):
             return not_yet
 
     def eval(self, tweets, model):
-        ttl_tweets = len(tweets)
-
-        for t in range(ttl_tweets):
+        for t in range(len(tweets)):
             predict_result = self.predict(tweets[t], model)
             self.predictions.append(predict_result)
             if MODE == "LABEL":
                 self.labelled_dataset += (self.collector[t] + ' ' + str(predict_result) + '@@@@')
-
-        neg_predictions = self.predictions.count(0)
-
-        logger.info('prediction count:negative prediction = ' + str(neg_predictions) + ' positive prediction '
+        logger.info('prediction count:negative prediction = ' + str(self.predictions.count(0)) + ' positive prediction '
                                                                                                  '= ' + str(
-            ttl_tweets - neg_predictions))
-        self.neg_coefficient = neg_predictions / ttl_tweets
+            self.predictions.count(1)))
+        self.neg_coefficient = self.predictions.count(0) / (self.predictions.count(1)+self.predictions.count(0))
         self.pos_coefficient = 1 - self.neg_coefficient
         if MODE == "LABEL":
             self.collector = []
@@ -367,22 +365,33 @@ class unsupervised_OSA(MapFunction):
                 pass
         if counter != 0:
             sentence_vec = sentence / counter
-        k_cur = min(len(self.true_ref_neg), len(self.true_ref_pos))
-        for neg_word in self.true_ref_neg[:k_cur]:
+        # k_cur = min(len(self.true_ref_neg), len(self.true_ref_pos))
+        # for neg_word in self.true_ref_neg[:k_cur]:
+        ref_count = 0
+        for neg_word in self.true_ref_neg:
             try:
-                logging.warning("neg dot products "+str(dot(sentence_vec, model.wv[neg_word]) / (norm(sentence_vec) * norm(model.wv[neg_word]))))
+                logging.warning("pos dot products "+str(dot(sentence_vec, model.wv[neg_word]) / (norm(sentence_vec) * norm(model.wv[neg_word]))))
                 cos_sim_bad += dot(sentence_vec, model.wv[neg_word]) / (norm(sentence_vec) * norm(model.wv[neg_word]))
+                ref_count += 1
             except:
                 pass
-        for pos_word in self.true_ref_pos[:k_cur]:
+        if ref_count != 0:
+            cos_sim_bad /= ref_count
+            ref_count = 0
+        # for pos_word in self.true_ref_pos[:k_cur]:
+        for pos_word in self.true_ref_pos:
             try:
-                logging.warning("pos do prodcuts: "+str( dot(sentence_vec, model.wv[pos_word]) / (norm(sentence_vec) * norm(model.wv[pos_word]))))
+                logging.warning("neg do prodcuts: "+str( dot(sentence_vec, model.wv[pos_word]) / (norm(sentence_vec) * norm(model.wv[pos_word]))))
                 cos_sim_good += dot(sentence_vec, model.wv[pos_word]) / (norm(sentence_vec) * norm(model.wv[pos_word]))
+                ref_count += 1
             except:
                 pass
-        if cos_sim_bad - cos_sim_good > self.confidence:
+        if ref_count != 0:
+            cos_sim_good /= ref_count
+
+        if cos_sim_bad - cos_sim_good > 0.5:
             return 0
-        elif cos_sim_bad - cos_sim_good < -self.confidence:
+        elif cos_sim_bad - cos_sim_good < -0.5:
             return 1
         else:
             if cos_sim_bad * self.neg_coefficient >= cos_sim_good * self.pos_coefficient:
@@ -407,15 +416,17 @@ if __name__ == '__main__':
 
     parallelism = 4
     # the labels of dataset are only used for accuracy computation, since PLStream is unsupervised
-    f = pd.read_csv('./train.csv', names=['label', 'review'])  # , encoding='ISO-8859-1'
+    f = pd.read_csv('./train.csv')  # , encoding='ISO-8859-1'
+    f.columns = ["label", "review"]
     # 20,000 data for quick testing
-    test_N = 80
-    df = f[:test_N]
-    df['label'] -= 1
-
-    true_label = df['label'].tolist()
-    yelp_review = df['review'].tolist()
-
+    test_N = 800
+    true_label = list(f.label)[:test_N]
+    for i in range(len(true_label)):
+        if true_label[i] == 1:
+            true_label[i] = 0
+        else:
+            true_label[i] = 1
+    yelp_review = list(f.review)[:test_N]
     data_stream = []
     for j in range(1):
         for i in range(len(yelp_review)):
