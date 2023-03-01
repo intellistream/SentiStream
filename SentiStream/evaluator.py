@@ -1,17 +1,15 @@
-import numpy as np
-import logging
-import pandas as pd
 import sys
+import logging
+import numpy as np
+import pandas as pd
+
+from collections import defaultdict
+from pyflink.datastream import CoMapFunction, StreamExecutionEnvironment, CheckpointingMode
 
 from modified_PLStream import unsupervised_stream
 from dummy_classifier import dummy_classifier
-# from sklearn.metrics import accuracy_score
-from pyflink.datastream import CoMapFunction
-from collections import defaultdict
-from pyflink.datastream import StreamExecutionEnvironment
-from pyflink.datastream import CheckpointingMode
-from pyflink.datastream.connectors import StreamingFileSink
 
+# logger
 logger = logging.getLogger('SentiStream')
 logger.setLevel(logging.DEBUG)
 fh = logging.FileHandler('sentistream.log', mode='w')
@@ -20,63 +18,36 @@ formatter = logging.Formatter('SentiStream:%(thread)d %(lineno)d: %(levelname)s:
 fh.setFormatter(formatter)
 logger.addHandler(fh)
 
+# supress warnings
 np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)
 
 
-def default_confidence(ls, myDict, otherDict):
-    """
-    Calculates confidence score based on the labels and polarity of the labels.
-    
-    Parameters:
-        ls (list): list of data
-        myDict (defaultdict): dictionary for the current stream
-        otherDict (defaultdict): dictionary for the sibling stream
-    
-    Returns:
-        (float): A float value representing the confidence score.
-    """
-    # labels
-    l1 = myDict[ls[0]][1]
-    l2 = otherDict[ls[0]][1]
-
-    # confidence
-    con1 = myDict[ls[0]][0]
-    con2 = otherDict[ls[0]][0]
-
-    # polarity
-    sign1 = polarity(l1)
-    sign2 = polarity(l2)
-
-    myDict[ls[0]] = False
-    otherDict[ls[0]] = False
-
-    return Evaluation.w1 * con1 * sign1 + Evaluation.w2 * con2 * sign2
-
-
-def collect(ls, myDict, otherDict):
+def collect(ls, my_dict, other_dict):
     """
     Collects the data from the input stream and saves it in the respective dictionary.
     
     Parameters:
         ls (list): list of data
-        myDict (defaultdict): dictionary for the current stream
-        otherDict (defaultdict): dictionary for the sibling stream
+        my_dict (defaultdict): dictionary for the current stream
+        other_dict (defaultdict): dictionary for the sibling stream
     
     Returns:
         (str): 'eval' if the data is ready for evaluation, 'done' if the data is already evaluated, 
         'collecting' if the data is still being collected.
     """
-    if otherDict[ls[0]] is not None and otherDict[ls[0]] is not False:
-        if myDict[ls[0]] is None:
-            myDict[ls[0]] = ls[1:-2] + [ls[-1]]
+    # if sibiling dict is getting collected but not evaluated
+    if other_dict[ls[0]] is not None and other_dict[ls[0]] is not False:
+        # if current dict is empty, collect streams and evaluate
+        if my_dict[ls[0]] is None:
+            my_dict[ls[0]] = ls[1:-2] + [ls[-1]]
             return 'eval'
+        # if current dict is not empty then its already evaluated
         else:
             return 'done'
+    # else collect streams in dicts
     else:
-        if myDict[ls[0]] is None:
-            myDict[ls[0]] = ls[1:-2] + [ls[-1]]
-
-    logging.warning('mydict in collecting:' + str(myDict.items()))
+        if my_dict[ls[0]] is None:
+            my_dict[ls[0]] = ls[1:-2] + [ls[-1]]
     return 'collecting'
 
 
@@ -92,18 +63,20 @@ def generate_label_from_confidence(confidence, ls):
         (list): A list containing the label data, which can be a binary label or a label 
         indicating low confidence.
     """
+    # assume label is positive if eval score is in range between 2 - .5
     if confidence >= 0.5:
         ls[2] = 1
-        return ls[2:]
+        return [ls[0], *ls[2:4]] # label and review   ---- ADDED IDX FOR DEBUGGING ----- REMOVE 
+    # assume negative if range between (-2) - (-.5)
     elif confidence <= -0.5:
         ls[2] = 0
-        return ls[2:]
+        return [ls[0], *ls[2:4]]
+    # else it has low confidence, not recommended for pseudo labeling
     else:
         if confidence < 0:
             ls[2] = 0
         else:
             ls[2] = 1
-        # returns tag,confidence,label,tweet
         return ['low_confidence', confidence, *ls[2:]]
 
 
@@ -117,21 +90,16 @@ def polarity(label):
     Returns:
         (int): 1 if the label is positive, -1 if the label is negative.
     """
-    if label == 1:
-        return 1
-    else:
-        return -1
+    return 1 if label == 1 else -1
 
 
 class Evaluation(CoMapFunction):
     """
     Class for evaluating the sentiment of the input stream data.
     """
-    PLSTREAM_ACC = 0.75  # based on test results
-    DUMMY_CLASIFIER_ACC = 0.87  # based on test results
-    # weights
-    w1 = PLSTREAM_ACC / (PLSTREAM_ACC + DUMMY_CLASIFIER_ACC)
-    w2 = DUMMY_CLASIFIER_ACC / (PLSTREAM_ACC + DUMMY_CLASIFIER_ACC)
+
+    ADAPTIVE_PLSTREAM_ACC_THRESHOLD = 1
+    ADAPTIVE_CLASSIFIER_ACC_THRESHOLD = 1
 
     def __init__(self):
         """
@@ -139,34 +107,50 @@ class Evaluation(CoMapFunction):
         """
         self.dict1 = defaultdict(lambda: None)  # for first stream
         self.dict2 = defaultdict(lambda: None)  # for second stream
-        self.confidence = 0.5
 
-    def calculate_confidence(self, ls, myDict, otherDict, func=default_confidence):
+    def calculate_confidence(self, ls, my_dict, other_dict):
         """
-        Calculates confidence score of streaming data from two different sources.
+        Calculates confidence score based on the labels and polarity of the labels.
         
-        Parameters:
-            ls (list): list of data 
-            myDict (defaultdict): dictionary for the current stream
-            otherDict (defaultdict): dictionary for the sibling stream
-            func (function): function for calculating confidence score
+        Parameters: 
+            ls (list): list of data
+            my_dict (defaultdict): dictionary for the current stream
+            other_dict (defaultdict): dictionary for the sibling stream
         
         Returns:
             (float): A float value representing the confidence score.
         """
+        # dict[idx][0] -> confidence
+        # dict[idx][1] -> label
 
-        return func(ls, myDict, otherDict)
+        plstream_conf = 0
+        clf_conf = 0
 
-    def map(self, ls, myDict, otherDict):
+        if isinstance(my_dict[ls[0]][2], dict):
+            # assert isinstance(other_dict[ls[0]][2], int) 
+            plstream_conf = my_dict[ls[0]][0] * polarity(my_dict[ls[0]][1]) * Evaluation.ADAPTIVE_PLSTREAM_ACC_THRESHOLD
+            clf_conf = other_dict[ls[0]][0] * polarity(other_dict[ls[0]][1]) * Evaluation.ADAPTIVE_CLASSIFIER_ACC_THRESHOLD
+
+        else:
+            plstream_conf = other_dict[ls[0]][0] * polarity(other_dict[ls[0]][1])  * Evaluation.ADAPTIVE_PLSTREAM_ACC_THRESHOLD
+            clf_conf = my_dict[ls[0]][0] * polarity(my_dict[ls[0]][1]) * Evaluation.ADAPTIVE_CLASSIFIER_ACC_THRESHOLD
+
+        # MAX = 2  (1 * 1 * 1 + 1 * 1 * 1) MIN = -2 (1 * 1 * -1 + 1 * 1 * -1)
+        # so range -> -2 <-> 2.. 
+        # set low conf threashold as previous (-0.5 - 0.5)
+        # return my_dict[ls[0]][0] * polarity(my_dict[ls[0]][1]) + other_dict[ls[0]][0] * polarity(other_dict[ls[0]][1])
+        return plstream_conf + clf_conf
+
+    def map(self, ls, my_dict, other_dict):
         """
         Map function to collect streaming data from two different sources and to evaluate 
         its sentiment.
 
         Parameters:
             ls (list): list of elements from two different streams
-            myDict (defaultdict): dictionary corresponding to the current element of the first 
+            my_dict (defaultdict): dictionary corresponding to the current element of the first 
             stream
-            otherDict (defaultdict): dictionary corresponding to the current element of the 
+            other_dict (defaultdict): dictionary corresponding to the current element of the 
             second stream
 
         Returns:
@@ -175,9 +159,11 @@ class Evaluation(CoMapFunction):
             with the label and sentiment score is returned.
         """
 
-        s = collect(ls, myDict, otherDict)
+        s = collect(ls, my_dict, other_dict)
         if s == 'eval':
-            confidence = self.calculate_confidence(ls, myDict, otherDict)
+            confidence = self.calculate_confidence(ls, my_dict, other_dict)
+            my_dict[ls[0]] = False
+            other_dict[ls[0]] = False
             return generate_label_from_confidence(confidence, ls)
         else:
             return s
@@ -194,7 +180,6 @@ class Evaluation(CoMapFunction):
             'collecting' or 'done'. If the data from both the streams is available, then a list
             with the label and sentiment score is returned.
         """
-        logging.warning("map1")
         return self.map(ls, self.dict1, self.dict2)
 
     def map2(self, ls):
@@ -209,8 +194,7 @@ class Evaluation(CoMapFunction):
             'collecting' or 'done'. If the data from both the streams is available, then a list
             with the label and sentiment score is returned.
         """
-        logging.warning("map2")
-        return self.map(ls, self.dict2, self.dict1, True)
+        return self.map(ls, self.dict2, self.dict1)
 
 
 def merged_stream(ds1, ds2):
@@ -223,17 +207,15 @@ def merged_stream(ds1, ds2):
         ds2 (datastream): second datastream to be merged
 
     Returns:
-        (datastream): merged and filtered datastream
+        (datastream): merged and filtered datastream with high confidence
     """
     ds = ds1.connect(ds2).map(Evaluation()).filter(lambda x: x != 'collecting' and x != 'done')
     ds = ds.filter(lambda x: x[0] != 'low_confidence')
-    # .key_by(lambda x: x[0])
     return ds
 
 
 
 if __name__ == '__main__':
-    mode = 'LABEL'
     logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 
     df = pd.read_csv('train.csv', names=['label', 'review'])
@@ -252,8 +234,6 @@ if __name__ == '__main__':
     for i in range(len(yelp_review)):
         data_stream.append((i, int(true_label[i]), yelp_review[i]))
 
-    print(len(yelp_review))
-
     print('Coming Stream is ready...')
     print('===============================')
 
@@ -270,5 +250,8 @@ if __name__ == '__main__':
 
     ds = merged_stream(ds1, ds2)
     ds.print()
+
+
+    # TODO: ADD FILESINK
 
     env.execute()
