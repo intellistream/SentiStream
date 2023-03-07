@@ -1,4 +1,3 @@
-import random
 import copy
 import re
 import numpy as np
@@ -13,7 +12,6 @@ import redis
 import pickle
 import logging
 
-import nltk
 from nltk.corpus import stopwords
 from sklearn.metrics import accuracy_score
 
@@ -37,14 +35,7 @@ class unsupervised_OSA(MapFunction):
         # collection
         self.true_label = []
         self.cleaned_text = []
-        # self.stop_words = stopwords.words('english')
-        self.stop_words = ['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', "you're", "you've", "you'll", "you'd", 'your', 'yours', 'yourself', 'yourselves', 'he', 'him', 'his',\
-        'himself', 'she', "she's", 'her', 'hers', 'herself', 'it', "it's", 'its', 'itself', 'they', 'them', 'their', 'theirs', 'themselves', 'what', 'which', 'who', 'whom', 'this',\
-        'that', "that'll", 'these', 'those', 'am', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'having', 'do', 'does', 'did', 'doing', 'a', 'an','the',\
-        'and', 'but', 'if', 'or', 'because', 'as', 'until', 'while', 'of', 'at', 'by', 'for', 'with', 'about', 'against', 'between', 'into', 'through', 'during', 'before','after',\
-        'above', 'below', 'to', 'from', 'up', 'down', 'in', 'out', 'on', 'off', 'over', 'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how',\
-        'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 's', 't', 'can', 'will','just', 'should',\
-        "should've", 'now', 'd', 'll', 'm', 'o', 're', 've', 'y', 'ma']
+        self.stop_words = stopwords.words('english')
         self.collector_size = 2000
 
         # model pruning
@@ -52,7 +43,6 @@ class unsupervised_OSA(MapFunction):
         self.max_index = max(self.LRU_index)
         self.LRU_cache_size = 30000
         #         self.sno = nltk.stem.SnowballStemmer('english')
-        
 
         # model merging
         self.flag = True
@@ -111,8 +101,7 @@ class unsupervised_OSA(MapFunction):
     def text_to_word_list(self, text):
         text = text.lower()
         text = re.sub("@\w+ ", "", text)
-        # text = re.sub("[!~#$+%*:()'?-]", ' ', text)
-        text = re.sub('[^a-zA-Z]', ' ', text)
+        text = re.sub('[^a-z]', ' ', text)
         clean_word_list = text.strip().split(' ')
         clean_word_list = [w for w in clean_word_list if w not in self.stop_words]
         while '' in clean_word_list:
@@ -145,8 +134,6 @@ class unsupervised_OSA(MapFunction):
         model_new.wv.index_to_key = final_words
         model_new.wv.key_to_index = {word: idx for idx, word in enumerate(final_words)}
         model_new.wv.vectors = final_vectors
-        model_new.syn1 = final_syn1
-        model_new.syn1neg = final_syn1neg
         model_new.syn1 = final_syn1
         model_new.syn1neg = final_syn1neg
         model_new.cum_table = final_cum_table
@@ -348,31 +335,15 @@ class unsupervised_OSA(MapFunction):
             sentence_vec = sentence / counter
         k_cur = min(len(self.true_ref_neg), len(self.true_ref_pos))
         for neg_word in self.true_ref_neg[:k_cur]:
-        # ref_count = 0
-        # for neg_word in self.true_ref_neg:
             try:
                 cos_sim_bad += dot(sentence_vec, model.wv[neg_word]) / (norm(sentence_vec) * norm(model.wv[neg_word]))
-                # ref_count += 1
             except:
                 pass
-
-        # if ref_count != 0:
-        #    cos_sim_bad /= ref_count
-        #    ref_count = 0
-
         for pos_word in self.true_ref_pos[:k_cur]:
-        # for pos_word in self.true_ref_pos:
             try:
                 cos_sim_good += dot(sentence_vec, model.wv[pos_word]) / (norm(sentence_vec) * norm(model.wv[pos_word]))
-                # ref_count += 1
             except:
                 pass
-
-        # if ref_count != 0:
-        #    cos_sim_good /= ref_count
-
-        # print(cos_sim_bad, cos_sim_good)
-
         if cos_sim_bad - cos_sim_good > self.confidence:
             return 0
         elif cos_sim_bad - cos_sim_good < self.confidence * -1:
@@ -390,21 +361,29 @@ if __name__ == '__main__':
     from time import time
     import pandas as pd
 
-    parallelism = 4
+    parallelism = 2
     
     # the labels of dataset are only used for accuracy computation, since PLStream is unsupervised
-    f = pd.read_csv('./train.csv')  # , encoding='ISO-8859-1'
-    f.columns = ["label","review"]
+    # f = pd.read_csv('./train.csv')  # , encoding='ISO-8859-1'
+    # f.columns = ["label","review"]
+
+    df = pd.read_csv('train.csv', names=['label', 'review'])
     
     # 80,000 data for quick testing
-    true_label = list(f.label)[:8000]
+    df = df.iloc[:8000,:]
+
+    # df['label'] -= 1
+
+    true_label = list(df.label)
     for i in range(len(true_label)):
         if true_label[i] == 1:
             true_label[i] = 0
         else:
             true_label[i] = 1
-    yelp_review = list(f.review)[:8000]
+    yelp_review = list(df.review)
+
     data_stream = []
+    
     for i in range(len(yelp_review)):
         data_stream.append((yelp_review[i], int(true_label[i])))
 
@@ -415,7 +394,7 @@ if __name__ == '__main__':
     env.set_parallelism(1)
     env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
     ds = env.from_collection(collection=data_stream)
-    ds = ds.map(unsupervised_OSA()).set_parallelism(parallelism) \
+    ds.map(unsupervised_OSA()).set_parallelism(parallelism) \
         .filter(lambda x: x[0] != 'collecting') \
         .key_by(lambda x: x[0], key_type=Types.STRING()) \
         .reduce(lambda x, y: (x[0], unsupervised_OSA().model_merge(x, y))).set_parallelism(2) \
@@ -424,6 +403,4 @@ if __name__ == '__main__':
         .add_sink(StreamingFileSink  # .set_parallelism(2)
                   .for_row_format('./output', Encoder.simple_string_encoder())
                   .build())
-
-    # ds.print()
     env.execute("osa_job")

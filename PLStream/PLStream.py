@@ -365,30 +365,19 @@ class unsupervised_OSA(MapFunction):
                 pass
         if counter != 0:
             sentence_vec = sentence / counter
-        # k_cur = min(len(self.true_ref_neg), len(self.true_ref_pos))
-        # for neg_word in self.true_ref_neg[:k_cur]:
-        ref_count = 0
-        for neg_word in self.true_ref_neg:
+        k_cur = min(len(self.true_ref_neg), len(self.true_ref_pos))
+        for neg_word in self.true_ref_neg[:k_cur]:
             try:
                 logging.warning("pos dot products "+str(dot(sentence_vec, model.wv[neg_word]) / (norm(sentence_vec) * norm(model.wv[neg_word]))))
                 cos_sim_bad += dot(sentence_vec, model.wv[neg_word]) / (norm(sentence_vec) * norm(model.wv[neg_word]))
-                ref_count += 1
             except:
                 pass
-        if ref_count != 0:
-            cos_sim_bad /= ref_count
-            ref_count = 0
-        # for pos_word in self.true_ref_pos[:k_cur]:
-        for pos_word in self.true_ref_pos:
+        for pos_word in self.true_ref_pos[:k_cur]:
             try:
                 logging.warning("neg do prodcuts: "+str( dot(sentence_vec, model.wv[pos_word]) / (norm(sentence_vec) * norm(model.wv[pos_word]))))
                 cos_sim_good += dot(sentence_vec, model.wv[pos_word]) / (norm(sentence_vec) * norm(model.wv[pos_word]))
-                ref_count += 1
             except:
                 pass
-        if ref_count != 0:
-            cos_sim_good /= ref_count
-
         if cos_sim_bad - cos_sim_good > 0.5:
             return 0
         elif cos_sim_bad - cos_sim_good < -0.5:
@@ -419,7 +408,7 @@ if __name__ == '__main__':
     f = pd.read_csv('./train.csv')  # , encoding='ISO-8859-1'
     f.columns = ["label", "review"]
     # 20,000 data for quick testing
-    test_N = 800
+    test_N = 80
     true_label = list(f.label)[:test_N]
     for i in range(len(true_label)):
         if true_label[i] == 1:
