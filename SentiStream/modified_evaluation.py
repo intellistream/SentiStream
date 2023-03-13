@@ -107,7 +107,7 @@ class Evaluation(CoMapFunction):
 
     def __init__(self):
         """
-        Initializes the class.
+        Initialize class.
         """
         self.dict1 = defaultdict(lambda: None)  # for first stream
         self.dict2 = defaultdict(lambda: None)  # for second stream

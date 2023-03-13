@@ -48,12 +48,12 @@ def clean(line):
     return [word for word in line if word not in STOP_WORDS]
 
 
-def load_data(pseudo_data_folder, ground_data_file):
+def load_data(pseudo_data_folder, data_file):
     """Load ground truth and pseudo data to memory
 
     Parameters:
         pseudo_data_folder (str): name of psedo data folder
-        ground_data_file (str): name of train/test data
+        data_file (str): name of train/test data
 
     Returns:
         (tuple): tupe of length of pseudo data and combined dataframe to test
@@ -69,44 +69,10 @@ def load_data(pseudo_data_folder, ground_data_file):
         path, delimiter='\t', header=None), path_list), ignore_index=True)
     pseudo_df.columns = ['label', 'review']
 
-    gtruth_df = pd.read_csv(ground_data_file, names=['label', 'review'])
-    gtruth_df['label'] -= 1
+    df = pd.read_csv(data_file, names=['label', 'review'])
+    df['label'] -= 1
 
-    return len(pseudo_df), pd.concat([gtruth_df, pseudo_df], ignore_index=True)
-
-
-# def load_and_augment_data(pseudo_data_folder, ground_data_file):
-#     # get pseudo data files
-#     files = []
-#     # pseudo_data_folder = './senti_output'
-#     for (dirpath, dirnames, filenames) in walk(pseudo_data_folder):
-#         filenames = [os.path.join(dirpath, f) for f in filenames]
-#         files.extend(filenames)
-
-#     # load pseudo data
-#     pdf = pd.DataFrame({'label': [], 'review': []})
-#     for file in files:
-#         tdf = pd.read_csv(file, header=None)
-#         tdf.columns = ["label", "review"]
-#         pdf = pdf.append(tdf, ignore_index=True)
-
-#     # tdf = pd.read_csv('./train.csv', header=None)  # , encoding='ISO-8859-1'
-#     # , encoding='ISO-8859-1'
-#     new_df = pd.read_csv(ground_data_file, header=None)
-#     new_df.columns = ["label", "review"]
-#     pseudo_size = len(pdf)
-#     new_df.loc[new_df['label'] == 1, 'label'] = 0
-#     new_df.loc[new_df['label'] == 2, 'label'] = 1
-#     new_df = new_df.append(pdf, ignore_index=True)
-
-#     # test_df = pd.read_csv(ground_test_data_file, header=None)  # , encoding='ISO-8859-1'
-#     # test_df.columns = ["label", "review"]
-#     # pseudo_size = len(pdf)
-#     # test_df.loc[test_df['label'] == 1, 'label'] = 0
-#     # test_df.loc[test_df['label'] == 2, 'label'] = 1
-#     # test_df = test_df.append(pdf, ignore_index=True)
-
-#     return pseudo_size, new_df
+    return len(pseudo_df), pd.concat([df, pseudo_df], ignore_index=True)
 
 
 def pre_process(tweet, func=process):
@@ -175,6 +141,7 @@ def default_model_classifier():
 
 
 def train_word2vec(model, sentences):
+    # TODO: CHECK ON UPDATING MODEL VS RETRAINING FOR MIN_COUNT PRB
     model.build_vocab(sentences, update=True)
     model.train(sentences,
                 total_examples=model.corpus_count,

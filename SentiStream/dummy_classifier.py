@@ -2,13 +2,15 @@ import random
 
 from pyflink.datastream.functions import MapFunction
 
+
 class DummyClassifier(MapFunction):
     """
     Class for Classifier Placeholder.
     """
+
     def __init__(self):
         """
-        Initializes the class with model.
+        Initializes class with model.
         """
         self.model = None
         self.data = []
@@ -16,7 +18,7 @@ class DummyClassifier(MapFunction):
     def get_confidence(self):
         """
         Predict label and calculate confidence.
-        
+
         Returns:
             (list): list of float value representing the confidence scores for polarity.
         """
@@ -38,7 +40,7 @@ class DummyClassifier(MapFunction):
         pred_conf = max(conf)
 
         return [data[0], pred_conf, conf.index(pred_conf), data[2], data[1]]
-    
+
 
 def dummy_classifier(ds):
     """

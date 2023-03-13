@@ -31,7 +31,7 @@ class Preprocessor(MapFunction):
     """
 
     def __init__(self, test_data_size, parallelism):
-        """Initializes the class
+        """Initialize class
 
         Parameters:
             test_data_size (int_): size of testing data
@@ -82,13 +82,13 @@ class Preprocessor(MapFunction):
             return 'collecting'
 
 
-class DummyClassifier(MapFunction):
+class Predictor(MapFunction):
     """
     Class for Predictor(Classifier) Placeholder
     """
 
     def __init__(self):
-        """Initializes the class"""
+        """Initialize class"""
         self.model = None
         self.labels = []
         self.data = []
@@ -170,7 +170,7 @@ def batch_inference(ds, test_data_size, preprocess_parallelism=1, classifier_par
         .set_parallelism(preprocess_parallelism) \
         .filter(lambda i: i != 'collecting')
 
-    ds = ds.map(DummyClassifier()).set_parallelism(classifier_parallelism) \
+    ds = ds.map(Predictor()).set_parallelism(classifier_parallelism) \
         .key_by(lambda x: x[0]) \
         .reduce(lambda x, y: (1, (x[1] + y[1]) / 2))
 
@@ -183,7 +183,7 @@ def batch_inference(ds, test_data_size, preprocess_parallelism=1, classifier_par
 if __name__ == '__main__':
     logging.basicConfig(stream=sys.stdout,
                         level=logging.INFO, format="%(message)s")
-    
+
     pseudo_data_folder = './senti_output'
     test_data_file = './exp_test.csv'
 
