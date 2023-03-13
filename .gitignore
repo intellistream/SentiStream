@@ -132,3 +132,6 @@ dmypy.json
 *.png
 output/
 senti_output/
+
+# dataset
+*.csv
