@@ -34,47 +34,79 @@ def split(ls):
 
 
 def process(line):
-    clean_text = clean(line)
-    # logging.warning(line)
-    tokenized_text = tokenise(clean_text)
-    return tokenized_text
+    # clean_text = clean(line)
+    # tokenized_text = tokenise(clean_text)
+
+    tokenized_text = tokenize(line)
+    tokens = clean(tokenized_text)
+
+    return tokens
 
 
 def clean(line):
-    return remove_stopwords(line)
+    # return remove_stopwords(line)
+    return [word for word in line if word not in STOP_WORDS]
 
 
-def load_and_augment_data(pseudo_data_folder, ground_data_file):
-    # get pseudo data files
-    files = []
-    # pseudo_data_folder = './senti_output'
-    for (dirpath, dirnames, filenames) in walk(pseudo_data_folder):
-        filenames = [os.path.join(dirpath, f) for f in filenames]
-        files.extend(filenames)
+def load_data(pseudo_data_folder, ground_data_file):
+    """Load ground truth and pseudo data to memory
 
-    # load pseudo data
-    pdf = pd.DataFrame({'label': [], 'review': []})
-    for file in files:
-        tdf = pd.read_csv(file, header=None)
-        tdf.columns = ["label", "review"]
-        pdf = pdf.append(tdf, ignore_index=True)
+    Parameters:
+        pseudo_data_folder (str): name of psedo data folder
+        ground_data_file (str): name of train/test data
 
-    # tdf = pd.read_csv('./train.csv', header=None)  # , encoding='ISO-8859-1'
-    new_df = pd.read_csv(ground_data_file, header=None)  # , encoding='ISO-8859-1'
-    new_df.columns = ["label", "review"]
-    pseudo_size = len(pdf)
-    new_df.loc[new_df['label'] == 1, 'label'] = 0
-    new_df.loc[new_df['label'] == 2, 'label'] = 1
-    new_df = new_df.append(pdf, ignore_index=True)
+    Returns:
+        (tuple): tupe of length of pseudo data and combined dataframe to test
+    """
 
-    # test_df = pd.read_csv(ground_test_data_file, header=None)  # , encoding='ISO-8859-1'
-    # test_df.columns = ["label", "review"]
-    # pseudo_size = len(pdf)
-    # test_df.loc[test_df['label'] == 1, 'label'] = 0
-    # test_df.loc[test_df['label'] == 2, 'label'] = 1
-    # test_df = test_df.append(pdf, ignore_index=True)
+    path_list = []
+    for subdir_name in os.scandir(pseudo_data_folder):
+        for file_name in os.scandir(subdir_name):
+            if file_name.is_file():
+                path_list.append(file_name.path)
 
-    return pseudo_size, new_df
+    pseudo_df = pd.concat(map(lambda path: pd.read_csv(
+        path, delimiter='\t', header=None), path_list), ignore_index=True)
+    pseudo_df.columns = ['label', 'review']
+
+    gtruth_df = pd.read_csv(ground_data_file, names=['label', 'review'])
+    gtruth_df['label'] -= 1
+
+    return len(pseudo_df), pd.concat([gtruth_df, pseudo_df], ignore_index=True)
+
+
+# def load_and_augment_data(pseudo_data_folder, ground_data_file):
+#     # get pseudo data files
+#     files = []
+#     # pseudo_data_folder = './senti_output'
+#     for (dirpath, dirnames, filenames) in walk(pseudo_data_folder):
+#         filenames = [os.path.join(dirpath, f) for f in filenames]
+#         files.extend(filenames)
+
+#     # load pseudo data
+#     pdf = pd.DataFrame({'label': [], 'review': []})
+#     for file in files:
+#         tdf = pd.read_csv(file, header=None)
+#         tdf.columns = ["label", "review"]
+#         pdf = pdf.append(tdf, ignore_index=True)
+
+#     # tdf = pd.read_csv('./train.csv', header=None)  # , encoding='ISO-8859-1'
+#     # , encoding='ISO-8859-1'
+#     new_df = pd.read_csv(ground_data_file, header=None)
+#     new_df.columns = ["label", "review"]
+#     pseudo_size = len(pdf)
+#     new_df.loc[new_df['label'] == 1, 'label'] = 0
+#     new_df.loc[new_df['label'] == 2, 'label'] = 1
+#     new_df = new_df.append(pdf, ignore_index=True)
+
+#     # test_df = pd.read_csv(ground_test_data_file, header=None)  # , encoding='ISO-8859-1'
+#     # test_df.columns = ["label", "review"]
+#     # pseudo_size = len(pdf)
+#     # test_df.loc[test_df['label'] == 1, 'label'] = 0
+#     # test_df.loc[test_df['label'] == 2, 'label'] = 1
+#     # test_df = test_df.append(pdf, ignore_index=True)
+
+#     return pseudo_size, new_df
 
 
 def pre_process(tweet, func=process):
@@ -98,16 +130,28 @@ def process_text_and_generate_tokens(text, func=process):
 
 
 def default_vector_mean(model, tokenized_text):
-    word_vector = []
+    """Calculate average word embedding
+
+    Parameters:
+        model (T): word vector model
+        tokenized_text (list): list of tokenized words
+
+    Returns:
+        ndarray: average word vector
+    """
+    word_vector = np.zeros(model.vector_size)
+    count = 0
     for token in tokenized_text:
         try:
-            word_vector.append(model.wv[token])
+            word_vector += model.wv[token]
+            count += 1
         except:
             pass
-    if len(word_vector) == 0:
-        return np.zeros(model.vector_size)
-    else:
-        return (np.mean(word_vector, axis=0)).tolist()
+
+    if count > 0:
+        word_vector /= count
+
+    return word_vector
 
 
 def generate_vector_mean(model, tokenized_text, func=default_vector_mean):
