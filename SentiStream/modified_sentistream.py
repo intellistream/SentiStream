@@ -85,22 +85,24 @@ if __name__ == '__main__':
     print('Coming Stream is ready...')
     print('===============================')
 
-    # batch stream set up
+    # -------------------SUPERVISED MODEL TRAIN-------------------##
     env = StreamExecutionEnvironment.get_execution_environment()
     env.set_runtime_mode(RuntimeExecutionMode.BATCH)
     env.set_parallelism(1)
     env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
 
     ds = env.from_collection(collection=data_stream)
-    accuracy = batch_inference(ds, test_data_size)
+    accuracy = batch_inference(ds, len(test_df))
     print(accuracy)
 
-    # print("supervised_model_train")
+    print("supervised_model_train")
 
-    # # train model on pseudo data with supervised mode
-    # pseudo_data_size, train_df = load_and_augment_data(pseudo_data_folder, train_data_file)
-    # train_data_size = len(train_df)
+    config.PSEUDO_DATA_COLLECTION_THRESHOLD = 0
+    config.ACCURACY_THRESHOLD = 0.9
 
-    # supervised_model(parallelism, train_df, train_data_size, pseudo_data_size, PSEUDO_DATA_COLLECTION_THRESHOLD,
-    #                  accuracy,
-    #                  ACCURACY_THRESHOLD)
+    # train model on pseudo data with supervised mode
+    pseudo_data_size, train_df = load_data(pseudo_data_folder, train_data_file)
+    train_data_size = len(train_df)
+
+    supervised_model(parallelism, train_df,
+                     pseudo_data_size, 0.4)  # 0.4 -> acc
