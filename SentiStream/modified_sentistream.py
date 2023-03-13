@@ -1,23 +1,20 @@
-#!/usr/bin/env python3
+import sys
+import logging
 import numpy as np
+import pandas as pd
 
+from pyflink.datastream import CheckpointingMode, StreamExecutionEnvironment
 from pyflink.datastream.execution_mode import RuntimeExecutionMode
 
+import config
+from dummy_classifier import dummy_classifier
 from modified_batch_inferrence import batch_inference
 from modified_evaluation import generate_new_label, merged_stream
-# from supervised_model import supervised_model
+from modified_supervised_model import supervised_model
+from modified_PLStream import unsupervised_stream
 from utils import load_data
 
-np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)
-
-import logging
-from pyflink.datastream import StreamExecutionEnvironment
-from pyflink.datastream import CheckpointingMode
-import pandas as pd
-import sys
-from modified_PLStream import unsupervised_stream
-from dummy_classifier import dummy_classifier
-
+# logger
 logger = logging.getLogger('PLStream')
 logger.setLevel(logging.DEBUG)
 fh = logging.FileHandler('plstream.log', mode='w')
@@ -26,21 +23,22 @@ formatter = logging.Formatter('PLStream:%(thread)d %(lineno)d: %(levelname)s: %(
 fh.setFormatter(formatter)
 logger.addHandler(fh)
 
-PSEUDO_DATA_COLLECTION_THRESHOLD = 0
-ACCURACY_THRESHOLD = 0.9
-parallelism = 1
-train_data_size = 0
+# supress warnings
+np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)
 
 if __name__ == '__main__':
-    logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
+    logging.basicConfig(stream=sys.stdout,
+                        level=logging.INFO, format="%(message)s")
 
-    input_path = 'exp_test.csv'
+    parallelism = 1
+
+    ## -------------------INITIAL TRAINING OF SUPERVISED MODEL------------------- ##
     df = pd.read_csv('exp_train.csv', names=['label', 'review'])
     df['label'] -= 1
 
-    # # train initial supervised model
-    # supervised_model(parallelism, df, len(df), 0, 0, 0, 0, init=True)
+    supervised_model(parallelism, df, 0, 0, init=True)
 
+    ## -------------------GENERATE PSEUDO-LABEL FROM BOTH LEARNING METHODS------------------- ##
     true_label = df.label
     yelp_review = df.review
 
@@ -49,35 +47,31 @@ if __name__ == '__main__':
     for i in range(len(yelp_review)):
         data_stream.append((i, int(true_label[i]), yelp_review[i]))
 
-    # env = StreamExecutionEnvironment.get_execution_environment()
-    # env.set_parallelism(1)
-    # env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
-    # ds = env.from_collection(collection=data_stream)
+    env = StreamExecutionEnvironment.get_execution_environment()
+    env.set_parallelism(1)
+    env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
+    ds = env.from_collection(collection=data_stream)
 
-    # print("unsupervised stream,classifier and evaluation")
-    # print('Coming Stream is ready...')
-    # print('===============================')
+    print("unsupervised stream,classifier and evaluation")
+    print('Coming Stream is ready...')
+    print('===============================')
 
-    # # data stream functions
-    # ds1 = unsupervised_stream(ds)
-    # ds2 = dummy_classifier(ds)
-    # ds = merged_stream(ds1, ds2)
-    # ds = generate_new_label(ds)
-    # env.execute()
+    # data stream functions
+    ds1 = unsupervised_stream(ds)
+    ds2 = dummy_classifier(ds)
+    ds = merged_stream(ds1, ds2)
+    ds = generate_new_label(ds)
+    env.execute()
 
-    # print("Finished running datastream")
+    print("Finished running datastream")
 
-    ####### Run supersied part of sentistream on batch mode
-
-    # data source for batch_inferrence and supervised_model
+    ## -------------------SUPERVISED MODEL INFERENCE------------------- ##
     pseudo_data_folder = './senti_output'
-    test_data_file = './exp_test.csv'
-    train_data_file = './exp_train.csv'
+    test_data_file = 'exp_test.csv'
+    train_data_file = 'exp_train.csv'
 
     # data sets prep
     pseudo_data_size, test_df = load_data(pseudo_data_folder, test_data_file)
-
-    test_data_size = len(test_df)
 
     true_label = test_df.label
     yelp_review = test_df.review
