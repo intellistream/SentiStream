@@ -1,6 +1,5 @@
 import sys
 import redis
-import pickle
 import logging
 
 import config
@@ -8,6 +7,8 @@ from pyflink.datastream import StreamExecutionEnvironment
 from pyflink.datastream.execution_mode import RuntimeExecutionMode
 from pyflink.datastream import CheckpointingMode
 from pyflink.datastream.functions import RuntimeContext, MapFunction
+
+from ann_model import Model
 from utils import load_data, pre_process, default_model_pretrain, train_word2vec, generate_vector_mean
 
 
@@ -27,7 +28,7 @@ class ModelTrain(MapFunction):
         self.labels = []
         self.output = []
         self.collection_size = train_data_size
-        self.redis = None  # do not set redis variable here it gives error
+        self.redis = None
 
     def open(self, runtime_context: RuntimeContext):
         """Initialize word vector model before starting stream/batch processing.
@@ -39,29 +40,18 @@ class ModelTrain(MapFunction):
             "PLS_c10.model")  # change to your model
         self.redis = redis.StrictRedis(host='localhost', port=6379, db=0)
 
-    def train_classifier(self, mean_vectors, classifier=None):
+    def train_classifier(self, mean_vectors):
         """Intialize and train sentiment classifier on train data
 
         Parameters:
             mean_vectors (list): list of average word vectors for each sentences.
-            classifier (_type_, optional): sentiment classifer. Defaults to None.
 
         Returns:
             T: trained sentiment classifier
         """
-        clf = classifier()
-        # change to another fit function from your model if applicable
-        self.classifier_fit(mean_vectors, clf.fit)
-        return clf
 
-    def classifier_fit(self, mean_vectors, func):
-        """Train sentiment classifier
-
-        Parameters:
-            mean_vectors (list): list of average word vectors for each sentences.
-            func (function): train function of classifier
-        """
-        func(mean_vectors, self.labels)
+        clf = Model(mean_vectors, self.labels, self.model.vector_size)
+        clf.fit_and_save('model.pth')
 
     def map(self, tweet):
         """Map function to collect train data for classifier model and train it.
@@ -83,12 +73,7 @@ class ModelTrain(MapFunction):
                 # change to custom vector mean function
                 mean_vectors.append(generate_vector_mean(self.model, sentence))
 
-            # clf = self.train_classifier(
-            #     mean_vectors)  # change to your model
-
-            # filename = 'supervised.model'
-            # pickle.dump(clf, open(filename, 'wb'))
-
+                self.train_classifier(mean_vectors)
             try:
                 self.redis.set('word_vector_update', int(True))
                 self.redis.set('classifier_update', int(True))

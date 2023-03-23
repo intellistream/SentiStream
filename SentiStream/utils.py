@@ -7,6 +7,7 @@ from os import walk
 import os
 import numpy as np
 from gensim.models import Word2Vec
+import torch
 
 STOP_WORDS = ['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', "you're", "you've",
               "you'd", 'your', 'yours', 'yourself', 'yourselves', 'he', 'him', 'his', 'himself', 'she', "she's",
@@ -132,6 +133,18 @@ def generate_vector_mean(model, tokenized_text, func=default_vector_mean):
 
 def default_model_pretrain(path_to_model='word2vec20tokenised.model'):
     return Word2Vec.load(path_to_model)
+
+
+def load_torch_model(model_path):
+    """Load trained torch model on to cpu (compatible with both models trained on cpu & gpu)
+
+    Parameters:
+        model_path (str): path of torch model
+
+    Returns:
+        any: load all tensors to cpu
+    """
+    return torch.load(model_path, map_location=torch.device('cpu'))
 
 
 def default_model_classifier():

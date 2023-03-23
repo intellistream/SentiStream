@@ -47,6 +47,7 @@ six==1.16.0
 sklearn==0.0
 smart-open==6.0.0
 threadpoolctl==3.1.0
+torch --index-url https://download.pytorch.org/whl/cpu
 tqdm==4.64.0
 typing-extensions==3.7.4.3
 urllib3==1.26.11
