@@ -49,7 +49,7 @@ class Preprocessor(MapFunction):
             runtime_context (RuntimeContext): give access to Flink runtime env.
         """
         self.model = default_model_pretrain(
-            'PLS_c10.model')  # change to your model
+            'PLS_c10.model')
 
     def map(self, tweet):
         """Map function to collect and preprocess data for classifier model.

@@ -7,7 +7,7 @@ from pyflink.datastream import CheckpointingMode, StreamExecutionEnvironment
 from pyflink.datastream.execution_mode import RuntimeExecutionMode
 
 import config
-from dummy_classifier import dummy_classifier
+from modified_classifier import dummy_classifier
 from modified_batch_inferrence import batch_inference
 from modified_evaluation import generate_new_label, merged_stream
 from modified_supervised_model import supervised_model

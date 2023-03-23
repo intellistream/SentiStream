@@ -10,7 +10,7 @@ from pyflink.datastream import CoMapFunction, StreamExecutionEnvironment, Checkp
 from pyflink.datastream.connectors import StreamingFileSink
 
 from modified_PLStream import unsupervised_stream
-from dummy_classifier import dummy_classifier
+from modified_classifier import dummy_classifier
 
 # logger
 logger = logging.getLogger('SentiStream')
