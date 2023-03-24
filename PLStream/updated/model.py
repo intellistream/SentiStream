@@ -2,6 +2,7 @@ import time
 import nltk
 import logging
 import numpy as np
+import matplotlib.pyplot as plt
 from numpy import float32 as REAL
 from pandas import read_csv
 from json import loads, dumps
@@ -230,28 +231,40 @@ def run(collection, config: Word2VecConfig, parallelism=1):
         .map(PLStream(config)).name('PLStream').set_parallelism(parallelism) \
         .filter(lambda x: x[0] != 'BATCHING') \
         .map(lambda x: f'{x[1]} - {x[2]} - {x[3]}', output_type=Types.STRING()).set_parallelism(1) \
-        .add_sink(StreamingFileSink
-                  .for_row_format('./output', Encoder.simple_string_encoder())
-                  .build())
+        # .add_sink(StreamingFileSink
+    #           .for_row_format('./output', Encoder.simple_string_encoder())
+    #           .build())
 
     # plstream.print()
 
-    env.execute("plstream")
+    # env.execute("plstream")
+
+    acc = []
+
+    with plstream.execute_and_collect() as results:
+        for temp in results:
+            acc.append(float(temp.split(' - ')[1]))
+
+    plt.figure(figsize=(10, 5))
+
+    plt.plot([x*(config.batch_size) for x in range(len(acc))], acc)
+    plt.show()
+    plt.savefig(f'output-parallelism-{parallelism}.png', bbox_inches='tight')
 
 
 if __name__ == '__main__':
     collection = None
 
-    data_size = 100000
+    data_size = 1000
     yelp = read_csv("train.csv")
     yelp.columns = ['label', 'sentence']
     yelp_train_X, yelp_train_y = list(yelp.sentence), list(yelp.label-1)
 
     collection = []
-    # collection = make_input_collection(
-    #     'train', yelp_train_X[:data_size], yelp_train_y[:data_size])
     collection = make_input_collection(
-        'train', yelp_train_X, yelp_train_y)
+        'train', yelp_train_X[:data_size], yelp_train_y[:data_size])
+    # collection = make_input_collection(
+    #     'train', yelp_train_X, yelp_train_y)
 
     # collection = make_input_collection(
     #     'train', yelp_train_X[:24000], yelp_train_y[:24000]) + make_input_collection(
