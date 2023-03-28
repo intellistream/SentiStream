@@ -10,7 +10,7 @@ from pyflink.datastream.functions import RuntimeContext, MapFunction
 
 from ann_model import Model
 from modified_batch_inferrence import batch_inference
-from utils import load_data, pre_process, default_model_pretrain, train_word2vec, generate_vector_mean
+from utils import load_data, pre_process, default_model_pretrain, train_word2vec, generate_vector_mean, load_torch_model
 
 
 class ModelTrain(MapFunction):
@@ -52,7 +52,8 @@ class ModelTrain(MapFunction):
             T: trained sentiment classifier
         """
 
-        clf = Model(mean_vectors, self.labels, self.model.vector_size, self.init)
+        clf = Model(mean_vectors, self.labels,
+                    self.model.vector_size, self.init)
         clf.fit_and_save('model.pth')
 
         # TODO CONTINOUS TRAIN
@@ -96,7 +97,57 @@ class ModelTrain(MapFunction):
         func(self.model, self.sentences, 'w2v.model')
 
 
-def supervised_model(data_process_parallelism, train_df, pseudo_data_size, accuracy, init=False):
+# def supervised_model(data_process_parallelism, train_df, pseudo_data_size, accuracy, init=False):
+#     """Train supervised model and word vector model
+
+#     Parameters:
+#         data_process_parallelism (int): no of parallelism for training.
+#         train_df (DataFrame): train data.
+#         pseudo_data_size (int): size of pseudo data.
+#         accuracy (float): accuracy of supervised model before training.
+#         init (bool, optional): whether training for first time or retraining. Defaults to False.
+#     """
+#     if init or (pseudo_data_size > config.PSEUDO_DATA_COLLECTION_THRESHOLD and accuracy < config.ACCURACY_THRESHOLD):
+
+#         # data preparation
+#         true_label = train_df.label
+#         yelp_review = train_df.review
+
+#         data_stream = []
+
+#         for i in range(len(yelp_review)):
+#             data_stream.append((int(true_label[i]), yelp_review[i]))
+
+#         # stream environment setup
+#         env = StreamExecutionEnvironment.get_execution_environment()
+#         env.set_runtime_mode(RuntimeExecutionMode.BATCH)
+#         env.set_parallelism(1)
+#         env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
+
+#         print('Coming Stream is ready...')
+#         print('===============================')
+
+#         # data stream pipline
+#         ds = env.from_collection(collection=data_stream)
+#         ds = ds.map(pre_process)  # change to your pre_processing function,
+#         ds = ds.set_parallelism(data_process_parallelism).map(
+#             ModelTrain(len(train_df), init))
+#         ds = ds.filter(lambda x: x != 'collecting')
+#         # ds = batch_inference(env.from_collection(
+#         #     collection=data_stream), len(train_df))
+
+#         ds.print()
+
+#         env.execute()
+#     else:
+#         print("accuracy below threshold: " +
+#               str(accuracy < config.ACCURACY_THRESHOLD))
+#         print("pseudo data above threshold: " +
+#               str(pseudo_data_size > config.PSEUDO_DATA_COLLECTION_THRESHOLD))
+#         print("Too soon to update model")
+
+
+def supervised_model(ds, data_process_parallelism, train_size, pseudo_data_size, accuracy, init=False):
     """Train supervised model and word vector model
 
     Parameters:
@@ -108,42 +159,20 @@ def supervised_model(data_process_parallelism, train_df, pseudo_data_size, accur
     """
     if init or (pseudo_data_size > config.PSEUDO_DATA_COLLECTION_THRESHOLD and accuracy < config.ACCURACY_THRESHOLD):
 
-        # data preparation
-        true_label = train_df.label
-        yelp_review = train_df.review
-
-        data_stream = []
-
-        for i in range(len(yelp_review)):
-            data_stream.append((int(true_label[i]), yelp_review[i]))
-
-        # stream environment setup
-        env = StreamExecutionEnvironment.get_execution_environment()
-        env.set_runtime_mode(RuntimeExecutionMode.BATCH)
-        env.set_parallelism(1)
-        env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
-
-        print('Coming Stream is ready...')
-        print('===============================')
-
-        # data stream pipline
-        ds = env.from_collection(collection=data_stream)
-        ds = ds.map(pre_process)  # change to your pre_processing function,
+        ds = ds.map(pre_process)
         ds = ds.set_parallelism(data_process_parallelism).map(
-            ModelTrain(len(train_df), init))
+            ModelTrain(train_size, init))
         ds = ds.filter(lambda x: x != 'collecting')
-        # ds = batch_inference(env.from_collection(
-        #     collection=data_stream), len(train_df))
 
-        ds.print()
-
-        env.execute()
+        return True
     else:
         print("accuracy below threshold: " +
               str(accuracy < config.ACCURACY_THRESHOLD))
         print("pseudo data above threshold: " +
               str(pseudo_data_size > config.PSEUDO_DATA_COLLECTION_THRESHOLD))
         print("Too soon to update model")
+
+        return False
 
 
 if __name__ == '__main__':
