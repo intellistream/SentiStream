@@ -14,21 +14,17 @@ class VocabStorage():
         # redis key
         self.KEY_VOCAB = 'plstream_vocab'
         self.LRU_CHACHE_SIZE = 30000
-        
+
         self.vocab = defaultdict(int)
         self.index_to_key = []
         self.key_to_index = {}
 
-
-        self.word = None
-        self.count = None
-    
     def __len__(self):
         return len(self.index_to_key)
 
     def update_global_vocab(self, word, count):
         self.conn.hset(self.KEY_VOCAB, word, count)
-    
+
     def merge_vocab(self):
         global_vocab = self.conn.hgetall(self.KEY_VOCAB)
         for k, v in global_vocab.items():
@@ -47,7 +43,7 @@ class VocabStorage():
         if np.random.random() < 0.001:
             self.merge_vocab()
         return self.vocab
-    
+
     def get_index(self):
         return self.index_to_key, self.key_to_index
 
@@ -64,31 +60,32 @@ class ModelStorage():
 
         # constants
         self.ZERO_VEC = pickle.dumps(np.zeros(vector_size, dtype=REAL))
-    
+
     def _make_vectors(self, tlen):
         vector = self.rng.random((tlen, self.vector_size), dtype=REAL)
         vector *= 2
         vector -= 1
         return vector
-    
+
     def get_vectors(self, tlen):
         diff = tlen - len(self.vectors)
         if diff > 0:
             self.vectors = np.vstack([self.vectors, self._make_vectors(diff)])
         return self.vectors
-    
+
     def set_vectors(self, vectors):
         self.vectors = vectors
 
     def get_weights(self, tlen):
         diff = tlen - len(self.weights)
         if diff > 0:
-            self.weights = np.vstack([self.weights, np.zeros((diff, self.layer1_size), dtype=REAL)])
+            self.weights = np.vstack(
+                [self.weights, np.zeros((diff, self.layer1_size), dtype=REAL)])
         return self.weights
 
     def set_weights(self, weights):
         self.weights = weights
-    
+
     def save_vectors(self):
         pool = redis.ConnectionPool(host='localhost', port=6379, db=0)
         self.conn = redis.StrictRedis(connection_pool=pool)
