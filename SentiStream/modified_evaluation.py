@@ -10,7 +10,9 @@ from pyflink.datastream import CoMapFunction, StreamExecutionEnvironment, Checkp
 from pyflink.datastream.connectors import StreamingFileSink
 
 from modified_PLStream import unsupervised_stream
-from modified_classifier import dummy_classifier
+from modified_classifier import classifier
+
+from sklearn.metrics import accuracy_score
 
 # logger
 logger = logging.getLogger('SentiStream')
@@ -42,7 +44,7 @@ def collect(ls, my_dict, other_dict):
     if other_dict[ls[0]] is not None and other_dict[ls[0]] is not False:
         # if current dict is empty, collect streams and evaluate
         if my_dict[ls[0]] is None:
-            my_dict[ls[0]] = ls[1:-2] + [ls[-1]]
+            my_dict[ls[0]] = ls[1:3] + [ls[-1]]
             return 'eval'
         # if current dict is not empty then its already evaluated
         else:
@@ -50,7 +52,7 @@ def collect(ls, my_dict, other_dict):
     # else collect streams in dicts
     else:
         if my_dict[ls[0]] is None:
-            my_dict[ls[0]] = ls[1:-2] + [ls[-1]]
+            my_dict[ls[0]] = ls[1:3] + [ls[-1]]
     return 'collecting'
 
 
@@ -105,12 +107,40 @@ class Evaluation(CoMapFunction):
     ADAPTIVE_PLSTREAM_ACC_THRESHOLD = 1
     ADAPTIVE_CLASSIFIER_ACC_THRESHOLD = 1
 
-    def __init__(self):
+    def __init__(self, acc=False):
         """
         Initialize class.
         """
         self.dict1 = defaultdict(lambda: None)  # for first stream
         self.dict2 = defaultdict(lambda: None)  # for second stream
+        self.acc = acc
+
+    def calc_acc(self, ls, my_dict, other_dict):
+        plstream_conf = 0
+        clf_conf = 0
+
+        true_label = None
+        pred = None
+
+        if isinstance(my_dict[ls[0]][2], dict):
+            plstream_conf = my_dict[ls[0]][0] * polarity(
+                my_dict[ls[0]][1]) * Evaluation.ADAPTIVE_PLSTREAM_ACC_THRESHOLD
+            clf_conf = other_dict[ls[0]][0] * polarity(
+                other_dict[ls[0]][1]) * Evaluation.ADAPTIVE_CLASSIFIER_ACC_THRESHOLD
+            true_label = my_dict[ls[0]][2]['true_label']
+            pred = my_dict[ls[0]
+                           ][1] if plstream_conf > clf_conf else other_dict[ls[0]][1]
+
+        else:
+            plstream_conf = other_dict[ls[0]][0] * polarity(
+                other_dict[ls[0]][1]) * Evaluation.ADAPTIVE_PLSTREAM_ACC_THRESHOLD
+            clf_conf = my_dict[ls[0]][0] * polarity(
+                my_dict[ls[0]][1]) * Evaluation.ADAPTIVE_CLASSIFIER_ACC_THRESHOLD
+            true_label = other_dict[ls[0]][2]['true_label']
+            pred = my_dict[ls[0]
+                           ][1] if plstream_conf < clf_conf else other_dict[ls[0]][1]
+
+        return ('1', accuracy_score([true_label], [pred]))
 
     def calculate_confidence(self, ls, my_dict, other_dict):
         """
@@ -167,13 +197,22 @@ class Evaluation(CoMapFunction):
         """
 
         s = collect(ls, my_dict, other_dict)
-        if s == 'eval':
-            confidence = self.calculate_confidence(ls, my_dict, other_dict)
-            my_dict[ls[0]] = False
-            other_dict[ls[0]] = False
-            return generate_label_from_confidence(confidence, ls)
-        else:
-            return s
+        if not self.acc:
+            if s == 'eval':
+                confidence = self.calculate_confidence(ls, my_dict, other_dict)
+                my_dict[ls[0]] = False
+                other_dict[ls[0]] = False
+                return generate_label_from_confidence(confidence, ls)
+            else:
+                return s
+        if self.acc:
+            if s == 'eval':
+                t = self.calc_acc(ls, my_dict, other_dict)
+                my_dict[ls[0]] = False
+                other_dict[ls[0]] = False
+                return t
+            else:
+                return s
 
     def map1(self, ls):
         """
@@ -216,6 +255,14 @@ def merged_stream(ds1, ds2):
     Returns:
         (datastream): merged and filtered datastream with high confidence
     """
+
+    # dd = ds1.connect(ds2).map(Evaluation(acc=True)).filter(
+    #     lambda x: x != 'collecting' and x != 'done') \
+    #     .key_by(lambda x: x[0], key_type=Types.STRING()) \
+    #     .reduce(lambda x,y: (x[0], x[1]+y[1]))
+
+    # dd.print()
+
     ds = ds1.connect(ds2).map(Evaluation()).filter(
         lambda x: x != 'collecting' and x != 'done')
     ds = ds.filter(lambda x: x[0] != 'low_confidence')
@@ -259,7 +306,7 @@ if __name__ == '__main__':
     ds1 = unsupervised_stream(ds)
     # ds1.print()
 
-    ds2 = dummy_classifier(ds)
+    ds2 = classifier(ds)
     # ds2.print()
 
     ds = merged_stream(ds1, ds2)

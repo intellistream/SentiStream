@@ -1,8 +1,11 @@
 import torch
 import torch.nn as nn
+import numpy as np
 
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Dataset
+
+from utils import load_torch_model
 
 
 class SentimentDataset(Dataset):
@@ -34,9 +37,16 @@ class Classifier(nn.Module):
 
 
 class Model:
-    def __init__(self, x, y, input_dim, test_size=0.2, batch_size=16):
-        x = torch.cuda.FloatTensor(x)
-        y = torch.cuda.FloatTensor(y).unsqueeze(1)
+    def __init__(self, x, y, input_dim, init, test_size=0.2, batch_size=16):
+        # device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        self.device = 'cpu'
+
+        if self.device == 'cpu':
+            x = torch.FloatTensor(np.array(x))
+            y = torch.FloatTensor(np.array(y)).unsqueeze(1)
+        else:
+            x = torch.cuda.FloatTensor(np.array(x))
+            y = torch.cuda.FloatTensor(np.array(y)).unsqueeze(1)
 
         x_train, x_val, y_train, y_val = train_test_split(
             x, y, test_size=test_size, random_state=42)
@@ -50,11 +60,17 @@ class Model:
         self.val_loader = DataLoader(
             val_data, batch_size=batch_size, shuffle=False)
 
-        self.torch_model = Classifier(input_dim=input_dim, hidden_dim=32)
+        if init:
+            self.torch_model = Classifier(input_dim=input_dim, hidden_dim=32).to(self.device)
+        else:
+            self.torch_model = load_torch_model('model.pth')
 
         self.criterion = nn.BCELoss()
         self.optimizer = torch.optim.Adam(
             params=self.torch_model.parameters(), lr=5e-4)
+
+        self.best_model = None
+        self.val_len = len(val_data)
 
     # def binary_acc(self, y_pred, y_test):
     #     """Calculate accuracy
@@ -66,18 +82,23 @@ class Model:
     #     Returns:
     #         Tensor: Sum of correct predictions
     #     """
-    #     y_h = torch.round(y_pred)
-    #     crct_results = (y_h == y_test).sum()
+        # y_h = torch.round(y_pred)
+        # crct_results = (y_h == y_test).sum()
     #     return crct_results
 
     def fit(self, epoch):
-
+        best_loss = float('inf')
         for epoch in range(epoch):
             self.torch_model.train()
             # train_loss = 0
             # train_acc = 0
 
             for vecs, labels in self.train_loader:
+
+                vecs = vecs.to(self.device)
+                labels = labels.to(self.device)
+
+
                 outputs = self.torch_model(vecs)
                 loss = self.criterion(outputs, labels)
 
@@ -92,22 +113,28 @@ class Model:
             # train_acc /= len(self.train_data)
 
             self.torch_model.eval()
-            # val_loss = 0
+            val_loss = 0
             # val_acc = 0
 
             with torch.no_grad():
                 for vecs, labels in self.val_loader:
+                    vecs = vecs.to(self.device)
+                    labels = labels.to(self.device)
+
                     outputs = self.torch_model(vecs)
                     loss = self.criterion(outputs, labels)
-                    acc = self.binary_acc(outputs, labels)
 
-            #         val_loss += loss.float()
+                    val_loss += loss.float()
             #         val_acc += acc.float()
 
-            # val_loss /= len(val_data)
+            val_loss /= self.val_len
             # val_acc /= len(val_data)
+
+            if val_loss <= best_loss:
+                best_loss = val_loss
+                self.best_model = self.torch_model
 
     def fit_and_save(self, filename, epoch=500):
         self.fit(epoch=epoch)
-        self.model.eval()
-        torch.save(self.torch_model, filename)
+        self.best_model.eval()
+        torch.save(self.best_model, filename)

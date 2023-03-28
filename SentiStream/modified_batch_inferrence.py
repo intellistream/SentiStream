@@ -1,7 +1,7 @@
 import sys
 import redis
 import logging
-import random
+import torch
 import numpy as np
 
 from sklearn.metrics import accuracy_score
@@ -10,7 +10,7 @@ from pyflink.datastream import StreamExecutionEnvironment
 from pyflink.datastream.execution_mode import RuntimeExecutionMode
 from pyflink.datastream import CheckpointingMode
 
-from utils import load_data, process_text_and_generate_tokens, generate_vector_mean, default_model_pretrain
+from utils import load_data, process_text_and_generate_tokens, generate_vector_mean, default_model_pretrain, load_torch_model
 
 # logger
 logger = logging.getLogger('SentiStream')
@@ -49,7 +49,7 @@ class Preprocessor(MapFunction):
             runtime_context (RuntimeContext): give access to Flink runtime env.
         """
         self.model = default_model_pretrain(
-            'PLS_c10.model')
+            'w2v.model')
 
     def map(self, tweet):
         """Map function to collect and preprocess data for classifier model.
@@ -93,13 +93,13 @@ class Predictor(MapFunction):
         self.labels = []
         self.data = []
 
-    # def open(self, runtime_context: RuntimeContext):
-    #     """Initialize classifier model before starting stream/batch processing
+    def open(self, runtime_context: RuntimeContext):
+        """Initialize classifier model before starting stream/batch processing
 
-    #     Parameters:
-    #         runtime_context (RuntimeContext): give access to Flink runtime env.
-    #     """
-    #     self.model = default_model_classifier()  # change to your model
+        Parameters:
+            runtime_context (RuntimeContext): give access to Flink runtime env.
+        """
+        self.model = load_torch_model('model.pth')
 
     def get_accuracy(self, predictions, func=accuracy_score):
         """Calculate accuracy of model's prediction
@@ -113,25 +113,13 @@ class Predictor(MapFunction):
         """
         return func(self.labels, predictions)
 
-    def get_prediction(self, func):
+    def get_prediction(self):
         """Predict sentiment of text
-
-        Parameters:
-            func (function): prediction function of model
 
         Returns:
             (float) predicted label
         """
-        return func(self.data)
-
-    #TODO: Remove
-    def get_dummy_prediction(self):
-        """Generate dummy (random) prediction
-
-        Returns:
-            (float): predicted label
-        """
-        return [random.choice([0, 1]) for _ in range(len(self.data))]
+        return self.model(torch.tensor(self.data, dtype=torch.float32))
 
     def map(self, ls):
         """Map function to predict label on batch data.
@@ -144,11 +132,10 @@ class Predictor(MapFunction):
         """
         self.labels, self.data = zip(*ls)
 
-        # change to your prediction function
-        # predictions = self.get_prediction(self.model.predict)
-        predictions = self.get_dummy_prediction()
-        # change to your accuracy function
-        accuracy = self.get_accuracy(predictions)
+        with torch.no_grad():
+            predictions = self.get_prediction()
+
+        accuracy = self.get_accuracy(torch.round(predictions))
         return 1, accuracy
 
 
@@ -178,6 +165,7 @@ def batch_inference(ds, test_data_size, preprocess_parallelism=1, classifier_par
         for accuracy in results:
             redis_param.set('batch_inference_accuracy', accuracy[1].item())
     return accuracy[1]
+    # return ds
 
 
 if __name__ == '__main__':

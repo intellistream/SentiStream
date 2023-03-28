@@ -134,7 +134,6 @@ def generate_vector_mean(model, tokenized_text, func=default_vector_mean):
 def default_model_pretrain(path_to_model='word2vec20tokenised.model'):
     return Word2Vec.load(path_to_model)
 
-
 def load_torch_model(model_path):
     """Load trained torch model on to cpu (compatible with both models trained on cpu & gpu)
 
@@ -153,9 +152,10 @@ def default_model_classifier():
     return pickle.load(file)
 
 
-def train_word2vec(model, sentences):
+def train_word2vec(model, sentences, path):
     # TODO: CHECK ON UPDATING MODEL VS RETRAINING FOR MIN_COUNT PRB
     model.build_vocab(sentences, update=True)
     model.train(sentences,
                 total_examples=model.corpus_count,
                 epochs=model.epochs)
+    model.save(path)

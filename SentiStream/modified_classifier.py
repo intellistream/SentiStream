@@ -15,13 +15,11 @@ class Preprocessor(MapFunction):
             with_accuracy (bool, optional): set. Defaults to True.
         """
         self.model = None
-        self.data = []
         self.collector = []
         self.collector_size = 16
-        self.with_accuracy = with_accuracy
         self.redis = None
         self.time_threshold = 10 * 60
-        self.start_time = time()
+        self.start_time = time.time()
 
     def open(self, runtime_context: RuntimeContext):
         """Initialize word2vec model before starting stream/batch processing.
@@ -30,27 +28,27 @@ class Preprocessor(MapFunction):
             runtime_context (RuntimeContext): give access to Flink runtime env.
         """
         self.model = default_model_pretrain(
-            'PLS_c10.model')
+            'w2v.model')
         self.redis = redis.StrictRedis(host='localhost', port=6379, db=0)
 
-    def load(self):
-        """
-        Periodically load updated model
-        """
-        if time() - self.start_time >= self.time_threshold:
-            self.start_time = 0
-            try:
-                flag = int(self.redis.get('word_vector_update'))
-                if flag == 1:
-                    self.model = default_model_pretrain(
-                        'PLS_c10.model')
-                    self.redis.set('word_vector_update', int(False))
-                elif flag is None:
-                    pass
-                    # logging.warning(
-                    #     'word_vector model update flag not set. Train model before running')
-            except:
-                raise ConnectionError('Failed to open redis')
+    # def load(self):
+    #     """
+    #     Periodically load updated model
+    #     """
+    #     if time.time() - self.start_time >= self.time_threshold:
+    #         self.start_time = 0
+    #         try:
+    #             flag = int(self.redis.get('word_vector_update'))
+    #             if flag == 1:
+    #                 self.model = default_model_pretrain(
+    #                     'w2v.model')
+    #                 self.redis.set('word_vector_update', int(False))
+    #             elif flag is None:
+    #                 pass
+    #                 # logging.warning(
+    #                 #     'word_vector model update flag not set. Train model before running')
+    #         except:
+    #             raise ConnectionError('Failed to open redis')
 
     def map(self, tweet):
         """
@@ -63,14 +61,11 @@ class Preprocessor(MapFunction):
             (str or list): list of label and avg word vector of tweet if all data per processing
             unit is collected else, 'collecting'
         """
-        self.data.append(tweet)
+        # TODO: BATCH PREPROCESSING WILL IMPROVE SPEED ------------------------------------------------------
 
         processed_text = process_text_and_generate_tokens(tweet[2])
         vector_mean = generate_vector_mean(self.model, processed_text)
-        self.collector.append([tweet[0], vector_mean, tweet[1]])
-
-        if self.with_accuracy:
-            self.collector[-1].append(tweet[1])
+        self.collector.append([tweet[0], vector_mean, tweet[2]])
 
         if len(self.collector) >= self.collector_size:
             output = list(self.collector)
@@ -93,7 +88,7 @@ class Classifier(MapFunction):
         self.data = []
         self.redis = None
         self.time_threshold = 10 * 60
-        self.start_time = time()
+        self.start_time = time.time()
 
     def open(self, runtime_context: RuntimeContext):
         """Initialize classifier model before starting stream/batch processing.
@@ -104,23 +99,23 @@ class Classifier(MapFunction):
         self.model = load_torch_model('model.pth')
         self.redis = redis.StrictRedis(host='localhost', port=6379, db=0)
 
-    def load(self):  # TODO: CHECK IF THIS FUNCTION IS WORKING CORRECTLY>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-        """
-        Periodically load updated model
-        """
-        if time() - self.start_time >= self.time_threshold:
-            self.start_time = 0
-            try:
-                flag = int(self.redis.get('classifier_update'))
-                if flag == 1:
-                    self.model = load_torch_model('model.pth')
-                    self.redis.set('classifier_update', int(False))
-                elif flag is None:
-                    pass
-                    # logging.warning(
-                    #     'classifier_model update flag not set. Train model before running')
-            except:
-                raise ConnectionError('Failed to open redis')
+    # def load(self):
+    #     """
+    #     Periodically load updated model
+    #     """
+    #     if time.time() - self.start_time >= self.time_threshold:
+    #         self.start_time = 0
+    #         try:
+    #             flag = int(self.redis.get('classifier_update'))
+    #             if flag == 1:
+    #                 self.model = load_torch_model('model.pth')
+    #                 self.redis.set('classifier_update', int(False))
+    #             elif flag is None:
+    #                 pass
+    #                 # logging.warning(
+    #                 #     'classifier_model update flag not set. Train model before running')
+    #         except:
+    #             raise ConnectionError('Failed to open redis')
 
     def get_confidence(self):
         """
@@ -129,10 +124,8 @@ class Classifier(MapFunction):
         Returns:
             (list): list of float value representing the confidence scores for polarity.
         """
-        # neg_conf = random.random()
-        # return [neg_conf, 1-neg_conf]
 
-        return self.model(torch.tensor(self.data, dtype=torch.float32))
+        return self.model(torch.FloatTensor(self.data))
 
     def map(self, data):
         """
@@ -145,24 +138,24 @@ class Classifier(MapFunction):
             (list): list of predicted outputs in format of [index, prediction confidence, 
             predicted label, review, true label]
         """
-        # conf = self.get_confidence()
-        # pred_conf = max(conf)
 
         for i in range(len(data)):
             self.data.append(data[i][1])
-        confidence = self.get_confidence()
+
+        with torch.no_grad():
+            confidence = self.get_confidence().tolist()
         for i in range(len(data)):
-            if confidence[i][0] >= confidence[i][1]:  # softmax layer
-                data[i][1] = confidence[i][0]
+            if confidence[i][0] < 0.5:
+                data[i][1] = 1 - confidence[i][0]
                 data[i].insert(2, 0)
             else:
-                data[i][1] = confidence[i][1]
+                data[i][1] = confidence[i][0]
                 data[i].insert(2, 1)
 
         return data
 
 
-def dummy_classifier(ds):
+def classifier(ds):
     """
     Placeholder for Sentiment classifier
 
@@ -173,5 +166,7 @@ def dummy_classifier(ds):
         datastream: predicted datastream
     """
     ds = ds.map(Preprocessor()).filter(lambda i: i != 'collecting')
-    ds = ds.map(Classifier())
+    ds = ds.map(Classifier()) \
+        .flat_map(lambda x: x)  # flatten
+
     return ds

@@ -9,6 +9,7 @@ from pyflink.datastream import CheckpointingMode
 from pyflink.datastream.functions import RuntimeContext, MapFunction
 
 from ann_model import Model
+from modified_batch_inferrence import batch_inference
 from utils import load_data, pre_process, default_model_pretrain, train_word2vec, generate_vector_mean
 
 
@@ -17,13 +18,14 @@ class ModelTrain(MapFunction):
     Class for training classifier.
     """
 
-    def __init__(self, train_data_size):
+    def __init__(self, train_data_size, init):
         """Initialize class
 
         Parameters:
             train_data_size (int): size of training data.
         """
         self.model = None
+        self.init = init
         self.sentences = []
         self.labels = []
         self.output = []
@@ -37,7 +39,7 @@ class ModelTrain(MapFunction):
             runtime_context (RuntimeContext): give access to Flink runtime env.
         """
         self.model = default_model_pretrain(
-            "PLS_c10.model")  # change to your model
+            "PLS_c10.model" if self.init else "w2v.model")
         self.redis = redis.StrictRedis(host='localhost', port=6379, db=0)
 
     def train_classifier(self, mean_vectors):
@@ -50,8 +52,10 @@ class ModelTrain(MapFunction):
             T: trained sentiment classifier
         """
 
-        clf = Model(mean_vectors, self.labels, self.model.vector_size)
+        clf = Model(mean_vectors, self.labels, self.model.vector_size, self.init)
         clf.fit_and_save('model.pth')
+
+        # TODO CONTINOUS TRAIN
 
     def map(self, tweet):
         """Map function to collect train data for classifier model and train it.
@@ -70,10 +74,9 @@ class ModelTrain(MapFunction):
 
             mean_vectors = []
             for sentence in self.sentences:
-                # change to custom vector mean function
                 mean_vectors.append(generate_vector_mean(self.model, sentence))
 
-                self.train_classifier(mean_vectors)
+            self.train_classifier(mean_vectors)
             try:
                 self.redis.set('word_vector_update', int(True))
                 self.redis.set('classifier_update', int(True))
@@ -90,7 +93,7 @@ class ModelTrain(MapFunction):
         Parameters:
             func (function, optional): function to train model. Defaults to train_word2vec.
         """
-        func(self.model, self.sentences)
+        func(self.model, self.sentences, 'w2v.model')
 
 
 def supervised_model(data_process_parallelism, train_df, pseudo_data_size, accuracy, init=False):
@@ -127,9 +130,10 @@ def supervised_model(data_process_parallelism, train_df, pseudo_data_size, accur
         ds = env.from_collection(collection=data_stream)
         ds = ds.map(pre_process)  # change to your pre_processing function,
         ds = ds.set_parallelism(data_process_parallelism).map(
-            ModelTrain(len(train_df)))
+            ModelTrain(len(train_df), init))
         ds = ds.filter(lambda x: x != 'collecting')
-        # ds = batch_inference(ds)
+        # ds = batch_inference(env.from_collection(
+        #     collection=data_stream), len(train_df))
 
         ds.print()
 
