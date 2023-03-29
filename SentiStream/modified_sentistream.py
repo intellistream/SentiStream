@@ -152,4 +152,4 @@ if __name__ == '__main__':
         if supervised_model(ds, parallelism, len(data_stream), pseudo_data_size, accuracy):
             env.execute()
 
-    shutil.rmtree('senti_output', ignore_errors=False, onerror=None)
+    # shutil.rmtree('senti_output', ignore_errors=False, onerror=None)
