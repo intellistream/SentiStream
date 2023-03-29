@@ -38,10 +38,9 @@ if __name__ == '__main__':
     train_data_file = 'exp_train.csv'
 
     ## -------------------INITIAL TRAINING OF SUPERVISED MODEL------------------- ##
-    new_df = pd.read_csv('train.csv', names=['label', 'review'])
-    new_df['label'] -= 1
-
-    df = new_df[0:100].reset_index()
+    
+    df = pd.read_csv(train_data_file, names=['label', 'review'])
+    df['label'] -= 1
 
     true_label = df.label
     yelp_review = df.review
@@ -64,9 +63,13 @@ if __name__ == '__main__':
     if supervised_model(ds, parallelism, len(data_stream), 0, 0, init=True):
         env.execute()
 
-    for k in range(1, 2):
 
-        df = new_df[k * 100: (k+1) * 100].reset_index()
+    new_df = pd.read_csv('train.csv', names=['label', 'review'])
+    new_df['label'] -= 1
+
+    for k in range(1, 10):
+
+        df = new_df[k * 1000: (k+1) * 1000].reset_index()
 
         ## -------------------GENERATE PSEUDO-LABEL FROM BOTH LEARNING METHODS------------------- ##
         true_label = df.label
@@ -146,7 +149,7 @@ if __name__ == '__main__':
 
         ds = env.from_collection(collection=data_stream)
 
-        if supervised_model(ds, parallelism, len(data_stream), pseudo_data_size, 0.4):
+        if supervised_model(ds, parallelism, len(data_stream), pseudo_data_size, accuracy):
             env.execute()
 
-        shutil.rmtree('senti_output', ignore_errors=False, onerror=None)
+    shutil.rmtree('senti_output', ignore_errors=False, onerror=None)
