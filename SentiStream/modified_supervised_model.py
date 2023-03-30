@@ -2,7 +2,6 @@ import sys
 import redis
 import logging
 
-import config
 from pyflink.datastream import StreamExecutionEnvironment
 from pyflink.datastream.execution_mode import RuntimeExecutionMode
 from pyflink.datastream import CheckpointingMode
@@ -18,7 +17,7 @@ class ModelTrain(MapFunction):
     Class for training classifier.
     """
 
-    def __init__(self, train_data_size, init):
+    def __init__(self, init):
         """Initialize class
 
         Parameters:
@@ -29,7 +28,8 @@ class ModelTrain(MapFunction):
         self.sentences = []
         self.labels = []
         self.output = []
-        self.collection_size = train_data_size
+        # self.collection_size = train_data_size
+        self.collection_size = 16
         self.redis = None
 
     def open(self, runtime_context: RuntimeContext):
@@ -147,7 +147,7 @@ class ModelTrain(MapFunction):
 #         print("Too soon to update model")
 
 
-def supervised_model(ds, data_process_parallelism, train_size, pseudo_data_size, accuracy, init=False):
+def supervised_model(ds, data_process_parallelism, pseudo_data_size=0.1, accuracy=0.4, pseudo_data_collection_threshold=0.0, accuracy_threshold=0.0):
     """Train supervised model and word vector model
 
     Parameters:
@@ -157,23 +157,18 @@ def supervised_model(ds, data_process_parallelism, train_size, pseudo_data_size,
         accuracy (float): accuracy of supervised model before training.
         init (bool, optional): whether training for first time or retraining. Defaults to False.
     """
-    if init or (pseudo_data_size > config.PSEUDO_DATA_COLLECTION_THRESHOLD and accuracy < config.ACCURACY_THRESHOLD):
+    if (pseudo_data_size > pseudo_data_collection_threshold and accuracy < accuracy_threshold):
 
         ds = ds.map(pre_process)
         ds = ds.set_parallelism(data_process_parallelism).map(
-            ModelTrain(train_size, init))
+            ModelTrain(False))
         ds = ds.filter(lambda x: x != 'collecting')
-
-        return True
     else:
         print("accuracy below threshold: " +
-              str(accuracy < config.ACCURACY_THRESHOLD))
+              str(accuracy < accuracy_threshold))
         print("pseudo data above threshold: " +
-              str(pseudo_data_size > config.PSEUDO_DATA_COLLECTION_THRESHOLD))
+              str(pseudo_data_size > pseudo_data_collection_threshold))
         print("Too soon to update model")
-
-        return False
-
 
 if __name__ == '__main__':
     logging.basicConfig(stream=sys.stdout,
@@ -182,8 +177,8 @@ if __name__ == '__main__':
     pseudo_data_folder = './senti_output'
     train_data_file = 'exp_train.csv'
 
-    config.PSEUDO_DATA_COLLECTION_THRESHOLD = 0
-    config.ACCURACY_THRESHOLD = 0.9
+    # config.PSEUDO_DATA_COLLECTION_THRESHOLD = 0
+    # config.ACCURACY_THRESHOLD = 0.9
 
     parallelism = 1
 

@@ -30,7 +30,7 @@ class Preprocessor(MapFunction):
     Class for data preprocessing
     """
 
-    def __init__(self, test_data_size, parallelism):
+    def __init__(self,  parallelism):
         """Initialize class
 
         Parameters:
@@ -39,8 +39,8 @@ class Preprocessor(MapFunction):
         """
         self.model = None
         self.collector = []
-        self.output = []
-        self.collector_size = int(test_data_size / parallelism)
+        # self.collector_size = int(test_data_size / parallelism)
+        self.collector_size = 16
 
     def open(self, runtime_context: RuntimeContext):
         """Initialize word embedding model before starting stream/batch processing
@@ -48,8 +48,7 @@ class Preprocessor(MapFunction):
         Parameters:
             runtime_context (RuntimeContext): give access to Flink runtime env.
         """
-        self.model = default_model_pretrain(
-            'w2v.model')
+        self.model = default_model_pretrain('w2v.model')
 
     def map(self, tweet):
         """Map function to collect and preprocess data for classifier model.
@@ -77,7 +76,9 @@ class Preprocessor(MapFunction):
         # in parallel env, collector size will be size of data in single process) so temp
         # implementation,,, # as we are not reusing same class obj it won't add up
         if len(self.collector) >= self.collector_size:
-            return self.collector
+            output = self.collector
+            self.collector = []
+            return output
         else:
             return 'collecting'
 
@@ -139,7 +140,7 @@ class Predictor(MapFunction):
         return 1, accuracy
 
 
-def batch_inference(ds, test_data_size, preprocess_parallelism=1, classifier_parallelism=1):
+def batch_inference(ds, preprocess_parallelism=1, classifier_parallelism=1):
     """Predict label of incoming batch data
 
     Args:
@@ -153,19 +154,16 @@ def batch_inference(ds, test_data_size, preprocess_parallelism=1, classifier_par
         _type_: _description_
     """
     redis_param = redis.StrictRedis(host='localhost', port=6379, db=0)
-    ds = ds.map(Preprocessor(test_data_size, preprocess_parallelism)) \
+    ds = ds.map(Preprocessor(preprocess_parallelism)) \
         .set_parallelism(preprocess_parallelism) \
         .filter(lambda i: i != 'collecting')
 
     ds = ds.map(Predictor()).set_parallelism(classifier_parallelism) \
         .key_by(lambda x: x[0]) \
-        .reduce(lambda x, y: (1, (x[1] + y[1]) / 2))
-
-    with ds.execute_and_collect() as results:
-        for accuracy in results:
-            redis_param.set('batch_inference_accuracy', accuracy[1].item())
-    return accuracy[1]
-    # return ds
+        .reduce(lambda x, y: (1, (x[1] + y[1]) / 2)) \
+        .map(lambda x: x[1])
+    
+    return ds
 
 
 if __name__ == '__main__':
@@ -197,8 +195,3 @@ if __name__ == '__main__':
     accuracy = batch_inference(ds, test_data_size)
 
     print(accuracy)
-
-# STREAM DATA TO BATCH DATA ??????
-# NOTE: loading batch data, so no need to wait & collect ---
-
-# NOTE: Why appending 1 infront of each tuple?
