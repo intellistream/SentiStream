@@ -28,12 +28,6 @@ def tokenize(line):
     return simple_preprocess(line, deacc=True)
     # remove punctuations and lowercase words also tokenise them
 
-
-def split(ls):
-    for e in ls:
-        yield e
-
-
 def process(line):
     # clean_text = clean(line)
     # tokenized_text = tokenise(clean_text)
@@ -144,12 +138,6 @@ def load_torch_model(model_path):
         any: load all tensors to cpu
     """
     return torch.load(model_path, map_location=torch.device('cpu'))
-
-
-def default_model_classifier():
-    path_to_model = 'randomforest_classifier'
-    file = open(path_to_model, 'rb')
-    return pickle.load(file)
 
 
 def train_word2vec(model, sentences, path):
