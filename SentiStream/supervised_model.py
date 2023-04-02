@@ -8,7 +8,7 @@ from pyflink.datastream import CheckpointingMode
 from pyflink.datastream.functions import RuntimeContext, MapFunction
 
 from ann_model import Model
-from modified_batch_inferrence import batch_inference
+from batch_inferrence import batch_inference
 from utils import load_data, pre_process, default_model_pretrain, train_word2vec, generate_vector_mean, load_torch_model
 
 

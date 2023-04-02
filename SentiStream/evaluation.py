@@ -9,8 +9,8 @@ from pyflink.common.serialization import Encoder
 from pyflink.datastream import CoMapFunction, StreamExecutionEnvironment, CheckpointingMode
 from pyflink.datastream.connectors import StreamingFileSink
 
-from modified_PLStream import unsupervised_stream
-from modified_classifier import classifier
+from PLStream import unsupervised_stream
+from classifier import classifier
 
 from sklearn.metrics import accuracy_score
 
