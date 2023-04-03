@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from numpy import float32 as REAL
 from pandas import read_csv
 
-from gensim.models import Word2Vec
+from gensim.models import FastText
 
 from sklearn.metrics import accuracy_score, f1_score
 
@@ -45,7 +45,7 @@ class PLStream(MapFunction):
         super().__init__()
 
     def open(self, runtime_context: RuntimeContext):
-        self.model = Word2Vec(vector_size=VECTOR_SIZE, workers=12)
+        self.model = FastText(vector_size=VECTOR_SIZE, workers=12)
         self.stemmer = nltk.stem.SnowballStemmer('english')
         self.batch_X, self.batch_y = [], []
 
@@ -153,7 +153,7 @@ def run(collection, parallelism=1):
     plt.figure(figsize=(10, 5))
 
     plt.plot([x*(BATCH_SIZE) for x in range(len(acc))], acc)
-    plt.savefig(f'gensim-w2v.png', bbox_inches='tight')
+    plt.savefig(f'gensim-fasttext.png', bbox_inches='tight')
 
 
 if __name__ == '__main__':

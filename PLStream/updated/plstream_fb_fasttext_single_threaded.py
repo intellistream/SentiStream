@@ -1,3 +1,5 @@
+# NOT CONTINOUS---------
+
 import nltk
 import logging
 import numpy as np
@@ -5,7 +7,7 @@ import matplotlib.pyplot as plt
 from numpy import float32 as REAL
 from pandas import read_csv
 
-from gensim.models import Word2Vec
+import fasttext
 
 from sklearn.metrics import accuracy_score, f1_score
 
@@ -35,6 +37,7 @@ REF_NEG = [
     'terrible', 'rubbish', 'boring', 'awful',
     'unwatchable', 'awkward']
 
+
 class PLStream(MapFunction):
     def __init__(self):
         self.neg_coef = 0.5
@@ -45,7 +48,7 @@ class PLStream(MapFunction):
         super().__init__()
 
     def open(self, runtime_context: RuntimeContext):
-        self.model = Word2Vec(vector_size=VECTOR_SIZE, workers=12)
+        self.model = None
         self.stemmer = nltk.stem.SnowballStemmer('english')
         self.batch_X, self.batch_y = [], []
 
@@ -58,8 +61,21 @@ class PLStream(MapFunction):
             self.batch_X.append(clean_X)
             self.batch_y.append(y)
             if len(self.batch_X) >= BATCH_SIZE:
-                self.model.build_vocab(self.batch_X, update=self.update_model) # REMOVE LRU
-                self.model.train(self.batch_X, total_examples=self.model.corpus_count, epochs=self.model.epochs)
+
+                with open('train.txt', 'w') as file:
+                    for line in self.batch_X:
+                        file.write(f"{(' '.join(line)).strip()}\n")
+
+                # if self.update_model:
+                #     self.model = fasttext.train_unsupervised('train.txt', lr=0.3, dim=VECTOR_SIZE, wordNgrams=2, loss='ns', thread=12, model='ft.bin')
+                # else:
+                #     self.model = fasttext.train_unsupervised('train.txt', lr=0.3, dim=VECTOR_SIZE, wordNgrams=2, loss='ns', thread=12)
+
+                self.model = fasttext.train_unsupervised(
+                    'train.txt', lr=0.3, dim=VECTOR_SIZE, wordNgrams=2, loss='ns', thread=12)
+
+                self.model.save_model('ft.bin')
+
                 acc, f1 = self._eval_model(
                     self.batch_X, self.batch_y, is_train=True)
                 batch_size = len(self.batch_X)
@@ -84,21 +100,23 @@ class PLStream(MapFunction):
         vector = np.zeros(VECTOR_SIZE, dtype=REAL)
         counter = 0
         for word in sentence:
-            if word in self.model.wv.key_to_index:
-                vector += self.model.wv[word]
+            if word in self.model.get_words():
+                vector += self.model.get_word_vector(word)
                 counter += 1
         if counter != 0:
             vector = vector / counter
 
         cos_sim_neg = 0
         for word in REF_NEG:
-            if word in self.model.wv.key_to_index:
-                cos_sim_neg += cos_similarity(vector, self.model.wv[word])
+            if word in self.model.get_words():
+                cos_sim_neg += cos_similarity(vector,
+                                              self.model.get_word_vector(word))
 
         cos_sim_pos = 0
         for word in REF_POS:
-            if word in self.model.wv.key_to_index:
-                cos_sim_pos += cos_similarity(vector, self.model.wv[word])
+            if word in self.model.get_words():
+                cos_sim_pos += cos_similarity(vector,
+                                              self.model.get_word_vector(word))
 
         if cos_sim_neg - cos_sim_pos > CONFIDENCE:
             return cos_sim_neg - cos_sim_pos, LABEL_NEG
@@ -153,7 +171,7 @@ def run(collection, parallelism=1):
     plt.figure(figsize=(10, 5))
 
     plt.plot([x*(BATCH_SIZE) for x in range(len(acc))], acc)
-    plt.savefig(f'gensim-w2v.png', bbox_inches='tight')
+    plt.savefig(f'fb-fasttext.png', bbox_inches='tight')
 
 
 if __name__ == '__main__':
@@ -167,5 +185,5 @@ if __name__ == '__main__':
     collection = []
     collection = make_input_collection(
         'train', yelp_train_X[:data_size], yelp_train_y[:data_size])
-    
+
     run(collection)
