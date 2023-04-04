@@ -23,7 +23,7 @@ class SentAttNet(nn.Module):
         f_output, h_output = self.gru(input, hidden_state)
         output = mat_mul(f_output, self.sent_weight, self.sent_bias)
         output = mat_mul(output, self.context_weight).permute(1, 0)
-        output = F.softmax(output)
+        output = F.softmax(output, dim=1)
         output = ele_wise_mul(f_output, output.permute(1, 0)).squeeze(0)
         output = self.fc(output)
 

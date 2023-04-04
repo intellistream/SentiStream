@@ -33,7 +33,7 @@ class WordAttNet(nn.Module):
 
         output = mat_mul(f_output, self.word_weight, self.word_bias)
         output = mat_mul(output, self.context_weight).permute(1, 0)
-        output = F.softmax(output)
+        output = F.softmax(output, dim=1)
         output = ele_wise_mul(f_output, output.permute(1, 0))
 
         return output, h_output
