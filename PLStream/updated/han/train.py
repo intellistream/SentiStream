@@ -1,14 +1,14 @@
+## TODO: TEXT PREPROCESSING, STOP WORDS
+
 import time
-import os
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 import pandas as pd
-import shutil
 import numpy as np
 
 import config
-from src.utils import get_max_lengths, get_evaluation
+from src.utils import get_max_lengths, get_evaluation, clean_text, preprocess
 from src.dataset import SentimentDataset
 from src.hierarchical_att_model import HAN
 
@@ -16,32 +16,35 @@ from sklearn.model_selection import train_test_split
 
 
 def train():
+    torch.manual_seed(42)
     if torch.cuda.is_available():
         torch.cuda.manual_seed(42)
-    else:
-        torch.manual_seed(42)
-
-    output_file = open("trained_models" + os.sep + "logs.txt", "w")
 
     df = pd.read_csv('train.csv', names=['label', 'document'])
     df.label -= 1
 
-    df = df[:100]
+    df = df[:1000]
+
+    df['document'] = df['document'].apply(clean_text)
 
     wb_dict = pd.read_csv('glove.6B.50d.txt', header=None, sep=" ", quoting=3,
                           usecols=[0]).values.ravel()
 
-    train_df, test_df = train_test_split(df, test_size=0.2, random_state=42)
+    wb_dict = {val: idx for idx, val in enumerate(wb_dict)}
 
     max_word_length, max_sent_length = get_max_lengths(
-        df.document)  # change to train only
+        df.document)  # change to train only # 6.8 sec -> 2.1 sec
 
-    training_set = SentimentDataset(
-        train_df.label, train_df.document, wb_dict, max_sent_length, max_word_length)
+    docs = preprocess(df['document'].tolist(), wb_dict,
+                      max_word_length, max_sent_length)
+
+    x_train, x_test, y_train, y_test = train_test_split(
+        docs, df.label.tolist(), test_size=0.2, random_state=42)
+
+    training_set = SentimentDataset(y_train, x_train)
     training_generator = DataLoader(
         training_set, batch_size=config.BATCH_SIZE, shuffle=True, drop_last=True)
-    test_set = SentimentDataset(
-        test_df.label, test_df.document, wb_dict, max_sent_length, max_word_length)
+    test_set = SentimentDataset(y_test, x_test)
     test_generator = DataLoader(
         test_set, batch_size=config.BATCH_SIZE, shuffle=False, drop_last=False)
 
@@ -57,6 +60,7 @@ def train():
     best_loss = 1e5
     best_epoch = 0
     num_iter_per_epoch = len(training_generator)
+
     for epoch in range(config.EPOCHS):
         model.train()
 
@@ -103,12 +107,6 @@ def train():
         te_label = np.array(te_label_ls)
         test_metrics = get_evaluation(te_label, te_pred.numpy(), list_metrics=[
                                       "accuracy", "confusion_matrix"])
-        output_file.write(
-            "Epoch: {}/{} \nTest loss: {} Test accuracy: {} \nTest confusion matrix: \n{}\n\n".format(
-                epoch + 1, config.EPOCHS,
-                te_loss,
-                test_metrics["accuracy"],
-                test_metrics["confusion_matrix"]))
         print("Epoch: {}/{}, Lr: {}, Loss: {}, Accuracy: {}".format(
             epoch + 1,
             config.EPOCHS,
@@ -117,7 +115,7 @@ def train():
         if te_loss + config.EARLY_STOPPING_MIN_DELTA < best_loss:
             best_loss = te_loss
             best_epoch = epoch
-            torch.save(model, "trained_models" + os.sep + "whole_model_han")
+            torch.save(model, "best_model")
 
         # Early stopping
         if epoch - best_epoch > config.EARLY_STOPPING_PATIENCE > 0:
