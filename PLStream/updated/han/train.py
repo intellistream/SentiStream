@@ -1,10 +1,9 @@
+import time
 import os
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 import pandas as pd
-from tensorboardX import SummaryWriter
-import argparse
 import shutil
 import numpy as np
 
@@ -27,42 +26,43 @@ def train():
     df = pd.read_csv('train.csv', names=['label', 'document'])
     df.label -= 1
 
-    df = df[:1000]
+    df = df[:100]
 
     wb_dict = pd.read_csv('glove.6B.50d.txt', header=None, sep=" ", quoting=3,
-                                usecols=[0]).values.ravel()
+                          usecols=[0]).values.ravel()
 
-    train_df, test_df = train_test_split(df, test_size=0.1, random_state=42)
+    train_df, test_df = train_test_split(df, test_size=0.2, random_state=42)
 
-    max_word_length, max_sent_length = get_max_lengths(df.document) # change to train only
+    max_word_length, max_sent_length = get_max_lengths(
+        df.document)  # change to train only
 
-    training_set = SentimentDataset(train_df.label, train_df.document, wb_dict, max_sent_length, max_word_length)
-    training_generator = DataLoader(training_set, batch_size=config.BATCH_SIZE, shuffle=True, drop_last=True)
-    test_set = SentimentDataset(test_df.label, test_df.document, wb_dict, max_sent_length, max_word_length)
-    test_generator = DataLoader(test_set, batch_size=config.BATCH_SIZE, shuffle=False, drop_last=False)
+    training_set = SentimentDataset(
+        train_df.label, train_df.document, wb_dict, max_sent_length, max_word_length)
+    training_generator = DataLoader(
+        training_set, batch_size=config.BATCH_SIZE, shuffle=True, drop_last=True)
+    test_set = SentimentDataset(
+        test_df.label, test_df.document, wb_dict, max_sent_length, max_word_length)
+    test_generator = DataLoader(
+        test_set, batch_size=config.BATCH_SIZE, shuffle=False, drop_last=False)
 
     model = HAN(config.WORD_HIDDEN_SIZE, config.SENT_HIDDEN_SIZE, config.BATCH_SIZE, config.N_CLASS,
-                       'glove.6B.50d.txt', max_sent_length, max_word_length)
-
-
-    if os.path.isdir("tensorboard/han_voc"):
-        shutil.rmtree("tensorboard/han_voc")
-    os.makedirs("tensorboard/han_voc")
-    writer = SummaryWriter("tensorboard/han_voc")
-    # writer.add_graph(model, torch.zeros(config.BATCH_SIZE, max_sent_length, max_word_length))
+                'glove.6B.50d.txt', max_sent_length, max_word_length)
 
     if torch.cuda.is_available():
         model.cuda()
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, model.parameters()), lr=config.LR, momentum=config.MOMENTUM)
+    optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, model.parameters(
+    )), lr=config.LR, momentum=config.MOMENTUM)
     best_loss = 1e5
     best_epoch = 0
     num_iter_per_epoch = len(training_generator)
     for epoch in range(config.EPOCHS):
         model.train()
 
+        start = time.time()
         for iter, (feature, label) in enumerate(training_generator):
+            print(time.time() - start)
             if torch.cuda.is_available():
                 feature = feature.cuda()
                 label = label.cuda()
@@ -72,7 +72,8 @@ def train():
             loss = criterion(predictions, label)
             loss.backward()
             optimizer.step()
-            training_metrics = get_evaluation(label.cpu().numpy(), predictions.cpu().detach().numpy(), list_metrics=["accuracy"])
+            training_metrics = get_evaluation(label.cpu().numpy(
+            ), predictions.cpu().detach().numpy(), list_metrics=["accuracy"])
             print("Epoch: {}/{}, Iteration: {}/{}, Lr: {}, Loss: {}, Accuracy: {}".format(
                 epoch + 1,
                 config.EPOCHS,
@@ -80,8 +81,6 @@ def train():
                 num_iter_per_epoch,
                 optimizer.param_groups[0]['lr'],
                 loss, training_metrics["accuracy"]))
-            writer.add_scalar('Train/Loss', loss, epoch * num_iter_per_epoch + iter)
-            writer.add_scalar('Train/Accuracy', training_metrics["accuracy"], epoch * num_iter_per_epoch + iter)
 
         model.eval()
         loss_ls = []
@@ -102,7 +101,8 @@ def train():
         te_loss = sum(loss_ls) / test_set.__len__()
         te_pred = torch.cat(te_pred_ls, 0)
         te_label = np.array(te_label_ls)
-        test_metrics = get_evaluation(te_label, te_pred.numpy(), list_metrics=["accuracy", "confusion_matrix"])
+        test_metrics = get_evaluation(te_label, te_pred.numpy(), list_metrics=[
+                                      "accuracy", "confusion_matrix"])
         output_file.write(
             "Epoch: {}/{} \nTest loss: {} Test accuracy: {} \nTest confusion matrix: \n{}\n\n".format(
                 epoch + 1, config.EPOCHS,
@@ -114,9 +114,6 @@ def train():
             config.EPOCHS,
             optimizer.param_groups[0]['lr'],
             te_loss, test_metrics["accuracy"]))
-        writer.add_scalar('Test/Loss', te_loss, epoch)
-        writer.add_scalar('Test/Accuracy', test_metrics["accuracy"], epoch)
-
         if te_loss + config.EARLY_STOPPING_MIN_DELTA < best_loss:
             best_loss = te_loss
             best_epoch = epoch
@@ -124,7 +121,8 @@ def train():
 
         # Early stopping
         if epoch - best_epoch > config.EARLY_STOPPING_PATIENCE > 0:
-            print("Stop training at epoch {}. The lowest loss achieved is {}".format(epoch, te_loss))
+            print("Stop training at epoch {}. The lowest loss achieved is {}".format(
+                epoch, te_loss))
             break
 
 
