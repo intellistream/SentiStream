@@ -1,48 +1,21 @@
 import torch
 import re
-from nltk.tokenize import sent_tokenize, word_tokenize
-from sklearn import metrics
 import numpy as np
 
-
-def get_evaluation(y_true, y_prob, list_metrics):
-    y_pred = np.argmax(y_prob, -1)
-    output = {}
-    if 'accuracy' in list_metrics:
-        output['accuracy'] = metrics.accuracy_score(y_true, y_pred)
-    if 'loss' in list_metrics:
-        try:
-            output['loss'] = metrics.log_loss(y_true, y_prob)
-        except ValueError:
-            output['loss'] = -1
-    if 'confusion_matrix' in list_metrics:
-        output['confusion_matrix'] = str(
-            metrics.confusion_matrix(y_true, y_pred))
-    return output
+from nltk.tokenize import sent_tokenize, word_tokenize
 
 
 def mat_mul(input, weight, bias=None):
-    feature_list = []
-    for feature in input:
-        feature = torch.mm(feature, weight)
-        if bias is not None:
-            feature = feature + bias.expand(feature.size()[0], bias.size()[1])
-        feature = torch.tanh(feature).unsqueeze(0)
-        feature_list.append(feature)
-
-    return torch.cat(feature_list, 0).squeeze()
+    output = torch.matmul(input, weight)
+    if bias is not None:
+        output += bias
+    output = torch.tanh(output)
+    return output.squeeze()
 
 
 def ele_wise_mul(input1, input2):
-
-    feature_list = []
-    for feature_1, feature_2 in zip(input1, input2):
-        feature_2 = feature_2.unsqueeze(1).expand_as(feature_1)
-        feature = feature_1 * feature_2
-        feature_list.append(feature.unsqueeze(0))
-    output = torch.cat(feature_list, 0)
-
-    return torch.sum(output, 0).unsqueeze(0)
+    output = input1 * input2.unsqueeze(2)
+    return output.sum(dim=0, keepdim=True)
 
 
 def clean_text(text):
@@ -52,10 +25,16 @@ def clean_text(text):
     text = re.sub('\.+', '.', text)
     text = re.sub('\s+', ' ', text)
 
-    # tokens = [token for token in tokens if token not in STOP_WORDS] ##### CHECK WITHOUT STOP WORDS
+    # tokens = [token for token in tokens if token not in STOP_WORDS]##### CHECK WITHOUT STOP WORDS
     # tokens = [stemmer.stem(token) for token in tokens]
 
     return text.strip()
+
+
+def calc_acc(y_label, y_pred):
+    _, preds = torch.max(y_pred, 1)
+    correct = torch.sum(preds == y_label)
+    return correct.float() / preds.size(0)
 
 
 def preprocess(docs, word_dict, max_length_word, max_length_sentences):
@@ -101,7 +80,7 @@ def get_max_lengths(docs):  # NO PREPROCESSING DONE
         sents_length.append(len(sents))
 
         for sent in sents:
-            # words_length.append(len(tokenizer.tokenize(sent)))
             words_length.append(len(word_tokenize(sent)))
 
-    return sorted(words_length)[int(0.8 * len(words_length))], sorted(sents_length)[int(0.8 * len(sents_length))]
+    return sorted(words_length)[int(0.8 * len(words_length))], \
+        sorted(sents_length)[int(0.8 * len(sents_length))]

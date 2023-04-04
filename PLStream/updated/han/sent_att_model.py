@@ -1,12 +1,13 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from src.utils import mat_mul, ele_wise_mul
+
+from utils import mat_mul, ele_wise_mul
 
 
 class SentAttNet(nn.Module):
     def __init__(self, sent_hidden_size=50, word_hidden_size=50, num_classes=2):
-        super(SentAttNet, self).__init__()
+        super().__init__()
 
         self.sent_bias = nn.Parameter(
             torch.empty(1, 2 * sent_hidden_size).zero_())

@@ -1,18 +1,17 @@
-## TODO: TEXT PREPROCESSING, STOP WORDS
-
+# TODO: TEXT PREPROCESSING, STOP WORDS
 import time
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
 import pandas as pd
-import numpy as np
-
-import config
-from src.utils import get_max_lengths, get_evaluation, clean_text, preprocess
-from src.dataset import SentimentDataset
-from src.hierarchical_att_model import HAN
 
 from sklearn.model_selection import train_test_split
+from torch.utils.data import DataLoader
+
+import config
+
+from utils import get_max_lengths, clean_text, preprocess, calc_acc
+from dataset import SentimentDataset
+from hierarchical_att_model import HAN
 
 
 def train():
@@ -33,7 +32,7 @@ def train():
     wb_dict = {val: idx for idx, val in enumerate(wb_dict)}
 
     max_word_length, max_sent_length = get_max_lengths(
-        df.document)  # change to train only # 6.8 sec -> 2.1 sec
+        df.document)  # change to train only
 
     docs = preprocess(df['document'].tolist(), wb_dict,
                       max_word_length, max_sent_length)
@@ -42,86 +41,75 @@ def train():
         docs, df.label.tolist(), test_size=0.2, random_state=42)
 
     training_set = SentimentDataset(y_train, x_train)
+
     training_generator = DataLoader(
-        training_set, batch_size=config.BATCH_SIZE, shuffle=True, drop_last=True)
+        training_set, batch_size=config.BATCH_SIZE, shuffle=True, drop_last=True, num_workers=4)
     test_set = SentimentDataset(y_test, x_test)
     test_generator = DataLoader(
-        test_set, batch_size=config.BATCH_SIZE, shuffle=False, drop_last=False)
+        test_set, batch_size=config.BATCH_SIZE, shuffle=False, drop_last=False, num_workers=4)
 
     model = HAN(config.WORD_HIDDEN_SIZE, config.SENT_HIDDEN_SIZE, config.BATCH_SIZE, config.N_CLASS,
-                'glove.6B.50d.txt', max_sent_length, max_word_length)
-
-    if torch.cuda.is_available():
-        model.cuda()
-
+                'glove.6B.50d.txt', max_sent_length, max_word_length).cuda()
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, model.parameters(
-    )), lr=config.LR, momentum=config.MOMENTUM)
+    optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters(
+    )), lr=config.LR)  # , momentum=config.MOMENTUM)
     best_loss = 1e5
     best_epoch = 0
-    num_iter_per_epoch = len(training_generator)
+    best_model = None
 
     for epoch in range(config.EPOCHS):
+        start_time = time.time()
         model.train()
+        train_loss = 0
+        train_acc = 0
 
-        start = time.time()
-        for iter, (feature, label) in enumerate(training_generator):
-            print(time.time() - start)
-            if torch.cuda.is_available():
-                feature = feature.cuda()
-                label = label.cuda()
+        for vec, label in training_generator:
+            vec = vec.cuda()
+            label = label.cuda()
             optimizer.zero_grad()
             model._init_hidden_state()
-            predictions = model(feature)
-            loss = criterion(predictions, label)
+            pred = model(vec)
+            loss = criterion(pred, label)
             loss.backward()
             optimizer.step()
-            training_metrics = get_evaluation(label.cpu().numpy(
-            ), predictions.cpu().detach().numpy(), list_metrics=["accuracy"])
-            print("Epoch: {}/{}, Iteration: {}/{}, Lr: {}, Loss: {}, Accuracy: {}".format(
-                epoch + 1,
-                config.EPOCHS,
-                iter + 1,
-                num_iter_per_epoch,
-                optimizer.param_groups[0]['lr'],
-                loss, training_metrics["accuracy"]))
+
+            train_loss += loss
+            train_acc += calc_acc(label, pred)
+        train_loss /= len(training_generator)
+        train_acc /= len(training_generator)
 
         model.eval()
-        loss_ls = []
-        te_label_ls = []
-        te_pred_ls = []
-        for te_feature, te_label in test_generator:
-            num_sample = len(te_label)
-            if torch.cuda.is_available():
-                te_feature = te_feature.cuda()
-                te_label = te_label.cuda()
+        val_loss = 0
+        val_acc = 0
+        for vec, label in test_generator:
+            num_sample = len(label)
+            vec = vec.cuda()
+            label = label.cuda()
             with torch.no_grad():
                 model._init_hidden_state(num_sample)
-                te_predictions = model(te_feature)
-            te_loss = criterion(te_predictions, te_label)
-            loss_ls.append(te_loss * num_sample)
-            te_label_ls.extend(te_label.clone().cpu())
-            te_pred_ls.append(te_predictions.clone().cpu())
-        te_loss = sum(loss_ls) / test_set.__len__()
-        te_pred = torch.cat(te_pred_ls, 0)
-        te_label = np.array(te_label_ls)
-        test_metrics = get_evaluation(te_label, te_pred.numpy(), list_metrics=[
-                                      "accuracy", "confusion_matrix"])
-        print("Epoch: {}/{}, Lr: {}, Loss: {}, Accuracy: {}".format(
-            epoch + 1,
-            config.EPOCHS,
-            optimizer.param_groups[0]['lr'],
-            te_loss, test_metrics["accuracy"]))
-        if te_loss + config.EARLY_STOPPING_MIN_DELTA < best_loss:
-            best_loss = te_loss
-            best_epoch = epoch
-            torch.save(model, "best_model")
+                pred = model(vec)
+            val_loss += criterion(pred, label)
+            val_acc += calc_acc(label, pred)
 
-        # Early stopping
-        if epoch - best_epoch > config.EARLY_STOPPING_PATIENCE > 0:
-            print("Stop training at epoch {}. The lowest loss achieved is {}".format(
-                epoch, te_loss))
+        val_loss /= len(test_generator)
+        val_loss = val_loss.item()
+        val_acc /= len(test_generator)
+
+        print(f"time: {time.time() - start_time} epoch: {epoch+1}, training loss: {train_loss:.4f}, training acc: {train_acc:.4f}, val loss: {val_loss:.4f}, val_acc: {val_acc:.4f}")
+
+        if val_loss < best_loss:
+            best_loss = val_loss
+            best_epoch = epoch
+            print(f"Best loss {val_loss}")
+            best_model = model
+
+        if epoch - best_epoch > config.EARLY_STOPPING_PATIENCE:
+            print(
+                f"Stop training at epoch {epoch+1}. The lowest loss achieved is {val_loss}")
+            print(best_epoch)
             break
+
+    torch.save(best_model, "best_model.pth")
 
 
 if __name__ == "__main__":
