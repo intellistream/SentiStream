@@ -1,6 +1,7 @@
 # import redis
 import time
 import torch
+import numpy as np 
 
 from pyflink.datastream.functions import MapFunction, RuntimeContext
 
@@ -8,11 +9,9 @@ from utils import load_torch_model, default_model_pretrain, process_text_and_gen
 
 
 class Preprocessor(MapFunction):
-    def __init__(self, with_accuracy=True):
-        """Initializes class with model.
-
-        Parameters:
-            with_accuracy (bool, optional): set. Defaults to True.
+    def __init__(self):
+        """
+        Initializes class with model.
         """
         self.model = None
         self.collector = []
@@ -125,7 +124,7 @@ class Classifier(MapFunction):
             (list): list of float value representing the confidence scores for polarity.
         """
 
-        return self.model(torch.FloatTensor(self.data))
+        return self.model(torch.FloatTensor(np.array(self.data)))
 
     def map(self, data):
         """

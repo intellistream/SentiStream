@@ -25,44 +25,33 @@ if __name__ == '__main__':
     df = pd.read_csv(train_data_file, names=['label', 'review'])
     df['label'] -= 1
 
-    data_stream = [(int(label), review) for label, review in df.values]
+    InitialModelTrain([(int(label), review) for label, review in df.values])
 
-    InitialModelTrain(data_stream)
+    new_df = pd.read_csv('train.csv', names=['label', 'review'])
+    new_df['label'] -= 1
 
-    # print('Starting SentiStream...')
-    # print('===============================')
+    env = StreamExecutionEnvironment.get_execution_environment()
+    env.set_parallelism(1)
+    env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
 
-    # new_df = pd.read_csv('train.csv', names=['label', 'review'])
-    # new_df['label'] -= 1
+    df = new_df[:1000]
 
-    # env = StreamExecutionEnvironment.get_execution_environment()
-    # env.set_runtime_mode(RuntimeExecutionMode.STREAMING)
+    ## -------------------GENERATE PSEUDO-LABEL FROM BOTH LEARNING METHODS------------------- ##
+
+    data_stream = [(i, int(label), review) for i, (label, review) in enumerate(df.values)]
+
     # env.set_parallelism(1)
-    # env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
+    env.set_runtime_mode(RuntimeExecutionMode.STREAMING)
 
-    # df = new_df[:1000]
+    ds = env.from_collection(collection=data_stream)
 
-    # ## -------------------GENERATE PSEUDO-LABEL FROM BOTH LEARNING METHODS------------------- ##
-    # true_label = df.label
-    # yelp_review = df.review
+    print("unsupervised stream,classifier and evaluation")
 
-    # data_stream = []
+    ds1 = unsupervised_stream(ds)
+    ds2 = classifier(ds)
 
-    # for i in range(len(yelp_review)):
-    #     data_stream.append((i, int(true_label[i]), yelp_review[i]))
-
-    # # env.set_parallelism(1)
-    # env.set_runtime_mode(RuntimeExecutionMode.STREAMING)
-
-    # ds = env.from_collection(collection=data_stream)
-
-    # print("unsupervised stream,classifier and evaluation")
-
-    # ds1 = unsupervised_stream(ds)
-    # ds2 = classifier(ds)
-
-    # ds = merged_stream(ds1, ds2)
-    # ds = generate_new_label(ds)
+    ds = merged_stream(ds1, ds2)
+    ds = generate_new_label(ds)
 
     # ## -------------------SUPERVISED MODEL INFERENCE------------------- ##
 
