@@ -3,7 +3,6 @@ import pickle
 from gensim.utils import simple_preprocess
 # from gensim.parsing.preprocessing import remove_stopwords
 import pandas as pd
-from os import walk
 import os
 import numpy as np
 from gensim.models import Word2Vec

@@ -1,6 +1,4 @@
 import sys
-import logging
-import numpy as np
 import pandas as pd
 
 from collections import defaultdict
@@ -14,17 +12,6 @@ from classifier import classifier
 
 from sklearn.metrics import accuracy_score
 
-# logger
-logger = logging.getLogger('SentiStream')
-logger.setLevel(logging.DEBUG)
-fh = logging.FileHandler('sentistream.log', mode='w')
-formatter = logging.Formatter('SentiStream:%(thread)d %(lineno)d: %(levelname)s: %(asctime)s %(message)s',
-                              datefmt='%m/%d/%Y %I:%M:%S %p', )
-fh.setFormatter(formatter)
-logger.addHandler(fh)
-
-# supress warnings
-np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)
 
 
 def collect(ls, my_dict, other_dict):
@@ -277,9 +264,6 @@ def generate_new_label(ds):
 
 
 if __name__ == '__main__':
-    logging.basicConfig(stream=sys.stdout,
-                        level=logging.INFO, format="%(message)s")
-
     df = pd.read_csv('train.csv', names=['label', 'review'])
 
     # testing ONLY 100 reviews

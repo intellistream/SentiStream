@@ -1,22 +1,22 @@
-#!/usr/bin/env python3
+import pandas as pd
+# import redis
+import copy
+import re
+import numpy as np
+
+from pyflink.datastream.connectors import StreamingFileSink
+from pyflink.common.serialization import Encoder
 from pyflink.datastream import CheckpointingMode
 from pyflink.datastream import StreamExecutionEnvironment
 from pyflink.common.typeinfo import Types
 from pyflink.datastream.functions import RuntimeContext, MapFunction
 from sklearn.metrics import accuracy_score
 from nltk.corpus import stopwords
-import logging
 from time import time
-import pickle
-import redis
 from gensim.models import Word2Vec
 from numpy.linalg import norm
 from numpy import dot
-import copy
-import re
-import numpy as np
-
-np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)
+    
 
 
 class unsupervised_OSA(MapFunction):
@@ -60,7 +60,7 @@ class unsupervised_OSA(MapFunction):
         self.labelled_dataset = []
 
     def open(self, runtime_context: RuntimeContext):
-        self.redis_param = redis.StrictRedis(host='localhost', port=6379, db=0)
+        # self.redis_param = redis.StrictRedis(host='localhost', port=6379, db=0)
 
         self.initial_model = Word2Vec.load('PLS_c10.model')
         self.vocabulary = list(self.initial_model.wv.index_to_key)
@@ -68,24 +68,26 @@ class unsupervised_OSA(MapFunction):
         self.save_model(self.initial_model)
 
     def save_model(self, model):
-        self.redis_param = redis.StrictRedis(host='localhost', port=6379, db=0)
-        try:
-            self.redis_param.set('osamodel', pickle.dumps(
-                model, protocol=pickle.HIGHEST_PROTOCOL))
-        except (redis.exceptions.RedisError, TypeError, Exception):
-            logging.warning(
-                'Unable to save model to Redis server, please check your model')
+        # self.redis_param = redis.StrictRedis(host='localhost', port=6379, db=0)
+        # try:
+        #     self.redis_param.set('osamodel', pickle.dumps(
+        #         model, protocol=pickle.HIGHEST_PROTOCOL))
+        # except (redis.exceptions.RedisError, TypeError, Exception):
+        #     logging.warning(
+        #         'Unable to save model to Redis server, please check your model')
+        model.save('model.model')
 
     def load_model(self):
-        self.redis_param = redis.StrictRedis(host='localhost', port=6379, db=0)
-        try:
-            called_model = pickle.loads(self.redis_param.get('osamodel'))
-            return called_model
-        except TypeError:
-            logging.info('The model name you entered cannot be found in redis')
-        except (redis.exceptions.RedisError, TypeError, Exception):
-            logging.warning(
-                'Unable to call the model from Redis server, please check your model')
+        # self.redis_param = redis.StrictRedis(host='localhost', port=6379, db=0)
+        # try:
+        #     called_model = pickle.loads(self.redis_param.get('osamodel'))
+        #     return called_model
+        # except TypeError:
+        #     logging.info('The model name you entered cannot be found in redis')
+        # except (redis.exceptions.RedisError, TypeError, Exception):
+        #     logging.warning(
+        #         'Unable to call the model from Redis server, please check your model')
+        return Word2Vec.load('model.model')
 
     def text_to_word_list(self, text):
         text = text.lower()
@@ -385,16 +387,7 @@ def unsupervised_stream(ds, map_parallelism=1, reduce_parallelism=1):
 
 
 if __name__ == '__main__':
-    from pyflink.datastream.connectors import StreamingFileSink
-    from pyflink.common.serialization import Encoder
-    from time import time
-    import pandas as pd
-
     parallelism = 1
-
-    # the labels of dataset are only used for accuracy computation, since PLStream is unsupervised
-    # f = pd.read_csv('./train.csv')  # , encoding='ISO-8859-1'
-    # f.columns = ["label","review"]
 
     df = pd.read_csv('train.csv', names=['label', 'review'])
 

@@ -1,8 +1,6 @@
 import sys
-import redis
-import logging
+# import redis
 import torch
-import numpy as np
 
 from sklearn.metrics import accuracy_score
 from pyflink.datastream.functions import RuntimeContext, MapFunction
@@ -11,18 +9,6 @@ from pyflink.datastream.execution_mode import RuntimeExecutionMode
 from pyflink.datastream import CheckpointingMode
 
 from utils import load_data, process_text_and_generate_tokens, generate_vector_mean, default_model_pretrain, load_torch_model
-
-# logger
-logger = logging.getLogger('SentiStream')
-logger.setLevel(logging.DEBUG)
-fh = logging.FileHandler('sentistream.log', mode='w')
-formatter = logging.Formatter('SentiStream:%(thread)d %(lineno)d: %(levelname)s: %(asctime)s %(message)s',
-                              datefmt='%m/%d/%Y %I:%M:%S %p', )
-fh.setFormatter(formatter)
-logger.addHandler(fh)
-
-# supress warnings
-np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)
 
 
 class Preprocessor(MapFunction):
@@ -153,7 +139,7 @@ def batch_inference(ds, preprocess_parallelism=1, classifier_parallelism=1):
     Returns:
         _type_: _description_
     """
-    redis_param = redis.StrictRedis(host='localhost', port=6379, db=0)
+    # redis_param = redis.StrictRedis(host='localhost', port=6379, db=0)
     ds = ds.map(Preprocessor(preprocess_parallelism)) \
         .set_parallelism(preprocess_parallelism) \
         .filter(lambda i: i != 'collecting')
@@ -167,9 +153,6 @@ def batch_inference(ds, preprocess_parallelism=1, classifier_parallelism=1):
 
 
 if __name__ == '__main__':
-    logging.basicConfig(stream=sys.stdout,
-                        level=logging.INFO, format="%(message)s")
-
     pseudo_data_folder = './senti_output'
     test_data_file = './exp_test.csv'
 

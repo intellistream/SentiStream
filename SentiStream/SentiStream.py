@@ -1,6 +1,4 @@
 import sys
-import logging
-import numpy as np
 import shutil
 import pandas as pd
 
@@ -15,22 +13,7 @@ from PLStream import unsupervised_stream
 from train_model import InitialModelTrain
 from utils import load_data
 
-# logger
-logger = logging.getLogger('PLStream')
-logger.setLevel(logging.DEBUG)
-fh = logging.FileHandler('plstream.log', mode='w')
-formatter = logging.Formatter('PLStream:%(thread)d %(lineno)d: %(levelname)s: %(asctime)s %(message)s',
-                              datefmt='%m/%d/%Y %I:%M:%S %p', )
-fh.setFormatter(formatter)
-logger.addHandler(fh)
-
-# supress warnings
-np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)
-
 if __name__ == '__main__':
-    logging.basicConfig(stream=sys.stdout,
-                        level=logging.INFO, format="%(message)s")
-
     parallelism = 1
 
     pseudo_data_folder = './senti_output'
@@ -42,61 +25,55 @@ if __name__ == '__main__':
     df = pd.read_csv(train_data_file, names=['label', 'review'])
     df['label'] -= 1
 
-    true_label = df.label
-    yelp_review = df.review
-
-    data_stream = []
-
-    for i in range(len(yelp_review)):
-        data_stream.append((int(true_label[i]), yelp_review[i]))
+    data_stream = [(int(label), review) for label, review in df.values]
 
     InitialModelTrain(data_stream)
 
-    print('Starting SentiStream...')
-    print('===============================')
+    # print('Starting SentiStream...')
+    # print('===============================')
 
-    new_df = pd.read_csv('train.csv', names=['label', 'review'])
-    new_df['label'] -= 1
+    # new_df = pd.read_csv('train.csv', names=['label', 'review'])
+    # new_df['label'] -= 1
 
-    env = StreamExecutionEnvironment.get_execution_environment()
-    env.set_runtime_mode(RuntimeExecutionMode.STREAMING)
-    env.set_parallelism(1)
-    env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
-
-    df = new_df[:1000]
-
-    ## -------------------GENERATE PSEUDO-LABEL FROM BOTH LEARNING METHODS------------------- ##
-    true_label = df.label
-    yelp_review = df.review
-
-    data_stream = []
-
-    for i in range(len(yelp_review)):
-        data_stream.append((i, int(true_label[i]), yelp_review[i]))
-
+    # env = StreamExecutionEnvironment.get_execution_environment()
+    # env.set_runtime_mode(RuntimeExecutionMode.STREAMING)
     # env.set_parallelism(1)
-    env.set_runtime_mode(RuntimeExecutionMode.STREAMING)
+    # env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
 
-    ds = env.from_collection(collection=data_stream)
+    # df = new_df[:1000]
 
-    print("unsupervised stream,classifier and evaluation")
+    # ## -------------------GENERATE PSEUDO-LABEL FROM BOTH LEARNING METHODS------------------- ##
+    # true_label = df.label
+    # yelp_review = df.review
 
-    ds1 = unsupervised_stream(ds)
-    ds2 = classifier(ds)
+    # data_stream = []
 
-    ds = merged_stream(ds1, ds2)
-    ds = generate_new_label(ds)
-
-    ## -------------------SUPERVISED MODEL INFERENCE------------------- ##
-
-    print("batch_inference")
+    # for i in range(len(yelp_review)):
+    #     data_stream.append((i, int(true_label[i]), yelp_review[i]))
 
     # # env.set_parallelism(1)
+    # env.set_runtime_mode(RuntimeExecutionMode.STREAMING)
 
-    env.set_runtime_mode(RuntimeExecutionMode.BATCH)
+    # ds = env.from_collection(collection=data_stream)
 
-    acc = batch_inference(ds)
-    acc.print()
+    # print("unsupervised stream,classifier and evaluation")
+
+    # ds1 = unsupervised_stream(ds)
+    # ds2 = classifier(ds)
+
+    # ds = merged_stream(ds1, ds2)
+    # ds = generate_new_label(ds)
+
+    # ## -------------------SUPERVISED MODEL INFERENCE------------------- ##
+
+    # print("batch_inference")
+
+    # # # env.set_parallelism(1)
+
+    # env.set_runtime_mode(RuntimeExecutionMode.BATCH)
+
+    # acc = batch_inference(ds)
+    # acc.print()
 
     # ## -------------------SUPERVISED MODEL TRAIN-------------------##
     # print("supervised_model_train")
@@ -121,6 +98,6 @@ if __name__ == '__main__':
     # supervised_model(ds, parallelism,
     #                  pseudo_data_collection_threshold=0.0, accuracy_threshold=0.9)  # change accc
 
-    env.execute()
+    # env.execute()
 
     # shutil.rmtree('senti_output', ignore_errors=False, onerror=None)

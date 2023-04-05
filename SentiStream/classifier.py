@@ -1,4 +1,4 @@
-import redis
+# import redis
 import time
 import torch
 
@@ -17,7 +17,7 @@ class Preprocessor(MapFunction):
         self.model = None
         self.collector = []
         self.collector_size = 16
-        self.redis = None
+        # self.redis = None
         self.time_threshold = 10 * 60
         self.start_time = time.time()
 
@@ -29,7 +29,7 @@ class Preprocessor(MapFunction):
         """
         self.model = default_model_pretrain(
             'w2v.model')
-        self.redis = redis.StrictRedis(host='localhost', port=6379, db=0)
+        # self.redis = redis.StrictRedis(host='localhost', port=6379, db=0)
 
     # def load(self):
     #     """
@@ -86,7 +86,7 @@ class Classifier(MapFunction):
         """
         self.model = None
         self.data = []
-        self.redis = None
+        # self.redis = None
         self.time_threshold = 10 * 60
         self.start_time = time.time()
 
@@ -97,7 +97,7 @@ class Classifier(MapFunction):
             runtime_context (RuntimeContext): give access to Flink runtime env.
         """
         self.model = load_torch_model('model.pth')
-        self.redis = redis.StrictRedis(host='localhost', port=6379, db=0)
+        # self.redis = redis.StrictRedis(host='localhost', port=6379, db=0)
 
     # def load(self):
     #     """

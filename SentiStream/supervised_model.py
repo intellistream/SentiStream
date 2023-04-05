@@ -1,10 +1,6 @@
 import sys
-import redis
-import logging
+# import redis
 
-from pyflink.datastream import StreamExecutionEnvironment
-from pyflink.datastream.execution_mode import RuntimeExecutionMode
-from pyflink.datastream import CheckpointingMode
 from pyflink.datastream.functions import RuntimeContext, MapFunction
 
 from ann_model import Model
@@ -30,7 +26,7 @@ class ModelTrain(MapFunction):
         self.output = []
         # self.collection_size = train_data_size
         self.collection_size = 16
-        self.redis = None
+        # self.redis = None
 
     def open(self, runtime_context: RuntimeContext):
         """Initialize word vector model before starting stream/batch processing.
@@ -40,7 +36,7 @@ class ModelTrain(MapFunction):
         """
         self.model = default_model_pretrain(
             "PLS_c10.model" if self.init else "w2v.model")
-        self.redis = redis.StrictRedis(host='localhost', port=6379, db=0)
+        # self.redis = redis.StrictRedis(host='localhost', port=6379, db=0)
 
     def train_classifier(self, mean_vectors):
         """Intialize and train sentiment classifier on train data
@@ -78,11 +74,11 @@ class ModelTrain(MapFunction):
                 mean_vectors.append(generate_vector_mean(self.model, sentence))
 
             self.train_classifier(mean_vectors)
-            try:
-                self.redis.set('word_vector_update', int(True))
-                self.redis.set('classifier_update', int(True))
-            except ConnectionError:
-                raise ConnectionError('Failed to open redis')
+            # try:
+            #     self.redis.set('word_vector_update', int(True))
+            #     self.redis.set('classifier_update', int(True))
+            # except ConnectionError:
+            #     raise ConnectionError('Failed to open redis')
 
             return "finished training"
         else:
@@ -171,8 +167,6 @@ def supervised_model(ds, data_process_parallelism, pseudo_data_size=0.1, accurac
         print("Too soon to update model")
 
 if __name__ == '__main__':
-    logging.basicConfig(stream=sys.stdout,
-                        level=logging.INFO, format="%(message)s")
     # data source
     pseudo_data_folder = './senti_output'
     train_data_file = 'exp_train.csv'
@@ -185,7 +179,7 @@ if __name__ == '__main__':
     # data sets
     pseudo_data_size, train_df = load_data(pseudo_data_folder, train_data_file)
 
-    redis_param = redis.StrictRedis(host='localhost', port=6379, db=0)
+    # redis_param = redis.StrictRedis(host='localhost', port=6379, db=0)
     # accuracy = float(redis_param.get('batch_inference_accuracy').decode())
     accuracy = 0.4
     supervised_model(parallelism, train_df, pseudo_data_size, accuracy)
