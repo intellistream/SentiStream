@@ -32,7 +32,7 @@ class Classifier(nn.Module):
         out = self.fc1(x)
         out = self.relu1(out)
         out = self.fc2(out)
-        out = self.sigmoid(out)  # 3333############## use softmax
+        out = self.sigmoid(out)
         return out
 
 
@@ -67,27 +67,28 @@ class Model:
 
         self.criterion = nn.BCELoss()
         self.optimizer = torch.optim.Adam(
-            params=self.torch_model.parameters(), lr=5e-4)
+            params=self.torch_model.parameters(), lr=5e-3)
 
         self.best_model = None
-        self.val_len = len(val_data)
 
-    # def binary_acc(self, y_pred, y_test):
-    #     """Calculate accuracy
+    def binary_acc(self, y_pred, y_test):
+        """Calculate accuracy
 
-    #     Args:
-    #         y_pred (Tensor): Predicted results
-    #         y_test (Tensor): Ground truth
+        Args:
+            y_pred (Tensor): Predicted results
+            y_test (Tensor): Ground truth
 
-    #     Returns:
-    #         Tensor: Sum of correct predictions
-    #     """
-        # y_h = torch.round(y_pred)
-        # crct_results = (y_h == y_test).sum()
-    #     return crct_results
+        Returns:
+            Tensor: Sum of correct predictions
+        """
+        y_h = torch.round(y_pred)
+        crct_results = (y_h == y_test).sum()
+        return crct_results / y_pred.size(0)
 
     def fit(self, epoch):
-        best_loss = float('inf')
+        best_epoch = 0
+        best_loss = 1e5
+        best_acc = 0
         for epoch in range(epoch):
             self.torch_model.train()
             # train_loss = 0
@@ -101,20 +102,21 @@ class Model:
 
                 outputs = self.torch_model(vecs)
                 loss = self.criterion(outputs, labels)
+                acc = self.binary_acc(outputs, labels)
 
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
 
-            #     train_loss += loss.float()
-            #     train_acc += acc.float()
+                # train_loss += loss.float()
+                # train_acc += acc.float()
 
-            # train_loss /= len(self.train_data)
-            # train_acc /= len(self.train_data)
+            # train_loss /= len(self.train_loader)
+            # train_acc /= len(self.train_loader)
 
             self.torch_model.eval()
             val_loss = 0
-            # val_acc = 0
+            val_acc = 0
 
             with torch.no_grad():
                 for vecs, labels in self.val_loader:
@@ -123,16 +125,23 @@ class Model:
 
                     outputs = self.torch_model(vecs)
                     loss = self.criterion(outputs, labels)
+                    acc = self.binary_acc(outputs, labels)
 
                     val_loss += loss.float()
-            #         val_acc += acc.float()
+                    val_acc += acc.float()
 
-            val_loss /= self.val_len
-            # val_acc /= len(val_data)
+            val_loss /= len(self.val_loader)
+            val_acc /= len(self.val_loader)
 
-            if val_loss <= best_loss:
+            if best_loss - val_loss > 0.001:
+                best_epoch = epoch
                 best_loss = val_loss
+                best_acc = val_acc
                 self.best_model = self.torch_model
+
+            if epoch - best_epoch > 5:
+                print(f'epoch: {best_epoch+1}, val_acc: {best_acc:.2f}, val_loss: {best_loss:.2f}')
+                break
 
     def fit_and_save(self, filename, epoch=500):
         self.fit(epoch=epoch)
