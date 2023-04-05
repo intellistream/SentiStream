@@ -1,4 +1,3 @@
-# TODO: TEXT PREPROCESSING, STOP WORDS
 import time
 import torch
 import torch.nn as nn
@@ -105,7 +104,7 @@ def train():
 
         if epoch - best_epoch > config.EARLY_STOPPING_PATIENCE:
             print(
-                f"Stop training at epoch {epoch+1}. The lowest loss achieved is {val_loss}")
+                f"Stop training at epoch {epoch+1}. The lowest loss achieved is {best_loss}")
             print(best_epoch)
             break
 
