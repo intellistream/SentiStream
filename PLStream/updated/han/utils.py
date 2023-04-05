@@ -4,6 +4,19 @@ import numpy as np
 
 from nltk.tokenize import sent_tokenize, word_tokenize
 
+STOP_WORDS = ['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', "you're", "you've",
+             "you'd", 'your', 'yours', 'yourself', 'yourselves', 'he', 'him', 'his', 'himself', 'she', "she's",
+             'her', 'hers', 'herself', 'it', "it's", 'its', 'itself', 'they', 'them', 'their', 'theirs',
+             'themselves', 'what', 'which', 'who', 'whom', 'this', 'that', "that'll", 'these', 'those', 'am',
+             'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'having', 'do', 'does',
+             'did', 'doing', 'a', 'an', 'the', 'and', 'but', 'if', 'or', 'because', 'as', 'until', 'while', 'of',
+             'at', 'by', 'for', 'with', 'about', 'against', 'between', 'into', 'through', 'during', 'before',
+             'after', 'above', 'below', 'to', 'from', 'up', 'down', 'in', 'out', 'on', 'off', 'over', 'under',
+             'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all', 'any',
+             'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'only', 'own', 'same', 'so', 'than',
+             'too', 'very', 's', 't', 'can', 'will', 'just', 'should', "should've", 'now', 'd', 'll', 'm', 'o',
+             're', 've', 'y', 'ma', 'st', 'nd', 'rd', 'th', "you'll", 'dr', 'mr', 'mrs']
+
 
 def mat_mul(input, weight, bias=None):
     output = torch.matmul(input, weight)
@@ -25,7 +38,9 @@ def clean_text(text):
     text = re.sub('\.+', '.', text)
     text = re.sub('\s+', ' ', text)
 
-    # tokens = [token for token in tokens if token not in STOP_WORDS]##### CHECK WITHOUT STOP WORDS
+    tokens = word_tokenize(text)
+
+    text = ' '.join([token for token in tokens if token not in STOP_WORDS])
     # tokens = [stemmer.stem(token) for token in tokens]
 
     return text.strip()
@@ -70,7 +85,7 @@ def preprocess(docs, word_dict, max_length_word, max_length_sentences):
     return temp
 
 
-def get_max_lengths(docs):  # NO PREPROCESSING DONE
+def get_max_lengths(docs):
 
     words_length = []
     sents_length = []
