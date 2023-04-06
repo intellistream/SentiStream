@@ -1,5 +1,3 @@
-import pickle
-
 from gensim.utils import simple_preprocess
 # from gensim.parsing.preprocessing import remove_stopwords
 import pandas as pd
@@ -42,7 +40,7 @@ def clean(line):
     return [word for word in line if word not in STOP_WORDS]
 
 
-def load_data(pseudo_data_folder, data_file):
+def load_data(pseudo_data_folder):
     """Load ground truth and pseudo data to memory
 
     Parameters:
@@ -63,10 +61,10 @@ def load_data(pseudo_data_folder, data_file):
         path, delimiter='\t', header=None), path_list), ignore_index=True)
     pseudo_df.columns = ['label', 'review']
 
-    df = pd.read_csv(data_file, names=['label', 'review'])
-    df['label'] -= 1
+    # df = pd.read_csv(data_file, names=['label', 'review'])
+    # df['label'] -= 1
 
-    return len(pseudo_df), pd.concat([df, pseudo_df], ignore_index=True)
+    return len(pseudo_df), pseudo_df
 
 
 def pre_process(tweet, func=process):

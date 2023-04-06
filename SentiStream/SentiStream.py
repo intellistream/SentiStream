@@ -1,9 +1,9 @@
 
 
 # TORCH JIT ?
+# TODO: FIX CLASS IMBALANCE IN INITIAL TRAINING
 
-
-import sys
+import os
 import shutil
 import pandas as pd
 
@@ -21,16 +21,14 @@ from utils import load_data
 if __name__ == '__main__':
     parallelism = 1
 
-    pseudo_data_folder = './senti_output'
-    # test_data_file = 'exp_test.csv'
-    # train_data_file = 'exp_train.csv'
 
+    if os.path.exists('senti_output'):
+        shutil.rmtree('senti_output', ignore_errors=False, onerror=None)
+
+    pseudo_data_folder = './senti_output'
     # set train_data as first 1000
 
     ## -------------------INITIAL TRAINING OF SUPERVISED MODEL------------------- ##
-
-    # df = pd.read_csv(train_data_file, names=['label', 'review'])
-    # df['label'] -= 1
 
     new_df = pd.read_csv('train.csv', names=['label', 'review'])
     new_df['label'] -= 1
@@ -75,29 +73,16 @@ if __name__ == '__main__':
     acc = batch_inference(ds)
     acc.print()
 
-    # ## -------------------SUPERVISED MODEL TRAIN-------------------##
-    # print("supervised_model_train")
+    ## -------------------SUPERVISED MODEL TRAIN-------------------##
+    print("supervised_model_train")
 
-    # # train model on pseudo data with supervised mode
-    # pseudo_data_size, train_df = load_data(
-    #     pseudo_data_folder, train_data_file)
+    # train model on pseudo data with supervised mode
+    pseudo_data_size, train_df = load_data(pseudo_data_folder)
 
-    # true_label = df.label
-    # yelp_review = df.review
+    ds = env.from_collection(collection=[(int(label), review) for label, review in train_df.values])
 
-    # data_stream = []
-
-    # for i in range(len(yelp_review)):
-    #     data_stream.append((int(true_label[i]), yelp_review[i]))
-
-    # ds = env.from_collection(collection=data_stream)
-
-    # supervised_model(ds, parallelism, len(train_df), pseudo_data_size, 0.4,
-    #                  pseudo_data_collection_threshold=0.0, accuracy_threshold=0.9)  # change accc
-
-    # supervised_model(ds, parallelism,
-    #                  pseudo_data_collection_threshold=0.0, accuracy_threshold=0.9)  # change accc
+    supervised_model(ds, parallelism, pseudo_data_size,
+                     pseudo_data_collection_threshold=0.0, accuracy_threshold=0.9)  # change accc
 
     env.execute()
-
-    # shutil.rmtree('senti_output', ignore_errors=False, onerror=None)
+        
