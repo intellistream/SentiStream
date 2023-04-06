@@ -1,3 +1,8 @@
+
+
+# TORCH JIT ?
+
+
 import sys
 import shutil
 import pandas as pd
@@ -17,24 +22,28 @@ if __name__ == '__main__':
     parallelism = 1
 
     pseudo_data_folder = './senti_output'
-    test_data_file = 'exp_test.csv'
-    train_data_file = 'exp_train.csv'
+    # test_data_file = 'exp_test.csv'
+    # train_data_file = 'exp_train.csv'
+
+    # set train_data as first 1000
 
     ## -------------------INITIAL TRAINING OF SUPERVISED MODEL------------------- ##
 
-    df = pd.read_csv(train_data_file, names=['label', 'review'])
-    df['label'] -= 1
-
-    InitialModelTrain([(int(label), review) for label, review in df.values])
+    # df = pd.read_csv(train_data_file, names=['label', 'review'])
+    # df['label'] -= 1
 
     new_df = pd.read_csv('train.csv', names=['label', 'review'])
     new_df['label'] -= 1
+
+    df = new_df[:1000]
+
+    InitialModelTrain([(int(label), review) for label, review in df.values])
 
     env = StreamExecutionEnvironment.get_execution_environment()
     env.set_parallelism(1)
     env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
 
-    df = new_df[:1000]
+    df = new_df[1000:2000]
 
     ## -------------------GENERATE PSEUDO-LABEL FROM BOTH LEARNING METHODS------------------- ##
 
@@ -51,18 +60,20 @@ if __name__ == '__main__':
     ds2 = classifier(ds)
 
     ds = merged_stream(ds1, ds2)
-    ds = generate_new_label(ds)
+    generate_new_label(ds)
 
-    # ## -------------------SUPERVISED MODEL INFERENCE------------------- ##
+    # ds.print()
 
-    # print("batch_inference")
+    ## -------------------SUPERVISED MODEL INFERENCE------------------- ##
 
-    # # # env.set_parallelism(1)
+    print("batch_inference")
 
-    # env.set_runtime_mode(RuntimeExecutionMode.BATCH)
+    # env.set_parallelism(1)
 
-    # acc = batch_inference(ds)
-    # acc.print()
+    env.set_runtime_mode(RuntimeExecutionMode.BATCH)
+
+    acc = batch_inference(ds)
+    acc.print()
 
     # ## -------------------SUPERVISED MODEL TRAIN-------------------##
     # print("supervised_model_train")
@@ -87,6 +98,6 @@ if __name__ == '__main__':
     # supervised_model(ds, parallelism,
     #                  pseudo_data_collection_threshold=0.0, accuracy_threshold=0.9)  # change accc
 
-    # env.execute()
+    env.execute()
 
     # shutil.rmtree('senti_output', ignore_errors=False, onerror=None)

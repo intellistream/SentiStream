@@ -136,7 +136,10 @@ def load_torch_model(model_path):
     Returns:
         any: load all tensors to cpu
     """
-    return torch.load(model_path, map_location=torch.device('cpu'))
+    model = torch.load(model_path, map_location=torch.device('cpu'))
+    model.eval()
+
+    return model
 
 
 def train_word2vec(model, sentences, path):

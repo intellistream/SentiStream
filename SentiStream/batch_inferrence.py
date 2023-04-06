@@ -2,6 +2,8 @@ import sys
 # import redis
 import torch
 
+import numpy as np
+
 from sklearn.metrics import accuracy_score
 from pyflink.datastream.functions import RuntimeContext, MapFunction
 from pyflink.datastream import StreamExecutionEnvironment
@@ -50,17 +52,6 @@ class Preprocessor(MapFunction):
         vector_mean = generate_vector_mean(self.model, processed_text)
         self.collector.append([tweet[0], vector_mean])
 
-        # if len(self.collector) >= self.collector_size:
-        #     self.output += self.collector
-        #     # WHY DO WE NEED THIS STEP ?????????????????????????????????
-        #     self.collector = []
-        #     return self.output
-        # else:
-        #     return 'collecting'
-
-        # NOTE: Collector size = total test data size so no need to have self.output????? (even if
-        # in parallel env, collector size will be size of data in single process) so temp
-        # implementation,,, # as we are not reusing same class obj it won't add up
         if len(self.collector) >= self.collector_size:
             output = self.collector
             self.collector = []
@@ -88,25 +79,13 @@ class Predictor(MapFunction):
         """
         self.model = load_torch_model('model.pth')
 
-    def get_accuracy(self, predictions, func=accuracy_score):
-        """Calculate accuracy of model's prediction
-
-        Parameters:
-            predictions (list): list of predicted labels
-            func (function): function to calculate accuracy
-
-        Returns:
-            (float) accuracy of predicted labels
-        """
-        return func(self.labels, predictions)
-
     def get_prediction(self):
         """Predict sentiment of text
 
         Returns:
             (float) predicted label
         """
-        return self.model(torch.tensor(self.data, dtype=torch.float32))
+        return self.model(torch.tensor(np.array(self.data), dtype=torch.float32))
 
     def map(self, ls):
         """Map function to predict label on batch data.
@@ -122,7 +101,7 @@ class Predictor(MapFunction):
         with torch.no_grad():
             predictions = self.get_prediction()
 
-        accuracy = self.get_accuracy(torch.round(predictions))
+        accuracy = accuracy_score(self.labels, torch.round(predictions))
         return 1, accuracy
 
 

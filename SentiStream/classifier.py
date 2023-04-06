@@ -124,7 +124,7 @@ class Classifier(MapFunction):
             (list): list of float value representing the confidence scores for polarity.
         """
 
-        return self.model(torch.FloatTensor(np.array(self.data)))
+        return self.model(self.data)
 
     def map(self, data):
         """
@@ -138,8 +138,7 @@ class Classifier(MapFunction):
             predicted label, review, true label]
         """
 
-        for i in range(len(data)):
-            self.data.append(data[i][1])
+        self.data = torch.FloatTensor(np.array([x[1] for x in data]))
 
         with torch.no_grad():
             confidence = self.get_confidence().tolist()
