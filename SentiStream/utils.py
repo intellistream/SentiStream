@@ -34,6 +34,14 @@ def process(line):
 
     return tokens
 
+def process_batch(sentences):
+    result = []
+
+    for sent in sentences:
+        result.append(clean(tokenize(sent)))
+    
+    return result
+
 
 def clean(line):
     # return remove_stopwords(line)
@@ -64,7 +72,7 @@ def load_data(pseudo_data_folder):
     # df = pd.read_csv(data_file, names=['label', 'review'])
     # df['label'] -= 1
 
-    return len(pseudo_df), pseudo_df
+    return pseudo_df
 
 
 def pre_process(tweet, func=process):
