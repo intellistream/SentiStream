@@ -2,9 +2,12 @@ from gensim.utils import simple_preprocess
 # from gensim.parsing.preprocessing import remove_stopwords
 import pandas as pd
 import os
+import random
 import numpy as np
 from gensim.models import Word2Vec
 import torch
+
+from sklearn.utils import resample
 
 STOP_WORDS = ['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', "you're", "you've",
               "you'd", 'your', 'yours', 'yourself', 'yourselves', 'he', 'him', 'his', 'himself', 'she', "she's",
@@ -147,6 +150,18 @@ def load_torch_model(model_path):
 
     return model
 
+def downsampling(label, text):
+    pos_idx = [idx for idx, x in enumerate(label) if x == 1]
+    neg_idx = [idx for idx, x in enumerate(label) if x == 0]
+
+    if len(pos_idx) < len(neg_idx):
+        downsampled_idx = pos_idx + neg_idx[:len(pos_idx)] # no need to shuflle majority since already shuffled in train_test_split
+    else:
+        downsampled_idx = neg_idx + pos_idx[:len(neg_idx)]
+
+    random.shuffle(downsampled_idx)
+
+    return [label[i] for i in downsampled_idx], [text[i] for i in downsampled_idx]
 
 def train_word2vec(model, sentences, path):
     # TODO: CHECK ON UPDATING MODEL VS RETRAINING FOR MIN_COUNT PRB

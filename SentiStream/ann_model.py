@@ -5,7 +5,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Dataset
 
-from utils import load_torch_model
+from utils import load_torch_model, downsampling
 
 
 class SentimentDataset(Dataset):
@@ -40,6 +40,13 @@ class Model:
     def __init__(self, x, y, input_dim, init, test_size=0.2, batch_size=16):
         # device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.device = 'cpu'
+
+        ####
+        # print("RAW: ", y.count(0), y.count(1))
+
+        y, x = downsampling(y, x)
+
+        # print("DOWNSAMPLING: ", y.count(0), y.count(1))
 
         if self.device == 'cpu':
             x = torch.FloatTensor(np.array(x))
