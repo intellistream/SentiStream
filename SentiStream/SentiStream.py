@@ -21,11 +21,9 @@ from utils import load_data
 if __name__ == '__main__':
     parallelism = 1
 
-
     if os.path.exists('senti_output'):
         shutil.rmtree('senti_output', ignore_errors=False, onerror=None)
 
-    pseudo_data_folder = './senti_output'
     # set train_data as first 1000
 
     ## -------------------INITIAL TRAINING OF SUPERVISED MODEL------------------- ##
@@ -71,18 +69,11 @@ if __name__ == '__main__':
     env.set_runtime_mode(RuntimeExecutionMode.BATCH)
 
     acc = batch_inference(ds)
-    acc.print()
 
     ## -------------------SUPERVISED MODEL TRAIN-------------------##
     print("supervised_model_train")
 
-    # train model on pseudo data with supervised mode
-    pseudo_data_size, train_df = load_data(pseudo_data_folder)
-
-    ds = env.from_collection(collection=[(int(label), review) for label, review in train_df.values])
-
-    supervised_model(ds, parallelism, pseudo_data_size,
-                     pseudo_data_collection_threshold=0.0, accuracy_threshold=0.9)  # change accc
+    supervised_model(acc, pseudo_data_collection_threshold=0.0, accuracy_threshold=1.0)
 
     env.execute()
         

@@ -1,31 +1,29 @@
-import sys
 # import redis
 
 from pyflink.datastream.functions import RuntimeContext, MapFunction
 
 from ann_model import Model
-from batch_inferrence import batch_inference
-from utils import load_data, pre_process, default_model_pretrain, train_word2vec, generate_vector_mean, load_torch_model
+from utils import load_data, default_model_pretrain, train_word2vec, generate_vector_mean, process_batch
 
+pseudo_data_folder = './senti_output'
 
 class ModelTrain(MapFunction):
     """
     Class for training classifier.
     """
 
-    def __init__(self, init):
+    def __init__(self, pseudo_data_collection_threshold, accuracy_threshold):
         """Initialize class
 
         Parameters:
             train_data_size (int): size of training data.
         """
         self.model = None
-        self.init = init
-        self.sentences = []
+        self.pseudo_data_collection_threshold = pseudo_data_collection_threshold
+        self.accuracy_threshold = accuracy_threshold
         self.labels = []
-        self.output = []
-        # self.collection_size = train_data_size
-        self.collection_size = 16
+        self.sentences = []
+
         # self.redis = None
 
     def open(self, runtime_context: RuntimeContext):
@@ -34,8 +32,13 @@ class ModelTrain(MapFunction):
         Parameters:
             runtime_context (RuntimeContext): give access to Flink runtime env.
         """
-        self.model = default_model_pretrain(
-            "PLS_c10.model" if self.init else "w2v.model")
+        self.model = default_model_pretrain("w2v.model")
+
+        train_df = load_data(pseudo_data_folder)
+        
+        self.labels = train_df.label
+        self.sentences = train_df.review
+
         # self.redis = redis.StrictRedis(host='localhost', port=6379, db=0)
 
     def train_classifier(self, mean_vectors):
@@ -49,12 +52,12 @@ class ModelTrain(MapFunction):
         """
 
         clf = Model(mean_vectors, self.labels,
-                    self.model.vector_size, self.init)
+                    self.model.vector_size, False)
         clf.fit_and_save('model.pth')
 
         # TODO CONTINOUS TRAIN
 
-    def map(self, tweet):
+    def map(self, acc):
         """Map function to collect train data for classifier model and train it.
 
         Parameters:
@@ -64,9 +67,11 @@ class ModelTrain(MapFunction):
             (str): 'fininshed training' if model is trained, else, if collecting data for training, 
             'collecting'
         """
-        self.sentences.append(tweet[1])
-        self.labels.append(tweet[0])
-        if len(self.labels) >= self.collection_size:
+
+
+        if (len(self.labels) > self.pseudo_data_collection_threshold and acc < self.accuracy_threshold):
+            self.sentences = process_batch(self.sentences)
+
             self.train_wordvector_model()
 
             mean_vectors = []
@@ -81,8 +86,10 @@ class ModelTrain(MapFunction):
             #     raise ConnectionError('Failed to open redis')
 
             return "finished training"
+            
         else:
-            return 'collecting'
+            return (f'acc: {acc}, threshold: {self.accuracy_threshold}\npseudo_data_size: {len(self.labels)} threshold: {self.pseudo_data_collection_threshold}')
+
 
     def train_wordvector_model(self, func=train_word2vec):
         """Train word vector model
@@ -92,79 +99,8 @@ class ModelTrain(MapFunction):
         """
         func(self.model, self.sentences, 'w2v.model')
 
-
-# def supervised_model(data_process_parallelism, train_df, pseudo_data_size, accuracy, init=False):
-#     """Train supervised model and word vector model
-
-#     Parameters:
-#         data_process_parallelism (int): no of parallelism for training.
-#         train_df (DataFrame): train data.
-#         pseudo_data_size (int): size of pseudo data.
-#         accuracy (float): accuracy of supervised model before training.
-#         init (bool, optional): whether training for first time or retraining. Defaults to False.
-#     """
-#     if init or (pseudo_data_size > config.PSEUDO_DATA_COLLECTION_THRESHOLD and accuracy < config.ACCURACY_THRESHOLD):
-
-#         # data preparation
-#         true_label = train_df.label
-#         yelp_review = train_df.review
-
-#         data_stream = []
-
-#         for i in range(len(yelp_review)):
-#             data_stream.append((int(true_label[i]), yelp_review[i]))
-
-#         # stream environment setup
-#         env = StreamExecutionEnvironment.get_execution_environment()
-#         env.set_runtime_mode(RuntimeExecutionMode.BATCH)
-#         env.set_parallelism(1)
-#         env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
-
-#         print('Coming Stream is ready...')
-#         print('===============================')
-
-#         # data stream pipline
-#         ds = env.from_collection(collection=data_stream)
-#         ds = ds.map(pre_process)  # change to your pre_processing function,
-#         ds = ds.set_parallelism(data_process_parallelism).map(
-#             ModelTrain(len(train_df), init))
-#         ds = ds.filter(lambda x: x != 'collecting')
-#         # ds = batch_inference(env.from_collection(
-#         #     collection=data_stream), len(train_df))
-
-#         ds.print()
-
-#         env.execute()
-#     else:
-#         print("accuracy below threshold: " +
-#               str(accuracy < config.ACCURACY_THRESHOLD))
-#         print("pseudo data above threshold: " +
-#               str(pseudo_data_size > config.PSEUDO_DATA_COLLECTION_THRESHOLD))
-#         print("Too soon to update model")
-
-
-def supervised_model(ds, data_process_parallelism, pseudo_data_size=0.1, accuracy=0.4, pseudo_data_collection_threshold=0.0, accuracy_threshold=0.0):
-    """Train supervised model and word vector model
-
-    Parameters:
-        data_process_parallelism (int): no of parallelism for training.
-        train_df (DataFrame): train data.
-        pseudo_data_size (int): size of pseudo data.
-        accuracy (float): accuracy of supervised model before training.
-        init (bool, optional): whether training for first time or retraining. Defaults to False.
-    """
-    if (pseudo_data_size > pseudo_data_collection_threshold and accuracy < accuracy_threshold):
-
-        ds = ds.map(pre_process)
-        ds = ds.set_parallelism(data_process_parallelism).map(
-            ModelTrain(False))
-        ds = ds.filter(lambda x: x != 'collecting')
-    else:
-        print("accuracy below threshold: " +
-              str(accuracy < accuracy_threshold))
-        print("pseudo data above threshold: " +
-              str(pseudo_data_size > pseudo_data_collection_threshold))
-        print("Too soon to update model")
+def supervised_model(ds, pseudo_data_collection_threshold=0.0, accuracy_threshold=0.0):
+    ds.map(ModelTrain(pseudo_data_collection_threshold, accuracy_threshold)).print()
 
 if __name__ == '__main__':
     # data source
@@ -184,4 +120,3 @@ if __name__ == '__main__':
     accuracy = 0.4
     supervised_model(parallelism, train_df, pseudo_data_size, accuracy)
 
-# TODO: WHY WAITING IN BATCH MODE ????
