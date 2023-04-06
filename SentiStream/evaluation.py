@@ -1,4 +1,3 @@
-import sys
 import pandas as pd
 
 from collections import defaultdict
@@ -11,8 +10,6 @@ from PLStream import unsupervised_stream
 from classifier import classifier
 
 from sklearn.metrics import accuracy_score
-
-
 
 def collect(ls, my_dict, other_dict):
     """
@@ -27,10 +24,15 @@ def collect(ls, my_dict, other_dict):
         (str): 'eval' if the data is ready for evaluation, 'done' if the data is already evaluated, 
         'collecting' if the data is still being collected.
     """
+
+    other_val = other_dict.get(ls[0])
+    my_val = my_dict.get(ls[0])
+
+
     # if sibiling dict is getting collected but not evaluated
-    if other_dict[ls[0]] is not None and other_dict[ls[0]] is not False:
+    if other_val is not None and other_val is not False:
         # if current dict is empty, collect streams and evaluate
-        if my_dict[ls[0]] is None:
+        if my_val is None:
             my_dict[ls[0]] = ls[1:3] + [ls[-1]]
             return 'eval'
         # if current dict is not empty then its already evaluated
@@ -38,7 +40,7 @@ def collect(ls, my_dict, other_dict):
             return 'done'
     # else collect streams in dicts
     else:
-        if my_dict[ls[0]] is None:
+        if my_val is None:
             my_dict[ls[0]] = ls[1:3] + [ls[-1]]
     return 'collecting'
 
@@ -57,20 +59,21 @@ def generate_label_from_confidence(confidence, ls):
     """
     # assume label is positive if eval score is in range between 2 - .5
     if confidence >= 0.5:
-        ls[2] = 1
+        # ls[2] = 1
         # label and review   ---- ADDED IDX FOR DEBUGGING ----- REMOVE -> [ls[0], *ls[2:4]]
-        return ls[2:4]
+        return [1, ls[3]]
     # assume negative if range between (-2) - (-.5)
     elif confidence <= -0.5:
-        ls[2] = 0
-        return ls[2:4]
+        # ls[2] = 0
+        return [0, ls[3]]
     # else it has low confidence, not recommended for pseudo labeling
     else:
-        if confidence < 0:
-            ls[2] = 0
-        else:
-            ls[2] = 1
-        return ['low_confidence', confidence, *ls[2:]]
+        # if confidence < 0:
+        #     ls[2] = 0
+        # else:
+        #     ls[2] = 1
+        # return ['low_confidence', confidence, *ls[2:]]
+        return ['low_confidence', confidence]
 
 
 def polarity(label):
@@ -91,8 +94,8 @@ class Evaluation(CoMapFunction):
     Class for evaluating the sentiment of the input stream data.
     """
 
-    ADAPTIVE_PLSTREAM_ACC_THRESHOLD = 1
-    ADAPTIVE_CLASSIFIER_ACC_THRESHOLD = 1
+    ADAPTIVE_PLSTREAM_ACC_THRESHOLD = 1.0
+    ADAPTIVE_CLASSIFIER_ACC_THRESHOLD = 1.0
 
     def __init__(self, acc=False):
         """
@@ -109,23 +112,26 @@ class Evaluation(CoMapFunction):
         true_label = None
         pred = None
 
-        if isinstance(my_dict[ls[0]][2], dict):
-            plstream_conf = my_dict[ls[0]][0] * polarity(
-                my_dict[ls[0]][1]) * Evaluation.ADAPTIVE_PLSTREAM_ACC_THRESHOLD
-            clf_conf = other_dict[ls[0]][0] * polarity(
-                other_dict[ls[0]][1]) * Evaluation.ADAPTIVE_CLASSIFIER_ACC_THRESHOLD
-            true_label = my_dict[ls[0]][2]['true_label']
-            pred = my_dict[ls[0]
-                           ][1] if plstream_conf > clf_conf else other_dict[ls[0]][1]
+        other_val = other_dict.get(ls[0])
+        my_val = my_dict.get(ls[0])
+
+        if isinstance(my_val[2], dict):
+            plstream_conf = my_val[0] * polarity(
+                my_val[1]) * Evaluation.ADAPTIVE_PLSTREAM_ACC_THRESHOLD
+            clf_conf = other_val[0] * polarity(
+                other_val[1]) * Evaluation.ADAPTIVE_CLASSIFIER_ACC_THRESHOLD
+            true_label = my_val[2]['true_label']
+            pred = my_val[1] if abs(plstream_conf) > abs(clf_conf) else other_val[1]
+
 
         else:
-            plstream_conf = other_dict[ls[0]][0] * polarity(
-                other_dict[ls[0]][1]) * Evaluation.ADAPTIVE_PLSTREAM_ACC_THRESHOLD
-            clf_conf = my_dict[ls[0]][0] * polarity(
-                my_dict[ls[0]][1]) * Evaluation.ADAPTIVE_CLASSIFIER_ACC_THRESHOLD
-            true_label = other_dict[ls[0]][2]['true_label']
-            pred = my_dict[ls[0]
-                           ][1] if plstream_conf < clf_conf else other_dict[ls[0]][1]
+            plstream_conf = other_val[0] * polarity(
+                other_val[1]) * Evaluation.ADAPTIVE_PLSTREAM_ACC_THRESHOLD
+            clf_conf = my_val[0] * polarity(
+                my_val[1]) * Evaluation.ADAPTIVE_CLASSIFIER_ACC_THRESHOLD
+            true_label = other_val[2]['true_label']
+            pred = my_val[1] if abs(plstream_conf) < abs(clf_conf) else other_val[1]
+
 
         return ('1', accuracy_score([true_label], [pred]))
 
@@ -141,28 +147,28 @@ class Evaluation(CoMapFunction):
         Returns:
             (float): A float value representing the confidence score.
         """
-        # dict[idx][0] -> confidence
-        # dict[idx][1] -> label
-
         plstream_conf = 0
         clf_conf = 0
 
-        if isinstance(my_dict[ls[0]][2], dict):
-            plstream_conf = my_dict[ls[0]][0] * polarity(
-                my_dict[ls[0]][1]) * Evaluation.ADAPTIVE_PLSTREAM_ACC_THRESHOLD
-            clf_conf = other_dict[ls[0]][0] * polarity(
-                other_dict[ls[0]][1]) * Evaluation.ADAPTIVE_CLASSIFIER_ACC_THRESHOLD
+        other_val = other_dict.get(ls[0])
+        my_val = my_dict.get(ls[0])
+
+        # NOTE: CONF -> Always +, POLARITY -> +/-, THRESHOLD -> Always +
+        # So, plstream_conf, clf_conf can be +/-, dominant classifier will 
+        # impact the results.
+
+        if isinstance(my_val[2], dict):
+            plstream_conf = my_val[0] * polarity(
+                my_val[1]) * Evaluation.ADAPTIVE_PLSTREAM_ACC_THRESHOLD
+            clf_conf = other_val[0] * polarity(
+                other_val[1]) * Evaluation.ADAPTIVE_CLASSIFIER_ACC_THRESHOLD
 
         else:
-            plstream_conf = other_dict[ls[0]][0] * polarity(
-                other_dict[ls[0]][1]) * Evaluation.ADAPTIVE_PLSTREAM_ACC_THRESHOLD
-            clf_conf = my_dict[ls[0]][0] * polarity(
-                my_dict[ls[0]][1]) * Evaluation.ADAPTIVE_CLASSIFIER_ACC_THRESHOLD
+            plstream_conf = other_val[0] * polarity(
+                other_val[1]) * Evaluation.ADAPTIVE_PLSTREAM_ACC_THRESHOLD
+            clf_conf = my_val[0] * polarity(
+                my_val[1]) * Evaluation.ADAPTIVE_CLASSIFIER_ACC_THRESHOLD
 
-        # MAX = 2  (1 * 1 * 1 + 1 * 1 * 1) MIN = -2 (1 * 1 * -1 + 1 * 1 * -1)
-        # so range -> -2 <-> 2..
-        # set low conf threashold as previous (-0.5 - 0.5)
-        # return my_dict[ls[0]][0] * polarity(my_dict[ls[0]][1]) + other_dict[ls[0]][0] * polarity(other_dict[ls[0]][1])
         return plstream_conf + clf_conf
 
     def map(self, ls, my_dict, other_dict):
@@ -192,6 +198,9 @@ class Evaluation(CoMapFunction):
                 return generate_label_from_confidence(confidence, ls)
             else:
                 return s
+
+
+        # just for debugging
         if self.acc:
             if s == 'eval':
                 t = self.calc_acc(ls, my_dict, other_dict)
@@ -243,24 +252,26 @@ def merged_stream(ds1, ds2):
         (datastream): merged and filtered datastream with high confidence
     """
 
-    # dd = ds1.connect(ds2).map(Evaluation(acc=True)).filter(
-    #     lambda x: x != 'collecting' and x != 'done') \
-    #     .key_by(lambda x: x[0], key_type=Types.STRING()) \
-    #     .reduce(lambda x,y: (x[0], x[1]+y[1]))
+    dd = ds1.connect(ds2).map(Evaluation(acc=True)).filter(
+        lambda x: x not in ['collecting', 'done']) \
+        .key_by(lambda x: x[0], key_type=Types.STRING()) \
+        .reduce(lambda x,y: (x[0], x[1]+y[1]))
 
-    # dd.print()
+    dd.map(lambda x: str(x[1]), output_type=Types.STRING()).print()
 
     ds = ds1.connect(ds2).map(Evaluation()).filter(
-        lambda x: x != 'collecting' and x != 'done')
+        lambda x: x not in ['collecting', 'done'])
     ds = ds.filter(lambda x: x[0] != 'low_confidence')
+
+    # ds.print()
+
     return ds
 
 
 def generate_new_label(ds):
-    ds.map(lambda x: f'{str(x[0])} \t {x[1]}', output_type=Types.STRING()).add_sink(StreamingFileSink  # .set_parallelism(2)
+    ds.map(lambda x: f'{x[0]} \t {x[1]}', output_type=Types.STRING()).add_sink(StreamingFileSink  # .set_parallelism(2)
                                                                                     .for_row_format('./senti_output', Encoder.simple_string_encoder())
                                                                                     .build())
-    return ds
 
 
 if __name__ == '__main__':

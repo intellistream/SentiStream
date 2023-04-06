@@ -4,8 +4,6 @@ import copy
 import re
 import numpy as np
 
-from pyflink.datastream.connectors import StreamingFileSink
-from pyflink.common.serialization import Encoder
 from pyflink.datastream import CheckpointingMode
 from pyflink.datastream import StreamExecutionEnvironment
 from pyflink.common.typeinfo import Types
@@ -19,7 +17,7 @@ from numpy import dot
     
 
 
-class unsupervised_OSA(MapFunction):
+class PLStream(MapFunction):
 
     def __init__(self):
         # collection
@@ -62,10 +60,10 @@ class unsupervised_OSA(MapFunction):
     def open(self, runtime_context: RuntimeContext):
         # self.redis_param = redis.StrictRedis(host='localhost', port=6379, db=0)
 
-        self.initial_model = Word2Vec.load('PLS_c10.model')
+        self.initial_model = Word2Vec.load('plstream.model')
         self.vocabulary = list(self.initial_model.wv.index_to_key)
 
-        self.save_model(self.initial_model)
+        # self.save_model(self.initial_model)
 
     def save_model(self, model):
         # self.redis_param = redis.StrictRedis(host='localhost', port=6379, db=0)
@@ -75,7 +73,7 @@ class unsupervised_OSA(MapFunction):
         # except (redis.exceptions.RedisError, TypeError, Exception):
         #     logging.warning(
         #         'Unable to save model to Redis server, please check your model')
-        model.save('model.model')
+        model.save('plstream.model')
 
     def load_model(self):
         # self.redis_param = redis.StrictRedis(host='localhost', port=6379, db=0)
@@ -87,7 +85,7 @@ class unsupervised_OSA(MapFunction):
         # except (redis.exceptions.RedisError, TypeError, Exception):
         #     logging.warning(
         #         'Unable to call the model from Redis server, please check your model')
-        return Word2Vec.load('model.model')
+        return Word2Vec.load('plstream.model')
 
     def text_to_word_list(self, text):
         text = text.lower()
@@ -326,8 +324,6 @@ class unsupervised_OSA(MapFunction):
 
         ans = self.labelled_dataset
 
-        # ans = accuracy_score(self.true_label, self.predictions)
-
         self.collector = []
         self.predictions = []
         self.labelled_dataset = []
@@ -361,12 +357,11 @@ class unsupervised_OSA(MapFunction):
             except:
                 pass
         if cos_sim_bad - cos_sim_good > self.confidence:
-            return cos_sim_bad - cos_sim_good, 0
+            return abs(cos_sim_bad - cos_sim_good), 0
         elif cos_sim_bad - cos_sim_good < self.confidence * -1:
-            return cos_sim_good - cos_sim_bad, 1
+            return abs(cos_sim_good - cos_sim_bad), 1
         else:
             if cos_sim_bad * self.neg_coefficient >= cos_sim_good * self.pos_coefficient:
-                # TEMP ################################
                 return abs(cos_sim_bad - cos_sim_good), 0
             else:
                 return abs(cos_sim_good - cos_sim_bad), 1
@@ -374,15 +369,16 @@ class unsupervised_OSA(MapFunction):
 
 def unsupervised_stream(ds, map_parallelism=1, reduce_parallelism=1):
 
-    ds = ds.map(unsupervised_OSA()).set_parallelism(map_parallelism) \
+    ds = ds.map(PLStream()).set_parallelism(map_parallelism) \
         .filter(lambda x: x[0] != 'collecting') \
 
     ds_label = ds.filter(lambda x: x[0] == 'labelled') \
         .map(lambda x: x[1]).set_parallelism(1) \
         .flat_map(lambda x: x)  # flatten
+
     ds_model_merge = ds.filter(lambda x: x[0] == 'model') \
         .key_by(lambda x: x[0], key_type=Types.STRING()) \
-        .reduce(lambda x, y: (x[0], unsupervised_OSA().model_merge(x, y))).set_parallelism(reduce_parallelism)
+        .reduce(lambda x, y: (x[0], PLStream().model_merge(x, y))).set_parallelism(reduce_parallelism)
     return ds_label
 
 
@@ -416,7 +412,7 @@ if __name__ == '__main__':
     env.set_parallelism(1)
     env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
     ds = env.from_collection(collection=data_stream)
-    ds = ds.map(unsupervised_OSA()).set_parallelism(parallelism) \
+    ds = ds.map(PLStream()).set_parallelism(parallelism) \
         .filter(lambda x: x[0] != 'collecting') \
         # .key_by(lambda x: x[0], key_type=Types.STRING())
 
@@ -425,7 +421,7 @@ if __name__ == '__main__':
         .flat_map(lambda x: x)  # flatten
     ds_model_merge = ds.filter(lambda x: x[0] == 'model') \
         .key_by(lambda x: x[0], key_type=Types.STRING()) \
-        .reduce(lambda x, y: (x[0], unsupervised_OSA().model_merge(x, y))).set_parallelism(1)
+        .reduce(lambda x, y: (x[0], PLStream().model_merge(x, y))).set_parallelism(1)
 
     ds_label.print()
     # ds_model_merge.print()
