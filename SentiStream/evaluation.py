@@ -61,7 +61,7 @@ def generate_label_from_confidence(confidence, ls):
     if confidence >= 0.5:
         # ls[2] = 1
         # label and review   ---- ADDED IDX FOR DEBUGGING ----- REMOVE -> [ls[0], *ls[2:4]]
-        return [1, ls[3]]
+        return [1, ls[3]] # 3
     # assume negative if range between (-2) - (-.5)
     elif confidence <= -0.5:
         # ls[2] = 0
@@ -134,6 +134,9 @@ class Evaluation(CoMapFunction):
 
 
         return ('1', accuracy_score([true_label], [pred]))
+        # return ('1', 'pls' if plstream_conf > clf_conf else 'clf')
+        # return ls
+    
 
     def calculate_confidence(self, ls, my_dict, other_dict):
         """
@@ -258,6 +261,7 @@ def merged_stream(ds1, ds2):
         .reduce(lambda x,y: (x[0], x[1]+y[1]))
 
     dd.map(lambda x: str(x[1]), output_type=Types.STRING()).print()
+    # dd.print()
 
     ds = ds1.connect(ds2).map(Evaluation()).filter(
         lambda x: x not in ['collecting', 'done'])
