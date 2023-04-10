@@ -3,6 +3,7 @@ import re
 import numpy as np
 
 from nltk.tokenize import sent_tokenize, word_tokenize
+from nltk.stem import SnowballStemmer
 
 STOP_WORDS = ['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', "you're", "you've",
              "you'd", 'your', 'yours', 'yourself', 'yourselves', 'he', 'him', 'his', 'himself', 'she', "she's",
@@ -17,6 +18,7 @@ STOP_WORDS = ['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you'
              'too', 'very', 's', 't', 'can', 'will', 'just', 'should', "should've", 'now', 'd', 'll', 'm', 'o',
              're', 've', 'y', 'ma', 'st', 'nd', 'rd', 'th', "you'll", 'dr', 'mr', 'mrs']
 
+stemmer = SnowballStemmer('english')
 
 def mat_mul(input, weight, bias=None):
     output = torch.matmul(input, weight)
@@ -34,15 +36,16 @@ def ele_wise_mul(input1, input2):
 def clean_text(text):
     text = re.sub(r"http\S+|www\S+|\@\w+", '', text).lower()
     text = re.sub(r"[\n\t\r]", " ", text)
-    text = re.sub(r'[^\w\s.?!]', '', text)  # ?, !, . will be sentence stoppers
+    text = re.sub(r'[^a-z.?!]+', ' ', text)  # ?, !, . will be sentence stoppers
     text = re.sub('\.+', '.', text)
     text = re.sub('\s+', ' ', text)
 
     tokens = word_tokenize(text)
 
-    # tokens = [stemmer.stem(token) for token in tokens]
+    return [stemmer.stem(token) for token in tokens if token not in STOP_WORDS]
 
-    return [token for token in tokens if token not in STOP_WORDS]
+def clean_text_w2v(tokens):
+    return [token for token in tokens if len(token) > 1]
 
 def join_tokens(tokens):
     return (' '.join(tokens)).strip()
@@ -60,14 +63,20 @@ def preprocess(docs, word_dict, max_length_word=15, max_length_sentences=15):
     temp = []
 
     for doc in docs:
+        # doc = re.sub(r'[^\w]', ' ', doc)
+        # doc = re.sub('\s+', ' ', doc)
 
         # UNK = -1 , PAD = -1  ### HAVE SEPARATE ENCODINGSSS
 
+        # print([[word for word in re.split(r'[.!?\s]+', sentences) if len(word) > 1] for sentences
+        #     in
+        #     sent_tokenize(doc)])
+
         document_encode = [
-            [word_dict.get(word, -1) for word in word_tokenize(sentences)] for sentences
+            [word_dict.get(word, -1) for word in re.split(r'[.!?\s]+', sentences) if len(word) > 1] for sentences
             in
             sent_tokenize(doc)]
-
+        
         for sentence in document_encode:
             if len(sentence) < max_length_word:
                 sentence += padded_words[len(sentence):]

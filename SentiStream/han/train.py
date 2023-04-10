@@ -11,7 +11,7 @@ from gensim.models import Word2Vec
 
 import config
 
-from utils import get_max_lengths, clean_text, preprocess, calc_acc, join_tokens
+from utils import get_max_lengths, clean_text, preprocess, calc_acc, join_tokens, clean_text_w2v
 from dataset import SentimentDataset
 from hierarchical_att_model import HAN
 
@@ -28,19 +28,15 @@ def train():
 
     df['document'] = df['document'].apply(clean_text)
 
-    # wb_dict = {}
-    # embeddings = []
+    w2v_data = df['document'].apply(clean_text_w2v)
 
-    # with open("glove.6B.50d.txt", 'r', encoding="utf-8") as file:
-    #     for idx, line in enumerate(file):
-    #         wb = line.split()
-    #         wb_dict[wb[0]] = idx
-    #         embeddings.append(list(map(float, wb[1:]))) 
+    wb_dict = {}
+    embeddings = []
 
     w2v_model = Word2Vec(
         vector_size=20, window=5, min_count=5, workers=12)
-    w2v_model.build_vocab(df['document'])
-    w2v_model.train(df['document'], total_examples=w2v_model.corpus_count, epochs=30)
+    w2v_model.build_vocab(w2v_data)
+    w2v_model.train(w2v_data, total_examples=w2v_model.corpus_count, epochs=30)
 
     wb_dict = w2v_model.wv.key_to_index
 
