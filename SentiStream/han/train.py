@@ -1,6 +1,7 @@
 import time
 import torch
 import torch.nn as nn
+import numpy as np
 import pandas as pd
 
 from sklearn.model_selection import train_test_split
@@ -10,7 +11,7 @@ from gensim.models import Word2Vec
 
 import config
 
-from utils import get_max_lengths, clean_text, preprocess, calc_acc
+from utils import get_max_lengths, clean_text, preprocess, calc_acc, join_tokens
 from dataset import SentimentDataset
 from hierarchical_att_model import HAN
 
@@ -23,18 +24,31 @@ def train():
     df = pd.read_csv('train.csv', names=['label', 'document'])
     df.label -= 1
 
-    df = df[:10000]
+    df = df[:1000]
 
     df['document'] = df['document'].apply(clean_text)
+
+    # wb_dict = {}
+    # embeddings = []
+
+    # with open("glove.6B.50d.txt", 'r', encoding="utf-8") as file:
+    #     for idx, line in enumerate(file):
+    #         wb = line.split()
+    #         wb_dict[wb[0]] = idx
+    #         embeddings.append(list(map(float, wb[1:]))) 
 
     w2v_model = Word2Vec(
         vector_size=20, window=5, min_count=5, workers=12)
     w2v_model.build_vocab(df['document'])
-    w2v_model.train(df['document'], total_examples=w2v_model.corpus_count, epochs=10)
+    w2v_model.train(df['document'], total_examples=w2v_model.corpus_count, epochs=30)
 
     wb_dict = w2v_model.wv.key_to_index
 
-    embeddings = [w2v_model.wv[key].tolist() for key in w2v_model.wv.index_to_key]
+    embeddings = [w2v_model.wv[key] for key in w2v_model.wv.index_to_key]
+
+    embeddings = np.asarray(embeddings)
+
+    df['document'] = df['document'].apply(join_tokens)
 
     max_word_length, max_sent_length = get_max_lengths(
         df.document)  # change to train only
@@ -61,8 +75,6 @@ def train():
     best_loss = 1e5
     best_epoch = 0
     best_model = None
-
-    print("Start training")
 
     for epoch in range(config.EPOCHS):
         start_time = time.time()
@@ -104,7 +116,7 @@ def train():
 
         print(f"time: {time.time() - start_time} epoch: {epoch+1}, training loss: {train_loss:.4f}, training acc: {train_acc:.4f}, val loss: {val_loss:.4f}, val_acc: {val_acc:.4f}")
 
-        if val_loss < best_loss:
+        if val_loss <= best_loss:
             best_loss = val_loss
             best_epoch = epoch
             print(f"Best loss {val_loss}")

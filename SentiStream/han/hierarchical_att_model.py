@@ -1,19 +1,21 @@
 import torch
 import torch.nn as nn
 
-from han.sent_att_model import SentAttNet
-from han.word_att_model import WordAttNet
+from sent_att_model import SentAttNet
+from word_att_model import WordAttNet
 
 
 class HAN(nn.Module):
-    def __init__(self, word_hidden_size, sent_hidden_size, batch_size, num_classes, embeddings, max_sent_length, max_word_length):
+    def __init__(self, word_hidden_size, sent_hidden_size, batch_size, num_classes,
+                 embeddings, max_sent_length, max_word_length):
         super().__init__()
         self.batch_size = batch_size
         self.word_hidden_size = word_hidden_size
         self.sent_hidden_size = sent_hidden_size
         self.max_sent_length = max_sent_length
         self.max_word_length = max_word_length
-        self.word_att_net = WordAttNet(embeddings, word_hidden_size)
+        self.word_att_net = WordAttNet(
+            embeddings, word_hidden_size)
         self.sent_att_net = SentAttNet(
             sent_hidden_size, word_hidden_size, num_classes)
         self._init_hidden_state()

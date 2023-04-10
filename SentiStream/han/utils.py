@@ -40,27 +40,12 @@ def clean_text(text):
 
     tokens = word_tokenize(text)
 
-    text = ' '.join([token for token in tokens if token not in STOP_WORDS])
     # tokens = [stemmer.stem(token) for token in tokens]
 
-    return text.strip()
+    return [token for token in tokens if token not in STOP_WORDS]
 
-def clean_text_batch(doc):
-    temp = []
-    for text in doc:
-        text = re.sub(r"http\S+|www\S+|\@\w+", '', text).lower()
-        text = re.sub(r"[\n\t\r]", " ", text)
-        text = re.sub(r'[^\w\s.?!]', '', text)  # ?, !, . will be sentence stoppers
-        text = re.sub('\.+', '.', text)
-        text = re.sub('\s+', ' ', text)
-
-        tokens = word_tokenize(text)
-
-        text = ' '.join([token for token in tokens if token not in STOP_WORDS])
-        # tokens = [stemmer.stem(token) for token in tokens]
-
-        temp.append(text.strip())
-    return temp
+def join_tokens(tokens):
+    return (' '.join(tokens)).strip()
 
 
 def calc_acc(y_label, y_pred):

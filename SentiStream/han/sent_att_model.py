@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from han.utils import mat_mul, ele_wise_mul
+from utils import mat_mul, ele_wise_mul
 
 
 class SentAttNet(nn.Module):

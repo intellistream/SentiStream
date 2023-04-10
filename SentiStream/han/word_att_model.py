@@ -4,13 +4,12 @@ import torch.nn.functional as F
 import pandas as pd
 import numpy as np
 
-from han.utils import mat_mul, ele_wise_mul
+from utils import mat_mul, ele_wise_mul
 
 
 class WordAttNet(nn.Module):
     def __init__(self, embeddings, hidden_size=50):
         super().__init__()
-        embeddings = np.array(embeddings)
         pad_unk_word = np.zeros((1, embeddings.shape[1]))
         embeddings = torch.from_numpy(np.concatenate([pad_unk_word, embeddings], axis=0).astype(
             np.float32))  # try with float16 - mixedprecision and check metrics ##################
