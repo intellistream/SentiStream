@@ -3,8 +3,10 @@ from gensim.utils import simple_preprocess
 import pandas as pd
 import os
 import random
+import re
 import numpy as np
 from gensim.models import Word2Vec
+from nltk.tokenize import sent_tokenize, word_tokenize
 import torch
 
 STOP_WORDS = ['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', "you're", "you've",
@@ -165,3 +167,73 @@ def train_word2vec(model, sentences, path):
                 total_examples=model.corpus_count,
                 epochs=model.epochs)
     model.save(path)
+
+def clean_text_w2v(text):
+    text = re.sub(r"http\S+|www\S+|\@\w+", '', text).lower()
+    text = re.sub(r"[\n\t\r]", " ", text)
+    text = re.sub(r'[^\w\s.?!]', '', text)  # ?, !, . will be sentence stoppers
+    text = re.sub('\.+', '.', text)
+    text = re.sub('\s+', ' ', text)
+
+    tokens = word_tokenize(text)
+
+        # tokens = [stemmer.stem(token) for token in tokens]
+
+    return [token for token in tokens if token not in STOP_WORDS]
+
+def clean_text_han(doc):
+    temp = []
+
+    for tokens in doc:
+             temp.append((' '.join(tokens)).strip())
+
+    return temp
+
+def preprocess_han(docs, word_dict, max_length_word=15, max_length_sentences=15):
+    padded_words = [-1] * max_length_word
+
+    temp = []
+
+    for doc in docs:
+
+        # UNK = -1 , PAD = -1  ### HAVE SEPARATE ENCODINGSSS
+
+        document_encode = [
+            [word_dict.get(word, -1) for word in word_tokenize(sentences)] for sentences
+            in
+            sent_tokenize(doc)]
+
+        for sentence in document_encode:
+            if len(sentence) < max_length_word:
+                sentence += padded_words[len(sentence):]
+
+        if len(document_encode) < max_length_sentences:
+            document_encode += [padded_words] * \
+                (max_length_sentences - len(document_encode))
+
+        document_encode = [sentences[:max_length_word] for sentences in document_encode][
+            :max_length_sentences]
+
+        document_encode = np.stack(arrays=document_encode, axis=0)
+        document_encode += 1  # make all pos
+
+        temp.append(document_encode)
+
+    return temp
+
+def mat_mul(input, weight, bias=None):
+    output = torch.matmul(input, weight)
+    if bias is not None:
+        output += bias
+    output = torch.tanh(output)
+    return output.squeeze()
+
+
+def ele_wise_mul(input1, input2):
+    output = input1 * input2.unsqueeze(2)
+    return output.sum(dim=0, keepdim=True)
+
+def calc_acc(y_label, y_pred):
+    _, preds = torch.max(y_pred, 1)
+    correct = torch.sum(preds == y_label)
+    return correct.float() / preds.size(0)

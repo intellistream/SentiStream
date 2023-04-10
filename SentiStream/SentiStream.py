@@ -38,40 +38,40 @@ if __name__ == '__main__':
 
     df = new_df[1000:2000]
 
-    ## -------------------GENERATE PSEUDO-LABEL FROM BOTH LEARNING METHODS------------------- ##
+    # ## -------------------GENERATE PSEUDO-LABEL FROM BOTH LEARNING METHODS------------------- ##
 
-    data_stream = [(i, int(label), review) for i, (label, review) in enumerate(df.values)]
-
-    env.set_parallelism(1)
-    env.set_runtime_mode(RuntimeExecutionMode.STREAMING)
-
-    ds = env.from_collection(collection=data_stream)
-
-    print("unsupervised stream,classifier and evaluation")
-
-    ds1 = unsupervised_stream(ds)
-    ds2 = classifier(ds)
-
-    ds = merged_stream(ds1, ds2)
-    generate_new_label(ds)
-
-    # ds.print()
-
-    ## -------------------SUPERVISED MODEL INFERENCE------------------- ##
-
-    print("batch_inference")
+    # data_stream = [(i, int(label), review) for i, (label, review) in enumerate(df.values)]
 
     # env.set_parallelism(1)
+    # env.set_runtime_mode(RuntimeExecutionMode.STREAMING)
 
-    env.set_runtime_mode(RuntimeExecutionMode.BATCH)
+    # ds = env.from_collection(collection=data_stream)
 
-    acc = batch_inference(ds)
-    acc.print()
+    # print("unsupervised stream,classifier and evaluation")
 
-    ## -------------------SUPERVISED MODEL TRAIN-------------------##
-    print("supervised_model_train")
+    # ds1 = unsupervised_stream(ds)
+    # ds2 = classifier(ds)
 
-    supervised_model(acc, pseudo_data_collection_threshold=0.0, accuracy_threshold=1.0)
+    # ds = merged_stream(ds1, ds2)
+    # generate_new_label(ds)
 
-    env.execute()
+    # # ds.print()
+
+    # ## -------------------SUPERVISED MODEL INFERENCE------------------- ##
+
+    # print("batch_inference")
+
+    # # env.set_parallelism(1)
+
+    # env.set_runtime_mode(RuntimeExecutionMode.BATCH)
+
+    # acc = batch_inference(ds)
+    # acc.print()
+
+    # ## -------------------SUPERVISED MODEL TRAIN-------------------##
+    # print("supervised_model_train")
+
+    # supervised_model(acc, pseudo_data_collection_threshold=0.0, accuracy_threshold=1.0)
+
+    # env.execute()
         
