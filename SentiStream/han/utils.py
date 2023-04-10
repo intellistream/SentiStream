@@ -54,7 +54,7 @@ def calc_acc(y_label, y_pred):
     return correct.float() / preds.size(0)
 
 
-def preprocess(docs, word_dict, max_length_word, max_length_sentences):
+def preprocess(docs, word_dict, max_length_word=15, max_length_sentences=15):
     padded_words = [-1] * max_length_word
 
     temp = []
