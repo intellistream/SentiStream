@@ -1,5 +1,3 @@
-
-
 # TORCH JIT ?
 # TODO: FIX CLASS IMBALANCE IN INITIAL TRAINING
 
@@ -16,7 +14,6 @@ from evaluation import generate_new_label, merged_stream
 from supervised_model import supervised_model
 from PLStream import unsupervised_stream
 from train_model import InitialModelTrain
-from utils import load_data
 
 if __name__ == '__main__':
     parallelism = 1
@@ -45,7 +42,7 @@ if __name__ == '__main__':
 
     data_stream = [(i, int(label), review) for i, (label, review) in enumerate(df.values)]
 
-    # env.set_parallelism(1)
+    env.set_parallelism(1)
     env.set_runtime_mode(RuntimeExecutionMode.STREAMING)
 
     ds = env.from_collection(collection=data_stream)
@@ -69,6 +66,7 @@ if __name__ == '__main__':
     env.set_runtime_mode(RuntimeExecutionMode.BATCH)
 
     acc = batch_inference(ds)
+    acc.print()
 
     ## -------------------SUPERVISED MODEL TRAIN-------------------##
     print("supervised_model_train")

@@ -27,7 +27,7 @@ class Preprocessor(MapFunction):
             runtime_context (RuntimeContext): give access to Flink runtime env.
         """
         self.model = default_model_pretrain(
-            'w2v.model')
+            'ssl-w2v.model')
         # self.redis = redis.StrictRedis(host='localhost', port=6379, db=0)
 
     # def load(self):
@@ -95,7 +95,7 @@ class Classifier(MapFunction):
         Parameters:
             runtime_context (RuntimeContext): give access to Flink runtime env.
         """
-        self.model = load_torch_model('model.pth')
+        self.model = load_torch_model('ssl-clf.pth')
         # self.redis = redis.StrictRedis(host='localhost', port=6379, db=0)
 
     # def load(self):

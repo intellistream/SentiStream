@@ -70,7 +70,7 @@ class Model:
         if init:
             self.torch_model = Classifier(input_dim=input_dim, hidden_dim=32).to(self.device)
         else:
-            self.torch_model = load_torch_model('model.pth')
+            self.torch_model = load_torch_model('ssl-clf.pth')
 
         self.criterion = nn.BCELoss()
         self.optimizer = torch.optim.Adam(

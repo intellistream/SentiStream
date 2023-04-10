@@ -60,10 +60,10 @@ class PLStream(MapFunction):
     def open(self, runtime_context: RuntimeContext):
         # self.redis_param = redis.StrictRedis(host='localhost', port=6379, db=0)
 
-        self.initial_model = Word2Vec.load('plstream.model')
+        self.initial_model = Word2Vec.load('PLS_c10.model')
         self.vocabulary = list(self.initial_model.wv.index_to_key)
 
-        # self.save_model(self.initial_model)
+        self.save_model(self.initial_model)
 
     def save_model(self, model):
         # self.redis_param = redis.StrictRedis(host='localhost', port=6379, db=0)
@@ -73,7 +73,7 @@ class PLStream(MapFunction):
         # except (redis.exceptions.RedisError, TypeError, Exception):
         #     logging.warning(
         #         'Unable to save model to Redis server, please check your model')
-        model.save('plstream.model')
+        model.save('plstream-w2v.model')
 
     def load_model(self):
         # self.redis_param = redis.StrictRedis(host='localhost', port=6379, db=0)
@@ -85,7 +85,7 @@ class PLStream(MapFunction):
         # except (redis.exceptions.RedisError, TypeError, Exception):
         #     logging.warning(
         #         'Unable to call the model from Redis server, please check your model')
-        return Word2Vec.load('plstream.model')
+        return Word2Vec.load('plstream-w2v.model')
 
     def text_to_word_list(self, text):
         text = text.lower()

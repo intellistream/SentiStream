@@ -7,8 +7,6 @@ import numpy as np
 from gensim.models import Word2Vec
 import torch
 
-from sklearn.utils import resample
-
 STOP_WORDS = ['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', "you're", "you've",
               "you'd", 'your', 'yours', 'yourself', 'yourselves', 'he', 'him', 'his', 'himself', 'she', "she's",
               'her', 'hers', 'herself', 'it', "it's", 'its', 'itself', 'they', 'them', 'their', 'theirs',
@@ -71,10 +69,7 @@ def load_data(pseudo_data_folder):
     pseudo_df = pd.concat(map(lambda path: pd.read_csv(
         path, delimiter='\t', header=None), path_list), ignore_index=True)
     pseudo_df.columns = ['label', 'review']
-
-    # df = pd.read_csv(data_file, names=['label', 'review'])
-    # df['label'] -= 1
-
+    
     return pseudo_df
 
 

@@ -36,7 +36,7 @@ class Preprocessor(MapFunction):
         Parameters:
             runtime_context (RuntimeContext): give access to Flink runtime env.
         """
-        self.model = default_model_pretrain('w2v.model')
+        self.model = default_model_pretrain('ssl-w2v.model')
 
     def map(self, tweet):
         """Map function to collect and preprocess data for classifier model.
@@ -77,7 +77,7 @@ class Predictor(MapFunction):
         Parameters:
             runtime_context (RuntimeContext): give access to Flink runtime env.
         """
-        self.model = load_torch_model('model.pth')
+        self.model = load_torch_model('ssl-clf.pth')
 
     def get_prediction(self):
         """Predict sentiment of text

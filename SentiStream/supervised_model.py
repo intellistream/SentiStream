@@ -2,7 +2,8 @@
 
 from pyflink.datastream.functions import RuntimeContext, MapFunction
 
-from ann_model import Model
+# from ann_model import Model
+from han_model import Model
 from utils import load_data, default_model_pretrain, train_word2vec, generate_vector_mean, process_batch
 
 pseudo_data_folder = './senti_output'
@@ -32,12 +33,13 @@ class ModelTrain(MapFunction):
         Parameters:
             runtime_context (RuntimeContext): give access to Flink runtime env.
         """
-        self.model = default_model_pretrain("w2v.model")
+        self.model = default_model_pretrain("ssl-w2v.model")
 
         train_df = load_data(pseudo_data_folder)
         
         self.labels = train_df.label
         self.sentences = train_df.review
+        self.dummy_sent = train_df.review
 
         # self.redis = redis.StrictRedis(host='localhost', port=6379, db=0)
 
@@ -51,9 +53,10 @@ class ModelTrain(MapFunction):
             T: trained sentiment classifier
         """
 
-        clf = Model(mean_vectors, self.labels,
-                    self.model.vector_size, False)
-        clf.fit_and_save('model.pth')
+        # clf = Model(mean_vectors, self.labels,
+        #             self.model.vector_size, False)
+        clf = Model(self.dummy_sent, self.labels, self.model.wv.key_to_index, [self.model.wv[key].tolist() for key in self.model.wv.index_to_key], False)
+        clf.fit_and_save('ssl-clf.pth')
 
         # TODO CONTINOUS TRAIN
 
@@ -97,7 +100,7 @@ class ModelTrain(MapFunction):
         Parameters:
             func (function, optional): function to train model. Defaults to train_word2vec.
         """
-        func(self.model, self.sentences, 'w2v.model')
+        func(self.model, self.sentences, 'ssl-w2v.model')
 
 def supervised_model(ds, pseudo_data_collection_threshold=0.0, accuracy_threshold=0.0):
     ds.map(ModelTrain(pseudo_data_collection_threshold, accuracy_threshold)).print()
