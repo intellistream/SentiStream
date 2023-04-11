@@ -68,7 +68,7 @@ class Preprocessor(MapFunction):
         # self.collector.append([tweet[0], vector_mean, tweet[2]])
 
         # han
-        self.collector.append([tweet[0], clean_text_w2v(tweet[2])])
+        self.collector.append([tweet[0], clean_text_w2v(tweet[2]), tweet[2]])
 
         if len(self.collector) >= self.collector_size:
             output = list(self.collector)
@@ -165,7 +165,7 @@ class Classifier(MapFunction):
 
         # confidence = self.get_confidence().tolist()
         for i in range(len(data)):
-            data[i].insert(1,conf[i])
+            data[i][1] = conf[i]
             data[i].insert(2, pred[i])
 
         # return data

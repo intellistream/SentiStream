@@ -60,18 +60,18 @@ if __name__ == '__main__':
 
     # ds.print()
 
-    # ## -------------------SUPERVISED MODEL INFERENCE------------------- ##
+    ## -------------------SUPERVISED MODEL INFERENCE------------------- ##
 
-    # print("batch_inference")
+    print("batch_inference")
 
-    # # env.set_parallelism(1)
+    # env.set_parallelism(1)
 
-    # env.set_runtime_mode(RuntimeExecutionMode.BATCH)
+    env.set_runtime_mode(RuntimeExecutionMode.BATCH)
 
-    # acc = batch_inference(ds)
-    # acc.print()
+    acc = batch_inference(ds)
+    acc.print()
 
-    # ## -------------------SUPERVISED MODEL TRAIN-------------------##
+    ## -------------------SUPERVISED MODEL TRAIN-------------------##
     # print("supervised_model_train")
 
     # supervised_model(acc, pseudo_data_collection_threshold=0.0, accuracy_threshold=1.0)

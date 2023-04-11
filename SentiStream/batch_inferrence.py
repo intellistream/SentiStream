@@ -10,7 +10,8 @@ from pyflink.datastream import StreamExecutionEnvironment
 from pyflink.datastream.execution_mode import RuntimeExecutionMode
 from pyflink.datastream import CheckpointingMode
 
-from utils import load_data, process_text_and_generate_tokens, generate_vector_mean, default_model_pretrain, load_torch_model
+from utils import load_data, process_text_and_generate_tokens, generate_vector_mean, default_model_pretrain, load_torch_model, clean_text_w2v, preprocess_han, clean_text_han
+from han_model import inference
 
 
 class Preprocessor(MapFunction):
@@ -28,7 +29,7 @@ class Preprocessor(MapFunction):
         self.model = None
         self.collector = []
         # self.collector_size = int(test_data_size / parallelism)
-        self.collector_size = 16
+        self.collector_size = 128
 
     def open(self, runtime_context: RuntimeContext):
         """Initialize word embedding model before starting stream/batch processing
@@ -48,9 +49,14 @@ class Preprocessor(MapFunction):
             (str or list): list of label and avg word vector of tweet if all data per processing
             unit is collected else, 'collecting'
         """
-        processed_text = process_text_and_generate_tokens(tweet[1])
-        vector_mean = generate_vector_mean(self.model, processed_text)
-        self.collector.append([tweet[0], vector_mean])
+        # ann
+        # processed_text = process_text_and_generate_tokens(tweet[1])
+        # vector_mean = generate_vector_mean(self.model, processed_text)
+        # self.collector.append([tweet[0], vector_mean])
+
+
+        # han
+        self.collector.append([tweet[0], clean_text_w2v(tweet[1])])
 
         if len(self.collector) >= self.collector_size:
             output = self.collector
@@ -78,6 +84,7 @@ class Predictor(MapFunction):
             runtime_context (RuntimeContext): give access to Flink runtime env.
         """
         self.model = load_torch_model('ssl-clf.pth')
+        self.w2v_model = default_model_pretrain('ssl-w2v.model')
 
     def get_prediction(self):
         """Predict sentiment of text
@@ -98,10 +105,18 @@ class Predictor(MapFunction):
         """
         self.labels, self.data = zip(*ls)
 
-        with torch.no_grad():
-            predictions = self.get_prediction()
 
-        accuracy = accuracy_score(self.labels, torch.round(predictions))
+        # with torch.no_grad():
+        #     predictions = self.get_prediction()
+
+        # accuracy = accuracy_score(self.labels, torch.round(predictions))
+
+
+        self.data = preprocess_han(clean_text_han(self.data), self.w2v_model.wv.key_to_index)
+
+        conf, pred = inference(self.model, self.data)
+        accuracy = accuracy_score(self.labels, pred)
+
         return 1, accuracy
 
 

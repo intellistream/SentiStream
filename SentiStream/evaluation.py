@@ -59,20 +59,12 @@ def generate_label_from_confidence(confidence, ls):
     """
     # assume label is positive if eval score is in range between 2 - .5
     if confidence >= 0.5:
-        # ls[2] = 1
-        # label and review   ---- ADDED IDX FOR DEBUGGING ----- REMOVE -> [ls[0], *ls[2:4]]
         return [1, ls[3]] # 3
     # assume negative if range between (-2) - (-.5)
     elif confidence <= -0.5:
-        # ls[2] = 0
         return [0, ls[3]]
     # else it has low confidence, not recommended for pseudo labeling
     else:
-        # if confidence < 0:
-        #     ls[2] = 0
-        # else:
-        #     ls[2] = 1
-        # return ['low_confidence', confidence, *ls[2:]]
         return ['low_confidence', confidence]
 
 
@@ -94,8 +86,8 @@ class Evaluation(CoMapFunction):
     Class for evaluating the sentiment of the input stream data.
     """
 
-    ADAPTIVE_PLSTREAM_ACC_THRESHOLD = 1.0
-    ADAPTIVE_CLASSIFIER_ACC_THRESHOLD = 1.0
+    ADAPTIVE_PLSTREAM_ACC_THRESHOLD = 0.7
+    ADAPTIVE_CLASSIFIER_ACC_THRESHOLD = 1
 
     def __init__(self, acc=False):
         """
@@ -135,7 +127,8 @@ class Evaluation(CoMapFunction):
 
         return ('1', accuracy_score([true_label], [pred]))
         # return ('1', 'pls' if plstream_conf > clf_conf else 'clf')
-        # return ls
+        # return other_val, my_val
+        # return abs(plstream_conf) < abs(clf_conf)
     
 
     def calculate_confidence(self, ls, my_dict, other_dict):
@@ -255,12 +248,13 @@ def merged_stream(ds1, ds2):
         (datastream): merged and filtered datastream with high confidence
     """
 
-    dd = ds1.connect(ds2).map(Evaluation(acc=True)).filter(
-        lambda x: x not in ['collecting', 'done']) \
-        .key_by(lambda x: x[0], key_type=Types.STRING()) \
-        .reduce(lambda x,y: (x[0], x[1]+y[1]))
+    # dd = ds1.connect(ds2).map(Evaluation(acc=True)).filter(
+    #     lambda x: x not in ['collecting', 'done']) \
+    #     .key_by(lambda x: x[0], key_type=Types.STRING()) \
+    #     .reduce(lambda x,y: (x[0], x[1]+y[1]))
 
-    dd.map(lambda x: str(x[1]), output_type=Types.STRING()).print()
+    # dd.map(lambda x: str(x[1]), output_type=Types.STRING()).print()
+    # dd.print()
 
     ds = ds1.connect(ds2).map(Evaluation()).filter(
         lambda x: x not in ['collecting', 'done'])
