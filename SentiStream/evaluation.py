@@ -261,7 +261,6 @@ def merged_stream(ds1, ds2):
         .reduce(lambda x,y: (x[0], x[1]+y[1]))
 
     dd.map(lambda x: str(x[1]), output_type=Types.STRING()).print()
-    # dd.print()
 
     ds = ds1.connect(ds2).map(Evaluation()).filter(
         lambda x: x not in ['collecting', 'done'])

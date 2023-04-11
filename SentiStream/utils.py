@@ -142,7 +142,8 @@ def load_torch_model(model_path):
     Returns:
         any: load all tensors to cpu
     """
-    model = torch.load(model_path, map_location=torch.device('cpu'))
+    model = torch.load(model_path)
+    model.cuda()
     model.eval()
 
     return model
@@ -181,6 +182,7 @@ def clean_text_w2v(text):
 
     return [token for token in tokens if token not in STOP_WORDS]
 
+
 def clean_text_han(doc):
     temp = []
 
@@ -189,7 +191,7 @@ def clean_text_han(doc):
 
     return temp
 
-def preprocess_han(docs, word_dict, max_length_word=15, max_length_sentences=15):
+def preprocess_han(docs, word_dict, max_length_word=15, max_length_sentences=10):
     padded_words = [-1] * max_length_word
 
     temp = []

@@ -5,8 +5,8 @@ import numpy as np
 
 from pyflink.datastream.functions import MapFunction, RuntimeContext
 
-from utils import load_torch_model, default_model_pretrain, process_text_and_generate_tokens, generate_vector_mean
-
+from utils import load_torch_model, default_model_pretrain, process_text_and_generate_tokens, generate_vector_mean, clean_text_w2v, clean_text_han, preprocess_han
+from han_model import inference
 
 class Preprocessor(MapFunction):
     def __init__(self):
@@ -15,7 +15,7 @@ class Preprocessor(MapFunction):
         """
         self.model = None
         self.collector = []
-        self.collector_size = 16
+        self.collector_size = 128 ############################ for HAN ##############################
         # self.redis = None
         self.time_threshold = 10 * 60
         self.start_time = time.time()
@@ -26,8 +26,8 @@ class Preprocessor(MapFunction):
         Parameters:
             runtime_context (RuntimeContext): give access to Flink runtime env.
         """
-        self.model = default_model_pretrain(
-            'ssl-w2v.model')
+        # self.model = default_model_pretrain(
+        #     'ssl-w2v.model')
         # self.redis = redis.StrictRedis(host='localhost', port=6379, db=0)
 
     # def load(self):
@@ -62,16 +62,20 @@ class Preprocessor(MapFunction):
         """
         # TODO: BATCH PREPROCESSING WILL IMPROVE SPEED ------------------------------------------------------
 
-        processed_text = process_text_and_generate_tokens(tweet[2])
-        vector_mean = generate_vector_mean(self.model, processed_text)
-        self.collector.append([tweet[0], vector_mean, tweet[2]])
+        # ann
+        # processed_text = process_text_and_generate_tokens(tweet[2])
+        # vector_mean = generate_vector_mean(self.model, processed_text)
+        # self.collector.append([tweet[0], vector_mean, tweet[2]])
+
+        # han
+        self.collector.append([tweet[0], clean_text_w2v(tweet[2])])
 
         if len(self.collector) >= self.collector_size:
             output = list(self.collector)
             self.collector = []
             return output
         else:
-            return 'collecting'
+            return 'collecting' ### HANDLE LAST BATCH .......
 
 
 class Classifier(MapFunction):
@@ -96,6 +100,9 @@ class Classifier(MapFunction):
             runtime_context (RuntimeContext): give access to Flink runtime env.
         """
         self.model = load_torch_model('ssl-clf.pth')
+        self.w2v_model = default_model_pretrain(
+            'ssl-w2v.model')
+        
         # self.redis = redis.StrictRedis(host='localhost', port=6379, db=0)
 
     # def load(self):
@@ -138,18 +145,30 @@ class Classifier(MapFunction):
             predicted label, review, true label]
         """
 
-        self.data = torch.FloatTensor(np.array([x[1] for x in data]))
+        # self.data = torch.FloatTensor(np.array([x[1] for x in data]))
 
-        with torch.no_grad():
-            confidence = self.get_confidence().tolist()
+        # with torch.no_grad():
+        #     confidence = self.get_confidence().tolist()
+        # for i in range(len(data)):
+        #     if confidence[i][0] < 0.5:
+        #         data[i][1] = 1 - confidence[i][0]
+        #         data[i].insert(2, 0)
+        #     else:
+        #         data[i][1] = confidence[i][0]
+        #         data[i].insert(2, 1)
+
+
+        self.data = [x[1] for x in data]
+        self.data = preprocess_han(clean_text_han(self.data), self.w2v_model.wv.key_to_index)
+
+        conf, pred = inference(self.model, self.data)
+
+        # confidence = self.get_confidence().tolist()
         for i in range(len(data)):
-            if confidence[i][0] < 0.5:
-                data[i][1] = 1 - confidence[i][0]
-                data[i].insert(2, 0)
-            else:
-                data[i][1] = confidence[i][0]
-                data[i].insert(2, 1)
+            data[i].insert(1,conf[i])
+            data[i].insert(2, pred[i])
 
+        # return data
         return data
 
 
