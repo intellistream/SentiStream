@@ -160,6 +160,7 @@ class Model:
     def fit(self, epoch):
         best_epoch = 0
         best_loss = 1e5
+        best_epoch_details = ''
 
         for epoch in range(han_config.EPOCHS):
             # start_time = time.time()
@@ -186,6 +187,7 @@ class Model:
             val_loss = 0
             val_acc = 0
             for vec, label in self.test_generator:
+                # print(type(vec))
                 num_sample = len(label)
                 vec = vec.cuda()
                 label = label.cuda()
@@ -199,21 +201,36 @@ class Model:
             val_loss = val_loss.item()
             val_acc /= len(self.test_generator)
 
-            print(f"epoch: {epoch+1}, training loss: {train_loss:.4f}, training acc: {train_acc:.4f}, val loss: {val_loss:.4f}, val_acc: {val_acc:.4f}")
+            # print(f"epoch: {epoch+1}, training loss: {train_loss:.4f}, training acc: {train_acc:.4f}, val loss: {val_loss:.4f}, val_acc: {val_acc:.4f}")
 
             if val_loss < best_loss:
                 best_loss = val_loss
+                best_epoch_details = f"epoch: {epoch+1}, training loss: {train_loss:.4f}, training acc: {train_acc:.4f}, val loss: {val_loss:.4f}, val_acc: {val_acc:.4f}"
                 best_epoch = epoch
-                print(f"Best loss {val_loss}")
+                # print(f"Best loss {val_loss}")
                 self.best_model = self.model
 
             if epoch - best_epoch > han_config.EARLY_STOPPING_PATIENCE:
-                print(
-                    f"Stop training at epoch {epoch+1}. The lowest loss achieved is {best_loss}")
-                print(best_epoch)
+                print(best_epoch_details)
                 break
 
     def fit_and_save(self, filename, epoch=500):
         self.fit(epoch=epoch)
         self.best_model.eval()
         torch.save(self.best_model, filename)
+
+
+def inference(model, data, batch_size=128):
+
+    data = torch.from_numpy(np.array(data)).cuda()
+
+    with torch.no_grad():
+        model._init_hidden_state(data.shape[0])
+        pred = model(data)
+
+        max_t,_ = torch.max(pred, 1)
+        min_t,_ = torch.min(pred, 1)
+        conf = torch.abs(max_t / (max_t - min_t))
+        _, pred = torch.max(pred, 1)
+
+    return conf.tolist(), pred.tolist()
