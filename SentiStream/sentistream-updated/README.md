@@ -2,7 +2,7 @@
 
 - [ ] Semi-Supervised Models
     - [x] ANN module
-    - [ ] HAN module
+    - [x] HAN module
 - [ ] Unsupervised Models
     - [ ] PLStream module (updated one)
 - [ ] SentiStream Module
@@ -19,3 +19,7 @@
     - [ ] Make all utility functions suitable for batch processing and stream processing
     - [ ] Define most accurate preprocessing strategy for all works.
 - [ ] Requirements (Install only required ones)
+
+
+
+## CHECK WORD EMBEDDINGS FOR INCREMENTAL TRAIINNG
