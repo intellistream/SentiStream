@@ -4,3 +4,4 @@ numpy
 gensim==4.3.1
 nltk
 pandas
+redis
