@@ -14,7 +14,7 @@
 - [ ] Batch Inference Module
 - [ ] Classifier Module
 - [ ] Supervised Module
-    - [ ] Combine Initial Train Module
+    - [x] Combine Initial Train Module
 - [ ] Utils Module
     - [ ] Make all utility functions suitable for batch processing and stream processing
     - [ ] Define most accurate preprocessing strategy for all works.
@@ -23,3 +23,4 @@
 
 
 ## CHECK WORD EMBEDDINGS FOR INCREMENTAL TRAIINNG
+## CONTINOUS TRAIN
