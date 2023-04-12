@@ -1,11 +1,13 @@
 # pylint: disable=import-error
 from torch.utils.data import Dataset
 
+
 class SentimentDataset(Dataset):
     """
     PyTorch Dataset class for sentiment analysis, containing precomputed word vectors and binary 
     sentiment labels.
     """
+
     def __init__(self, vectors, labels):
         """
         Initialize class with vectors and labels.

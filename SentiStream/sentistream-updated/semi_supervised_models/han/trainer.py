@@ -12,13 +12,15 @@ from semi_supervised_models.han.model import HAN
 from semi_supervised_models.han.utils import calc_acc, join_tokens, preprocess, get_max_lengths
 from utils import load_torch_model, downsampling
 
+
 class Trainer:
     """
     Trainer class  to train Hierarchical Attention Network.
     """
+
     def __init__(self, docs, labels, wb_dict, embeddings, init, test_size=0.2, batch_size=128,
-                learning_rate=1e-3, word_hidden_size=50, sent_hidden_size=50, num_class=2,
-                early_stopping_patience=5, downsample=False):
+                 learning_rate=1e-3, word_hidden_size=50, sent_hidden_size=50, num_class=2,
+                 early_stopping_patience=5, downsample=False):
         """
         Initialize class to train HAN.
 
@@ -42,7 +44,8 @@ class Trainer:
                                 Defaults to False.
         """
         # Determine if GPU available for training.
-        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device(
+            'cuda:0' if torch.cuda.is_available() else 'cpu')
 
         # Optionally perform downsample to balance classes.
         if downsample:
@@ -56,14 +59,14 @@ class Trainer:
 
         embeddings = np.asarray(embeddings)
 
-        ## Get max sentence and word length for dataset.
+        # Get max sentence and word length for dataset.
         # if init:
         #     max_word_length, max_sent_length = get_max_lengths(
         #         docs)  # change to train only
 
         # Encode documents to model input format.
         docs = preprocess(docs, wb_dict,
-                        max_word_length, max_sent_length)
+                          max_word_length, max_sent_length)
 
         # Split data into training and validation sets.
         x_train, x_test, y_train, y_test = train_test_split(
@@ -71,7 +74,8 @@ class Trainer:
 
         # Create PyTorch DataLoader objects for training and validation data.
         num_workers = multiprocessing.cpu_count()
-        train_data, test_data = SentimentDataset(x_train, y_train), SentimentDataset(x_test, y_test)
+        train_data, test_data = SentimentDataset(
+            x_train, y_train), SentimentDataset(x_test, y_test)
         self.train_loader = DataLoader(
             train_data, batch_size=batch_size, shuffle=True,
             drop_last=True, num_workers=num_workers)
@@ -82,7 +86,7 @@ class Trainer:
         # Initialize model and optimizer.
         if init:
             self.model = HAN(word_hidden_size, sent_hidden_size, batch_size, num_class,
-                        embeddings, max_sent_length, max_word_length)
+                             embeddings, max_sent_length, max_word_length)
         else:
             self.model = load_torch_model('ssl-clf.pth')
         self.model.to(self.device)

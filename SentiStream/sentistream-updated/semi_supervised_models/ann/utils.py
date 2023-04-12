@@ -1,6 +1,7 @@
 # pylint: disable=import-error
 import torch
 
+
 def calc_acc(y_pred, y_test):
     """
     Calculate accuracy of predictions.

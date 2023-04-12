@@ -1,6 +1,7 @@
 # pylint: disable=import-error
 import torch.nn as nn
 
+
 class Classifier(nn.Module):
     """
     Simple feedforward neural network for binary classification.
@@ -12,6 +13,7 @@ class Classifier(nn.Module):
         sigmoid (nn.Sigmoid): Sigmoid activation function applied to output/hidden layer.
 
     """
+
     def __init__(self, input_size, hidden_size, output_size=1):
         """
         Initialize class with given input and output dimensions.

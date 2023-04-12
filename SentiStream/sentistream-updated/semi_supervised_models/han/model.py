@@ -6,6 +6,7 @@ import numpy as np
 
 from semi_supervised_models.han.utils import mat_mul, element_wise_mul
 
+
 class WordAttentionNet(nn.Module):
     """
     Word attention network of HAN.
@@ -17,6 +18,7 @@ class WordAttentionNet(nn.Module):
         lookup (torch.nn.Embedding): Embedding layer for input sequence.
         gru (torch.nn.GRU): Word-level Bidirectional GRU layer.
     """
+
     def __init__(self, embeddings, hidden_size=50):
         """
         Initialize network with embeddings.
@@ -56,7 +58,7 @@ class WordAttentionNet(nn.Module):
             torch.Tensor: Word attention-weighted representation of input sequence.
             torch.Tensor: Hidden state of GRU layer.
         """
-         # Look up embeddings for input sequence.
+        # Look up embeddings for input sequence.
         output = self.lookup(x)
 
         # Pass output through GRU layer.
@@ -70,6 +72,7 @@ class WordAttentionNet(nn.Module):
 
         return output, h_output
 
+
 class SentenceAttentionNet(nn.Module):
     """
     Sentence Attention Network of HAN.
@@ -82,6 +85,7 @@ class SentenceAttentionNet(nn.Module):
         fc_out (Torch.nn.Linear): Fully connected output layer
 
     """
+
     def __init__(self, sent_hidden_size=50, word_hidden_size=50, num_classes=2):
         """
         Intialize network
@@ -135,6 +139,7 @@ class SentenceAttentionNet(nn.Module):
 
         return output, h_output
 
+
 class HAN(nn.Module):
     """
     Hierarchical Attention Network
@@ -149,6 +154,7 @@ class HAN(nn.Module):
         sentence_attention_net (SentenceAttentionNet): Sentence attention network.
         device (torch.device): Device on which to run the model.
     """
+
     def __init__(self, word_hidden_size, sent_hidden_size, batch_size, num_classes,
                  embeddings, max_sent_length, max_word_length):
         """
@@ -180,7 +186,8 @@ class HAN(nn.Module):
             sent_hidden_size, word_hidden_size, num_classes)
 
         # Set device to use for computations.
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu")
 
         # Reset hidden state for word-level and sentence-level GRUs.
         self.reset_hidden_state()

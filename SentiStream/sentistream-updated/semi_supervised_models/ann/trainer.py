@@ -11,10 +11,12 @@ from semi_supervised_models.ann.model import Classifier
 from semi_supervised_models.ann.utils import calc_acc
 from utils import load_torch_model, downsampling
 
+
 class Trainer:
     """
     Trainer class  to train simple feed forward network.
     """
+
     def __init__(self, vectors, labels, input_size, init, test_size=0.2, batch_size=16,
                  hidden_size=32, learning_rate=5e-3, downsample=False):
         """
@@ -34,7 +36,8 @@ class Trainer:
                                         Defaults to False.
         """
         # Determine if GPU available for training.
-        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device(
+            'cuda:0' if torch.cuda.is_available() else 'cpu')
 
         # Optionally perform downsample to balance classes.
         if downsample:
@@ -42,7 +45,8 @@ class Trainer:
 
         # Convert data to PyTorch tensors and move to device.
         vectors = torch.FloatTensor(np.array(vectors)).to(self.device)
-        labels = torch.FloatTensor(np.array(labels)).unsqueeze(1).to(self.device)
+        labels = torch.FloatTensor(
+            np.array(labels)).unsqueeze(1).to(self.device)
 
         # Split data into training and validation sets.
         x_train, x_val, y_train, y_val = train_test_split(
@@ -50,7 +54,8 @@ class Trainer:
 
         # Create PyTorch DataLoader objects for training and validation data.
         num_workers = multiprocessing.cpu_count()
-        train_data, test_data = SentimentDataset(x_train, y_train), SentimentDataset(x_val, y_val)
+        train_data, test_data = SentimentDataset(
+            x_train, y_train), SentimentDataset(x_val, y_val)
         self.train_loader = DataLoader(
             train_data, batch_size=batch_size, shuffle=True,
             drop_last=True, num_workers=num_workers)
@@ -65,7 +70,8 @@ class Trainer:
             self.model = load_torch_model('ssl-clf.pth')
         self.model.to(self.device)
         self.criterion = torch.nn.BCELoss()
-        self.optimizer = torch.optim.Adam(params=self.model.parameters(), lr=learning_rate)
+        self.optimizer = torch.optim.Adam(
+            params=self.model.parameters(), lr=learning_rate)
 
         # Initialize best model to None (will be updated during training).
         self.best_model = None
@@ -114,7 +120,7 @@ class Trainer:
             val_acc = 0
 
             with torch.no_grad():
-                 # Loop through the validation data.
+                # Loop through the validation data.
                 for vecs, labels in self.test_loader:
                     vecs, labels = vecs.to(self.device), labels.to(self.device)
 

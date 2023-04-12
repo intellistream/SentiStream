@@ -5,6 +5,7 @@ import torch
 
 from nltk.tokenize import sent_tokenize, word_tokenize
 
+
 def mat_mul(output, weight, bias=None):
     """
     Matrix multiplication of output and weight tensors then apply bias and tanh activation function.
@@ -40,6 +41,7 @@ def element_wise_mul(output1, output2):
     output = output1 * output2.unsqueeze(2)
     return output.sum(dim=0, keepdim=True)
 
+
 def calc_acc(y_label, y_pred):
     """
     Calulate accuracy of model's predictions.
@@ -55,6 +57,7 @@ def calc_acc(y_label, y_pred):
     correct = (preds == y_label).sum()
     return correct / len(y_label)
 
+
 def join_tokens(doc):
     """
     Concatenate all tokens from document list to create sentences. 
@@ -66,6 +69,7 @@ def join_tokens(doc):
         list: Made up sentences from concatenated tokens.
     """
     return [' '.join(tokens).strip() for tokens in doc]
+
 
 def get_max_lengths(docs):
     """
@@ -95,6 +99,7 @@ def get_max_lengths(docs):
     return sorted(words_length)[int(0.8 * len(words_length))], \
         sorted(sents_length)[int(0.8 * len(sents_length))]
 
+
 def preprocess(docs, word_dict, max_length_word=15, max_length_sentences=15):
     """
     Encode document to embeddings for HAN model to train while padding and trimming length to make 
@@ -122,8 +127,8 @@ def preprocess(docs, word_dict, max_length_word=15, max_length_sentences=15):
         # Tokenize document into sentences and encode each sentence into list of word indices.
         document_encode = [
             [word_dict.get(word, -1)
-            for word in re.split(r'[.!?\s]+', sentences)
-            if len(word) > 1] for sentences
+             for word in re.split(r'[.!?\s]+', sentences)
+             if len(word) > 1] for sentences
             in
             sent_tokenize(doc)]
 
