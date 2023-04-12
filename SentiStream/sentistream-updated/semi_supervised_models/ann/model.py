@@ -4,6 +4,13 @@ import torch.nn as nn
 class Classifier(nn.Module):
     """
     Simple feedforward neural network for binary classification.
+
+    Attributes:
+        fc1 (nn.Linear): First fully connected layer of ANN.
+        relu1 (nn.ReLU): ReLU activation function applied to output of first/input layer.
+        fc2 (nn.Linear): Hidden fully connected layer of ANN.
+        sigmoid (nn.Sigmoid): Sigmoid activation function applied to output/hidden layer.
+
     """
     def __init__(self, input_size, hidden_size, output_size=1):
         """
