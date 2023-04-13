@@ -100,7 +100,7 @@ def get_max_lengths(docs):
         sorted(sents_length)[int(0.8 * len(sents_length))]
 
 
-def preprocess(docs, word_dict, max_length_word=15, max_length_sentences=15):
+def preprocess(docs, word_dict, max_length_word=15, max_length_sentences=10):
     """
     Encode document to embeddings for HAN model to train while padding and trimming length to make 
     all documents, sentences have same length.
@@ -110,7 +110,7 @@ def preprocess(docs, word_dict, max_length_word=15, max_length_sentences=15):
         word_dict (dict): Dictionary containing words as keys and their corresponding 
                                     indices as values.
         max_length_word (int, optional): Maximum length of word tokens. Defaults to 15.
-        max_length_sentences (int, optional): Maximu length of sentence tokens. Defaults to 15.
+        max_length_sentences (int, optional): Maximu length of sentence tokens. Defaults to 10.
 
     Returns:
         ndarray: Word embeddings in document format.
