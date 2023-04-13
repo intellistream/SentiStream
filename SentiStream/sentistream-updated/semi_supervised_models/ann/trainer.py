@@ -141,7 +141,7 @@ class Trainer:
                 best_epoch = epoch
                 best_loss = val_loss
                 best_epoch_details = f"epoch: {epoch+1}, train loss: {train_loss:.4f}, " \
-                    "train acc: {train_acc:.4f}, val loss: {val_loss:.4f}, val_acc: {val_acc:.4f}"
+                    f"train acc: {train_acc:.4f}, val loss: {val_loss:.4f}, val_acc: {val_acc:.4f}"
                 self.best_model = self.model
 
             # Check if the current epoch is more than 5 epochs away from the best epoch, if it is,
