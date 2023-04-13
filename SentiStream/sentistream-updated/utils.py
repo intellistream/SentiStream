@@ -5,6 +5,9 @@ import os
 import random
 import re
 import numpy as np
+import nltk
+
+nltk.download('punkt', quiet=True)
 from gensim.models import Word2Vec, FastText
 from nltk.tokenize import sent_tokenize, word_tokenize
 import torch
@@ -25,21 +28,6 @@ STOP_WORDS = ['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you'
               're', 've', 'y', 'ma', 'st', 'nd', 'rd', 'th', "you'll", 'dr', 'mr', 'mrs']
 
 stemmer = SnowballStemmer('english')
-
-
-def process_batch(sentences):
-    result = []
-
-    for sent in sentences:
-        result.append(clean(tokenize(sent)))
-
-    return result
-
-
-def clean(line):
-    # return remove_stopwords(line)
-    return [word for word in line if word not in STOP_WORDS]
-
 
 def load_pseudo_data(folder_name):
     """Load ground truth and pseudo data to memory
