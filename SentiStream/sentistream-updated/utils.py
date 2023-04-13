@@ -113,7 +113,7 @@ def tokenize(text):
 
     tokens = word_tokenize(text)
 
-    return [stemmer(token) for token in tokens if token not in STOP_WORDS]
+    return [stemmer.stem(token) for token in tokens if token not in STOP_WORDS]
 
 
 def clean_for_wv(tokens):
