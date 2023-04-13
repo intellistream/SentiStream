@@ -5,8 +5,6 @@
 import multiprocessing
 import pandas as pd
 
-from gensim.models import Word2Vec, FastText
-
 from semi_supervised_models.ann.trainer import Trainer as ANNTrainer
 from semi_supervised_models.han.trainer import Trainer as HANTrainer
 
@@ -28,7 +26,7 @@ class TrainModel:
         Initialize semi-supervised model training
 
         Args:
-            word_vector_algo (str): Type of word vector algorithm to use (either 'Word2Vec' or
+            word_vector_algo (class): Type of word vector algorithm to use (either 'Word2Vec' or
                                     'FastText').
             ssl_model (str): Type of SSL model to use (either 'ANN' or 'HAN').
             init (bool): Flag indicating whether start training from scratch or update model.
@@ -47,11 +45,9 @@ class TrainModel:
 
         # self.redis = redis.StrictRedis(host='localhost', port=6379, db=0)
 
-        word_vector_algo = Word2Vec if word_vector_algo == 'Word2Vec' else FastText
-
         # Initialize word vector model and load training data.
         if init:
-            workers = multiprocessing.cpu_count()
+            workers = int(0.8 * multiprocessing.cpu_count())
             self.wv_model = word_vector_algo(
                 vector_size=vector_size, window=window, min_count=min_count, workers=workers)
             df = pd.read_csv('train.csv', names=[

@@ -1,3 +1,6 @@
+from nltk.stem import SnowballStemmer
+import torch
+from nltk.tokenize import sent_tokenize, word_tokenize
 from gensim.utils import simple_preprocess
 # from gensim.parsing.preprocessing import remove_stopwords
 import pandas as pd
@@ -8,11 +11,7 @@ import numpy as np
 import nltk
 
 nltk.download('punkt', quiet=True)
-from gensim.models import Word2Vec, FastText
-from nltk.tokenize import sent_tokenize, word_tokenize
-import torch
 
-from nltk.stem import SnowballStemmer
 
 STOP_WORDS = ['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', "you're", "you've",
               "you'd", 'your', 'yours', 'yourself', 'yourselves', 'he', 'him', 'his', 'himself', 'she', "she's",
@@ -28,6 +27,7 @@ STOP_WORDS = ['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you'
               're', 've', 'y', 'ma', 'st', 'nd', 'rd', 'th', "you'll", 'dr', 'mr', 'mrs']
 
 stemmer = SnowballStemmer('english')
+
 
 def load_pseudo_data(folder_name):
     """Load ground truth and pseudo data to memory
@@ -58,7 +58,7 @@ def get_average_word_embeddings(model, tokens):
     count = 0
 
     for word in tokens:
-        if word in model.wv:
+        if word in model.wv.key_to_index:
             avg_vec += model.wv[word]
             count += 1
 
