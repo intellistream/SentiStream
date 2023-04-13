@@ -4,7 +4,7 @@
     - [x] ANN module
     - [x] HAN module
 - [ ] Unsupervised Models
-    - [ ] PLStream module (updated one)
+    - [x] PLStream module (updated one)
 - [ ] SentiStream Module
     - [ ] Run with n without Flink
     - [ ] Compatible with all datasets
@@ -26,3 +26,10 @@
 ## CONTINOUS TRAIN
 ## DONT SINK PSEUDO LABELS...
 ## SHOULD I PUT ALL DATA TO GPU INITIALLY? - to reduce communication overhead in each batch since lost of VRAM is idle.
+## CHECK OUTPUT OF STEMMER WHEN USING REF TABLE......
+## USE NUMBA 
+## CONVERRT REF TABLE TO SET 
+
+# TO REM
+
+## Plstream neg <-> pos count -- wrong one
