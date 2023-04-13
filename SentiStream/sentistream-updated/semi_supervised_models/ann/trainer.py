@@ -1,5 +1,5 @@
 # pylint: disable=import-error
-import multiprocessing
+# pylint: disable=no-name-in-module
 import numpy as np
 import torch
 
@@ -44,24 +44,23 @@ class Trainer:
             labels, vectors = downsampling(labels, vectors)
 
         # Convert data to PyTorch tensors and move to device.
-        vectors = torch.FloatTensor(np.array(vectors)).to(self.device)
+        vectors = torch.FloatTensor(np.array(vectors))
         labels = torch.FloatTensor(
-            np.array(labels)).unsqueeze(1).to(self.device)
+            labels).unsqueeze(1)
 
         # Split data into training and validation sets.
         x_train, x_val, y_train, y_val = train_test_split(
             vectors, labels, test_size=test_size, random_state=42)
 
         # Create PyTorch DataLoader objects for training and validation data.
-        num_workers = multiprocessing.cpu_count()
         train_data, test_data = SentimentDataset(
             x_train, y_train), SentimentDataset(x_val, y_val)
         self.train_loader = DataLoader(
             train_data, batch_size=batch_size, shuffle=True,
-            drop_last=True, num_workers=num_workers)
+            drop_last=True, num_workers=8)  # more cores will increase memory overhead and slowdown
         self.test_loader = DataLoader(
             test_data, batch_size=batch_size, shuffle=False,
-            drop_last=False, num_workers=num_workers)
+            drop_last=False, num_workers=8)
 
         # Initialize model and optimizer.
         if init:

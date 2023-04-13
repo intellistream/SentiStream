@@ -1,6 +1,6 @@
 # pylint: disable=import-error
+# pylint: disable=no-name-in-module
 
-import multiprocessing
 import numpy as np
 import torch
 
@@ -73,15 +73,14 @@ class Trainer:
             docs, labels, test_size=test_size, random_state=42)
 
         # Create PyTorch DataLoader objects for training and validation data.
-        num_workers = multiprocessing.cpu_count()
         train_data, test_data = SentimentDataset(
             x_train, y_train), SentimentDataset(x_test, y_test)
         self.train_loader = DataLoader(
             train_data, batch_size=batch_size, shuffle=True,
-            drop_last=True, num_workers=num_workers)
+            drop_last=True, num_workers=8)  # more cores will increase memory overhead and slowdown
         self.test_loader = DataLoader(
             test_data, batch_size=batch_size, shuffle=False,
-            drop_last=False, num_workers=num_workers)
+            drop_last=False, num_workers=8)
 
         # Initialize model and optimizer.
         if init:
