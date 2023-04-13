@@ -12,7 +12,7 @@
     - [ ] Compatible with all ANN models (Last layer SoftMax or Sigmoid)
     - [ ] Compatible with all word vector algorithms (W2V, FastText, Sense2Vec)
 - [ ] Batch Inference Module
-- [ ] Classifier Module
+- [x] Classifier Module
 - [ ] Supervised Module
     - [x] Combine Initial Train Module
 - [ ] Utils Module
@@ -27,9 +27,17 @@
 ## DONT SINK PSEUDO LABELS...
 ## SHOULD I PUT ALL DATA TO GPU INITIALLY? - to reduce communication overhead in each batch since lost of VRAM is idle.
 ## CHECK OUTPUT OF STEMMER WHEN USING REF TABLE......
-## USE NUMBA 
+## PLSTREAM WORD VECOTR AVG IS WRONG ONE
 ## CONVERRT REF TABLE TO SET 
+
+## WHAT ABT MAX SENT, WORD LEN???
+
+## CHECK FOR LAST BATCH IN STREAM
 
 # TO REM
 
 ## Plstream neg <-> pos count -- wrong one
+
+
+
+# UPGRADE NUMPY AFTER INSTALLING REQUIREMENTS
