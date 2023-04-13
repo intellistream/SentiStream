@@ -73,6 +73,10 @@ class PLStream():
 
         Args:
             data (tuple): Contains label and text data.
+
+        Returns:
+            tuple or str: 'BATCHING' if collecting data for batch, else, accuracy and f1 score 
+                        for current batch's predictions.
         """
 
         label, text = data
@@ -87,7 +91,7 @@ class PLStream():
             train_word_vector_algo(
                 self.wv_model, self.texts, 'plstream-wv.model', update=self.update)
 
-            acc, f1 = self.eval_model(self.texts, self.labels)
+            acc_score, f1_score = self.eval_model(self.texts, self.labels)
 
             # Clear the lists for the next batch
             self.update = True
@@ -97,7 +101,7 @@ class PLStream():
         else:
             return 'BATCHING'
 
-        return acc, f1
+        return acc_score, f1_score
 
     def update_temporal_trend(self, y_preds):
         """
