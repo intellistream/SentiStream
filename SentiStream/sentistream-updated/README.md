@@ -1,6 +1,6 @@
 ## TODO
 
-- [ ] Semi-Supervised Models
+- [x] Semi-Supervised Models
     - [x] ANN module
     - [x] HAN module
 - [ ] Unsupervised Models
@@ -24,3 +24,5 @@
 
 ## CHECK WORD EMBEDDINGS FOR INCREMENTAL TRAIINNG
 ## CONTINOUS TRAIN
+## DONT SINK PSEUDO LABELS...
+## SHOULD I PUT ALL DATA TO GPU INITIALLY? - to reduce communication overhead in each batch since lost of VRAM is idle.
