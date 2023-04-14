@@ -21,12 +21,14 @@ from train.pseudo_labeler import SentimentPseudoLabeler
 from unsupervised_models.plstream import PLStream
 from inference.classifier import Classifier
 
+from utils import clean_for_wv, tokenize
+
 
 PYFLINK = True
 FLINK_PARALLELISM = 1
 
-SSL_MODEL = 'HAN' # 'HAN', 'ANN'
-WORD_VEC_ALGO =  FastText # Word2Vec, FastText
+SSL_MODEL = 'HAN'  # 'HAN', 'ANN'
+WORD_VEC_ALGO = FastText  # Word2Vec, FastText
 
 
 # ---------------- Initial training of classifier ----------------
