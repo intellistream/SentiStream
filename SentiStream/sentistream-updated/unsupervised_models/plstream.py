@@ -67,6 +67,7 @@ class PLStream():
         self.neg_ref = ['bad', 'worst', 'stupid', 'disappointing',
                         'terrible', 'rubbish', 'boring', 'awful', 'unwatchable', 'awkward']
 
+        self.idx = []
         self.labels = []
         self.texts = []
 
@@ -75,19 +76,19 @@ class PLStream():
         Process incoming stream and output polarity of stream data.
 
         Args:
-            data (tuple): Contains label and text data.
+            data (tuple): Contains index, label and text data.
 
         Returns:
             tuple or str: 'BATCHING' if collecting data for batch, else, accuracy and f1 score 
                         for current batch's predictions.
         """
 
-        label, text = data
+        idx, label, text = data
 
-        # Append label and preprocessed text to respective lists.
+        # Append idx, label and preprocessed text to respective lists.
+        self.idx.append(idx)
         self.labels.append(label)
-        # batchwise will improve performance --- but only if this creates overhead in stream---
-        self.texts.append(clean_for_wv(tokenize(text)))
+        self.texts.append(text)
 
         # Train model & classify once batch size is reached.
         if len(self.labels) >= self.batch_size:
@@ -98,10 +99,12 @@ class PLStream():
             conf, preds = self.eval_model(self.texts, self.labels)
 
             # Generate output data
-            output = [[c, p, t] for c, p, t in zip(conf, preds, self.texts)]
+            output = [[i, 'us', c, p, t]
+                      for i, c, p, t in zip(self.idx, conf, preds, self.texts)]
 
             # Clear the lists for the next batch
             self.update = True
+            self.idx = []
             self.labels = []
             self.texts = []
 
