@@ -2,6 +2,7 @@
 # pylint: disable=no-name-in-module
 
 from collections import defaultdict
+from pyflink.datastream.functions import CoMapFunction
 
 from train.utils import polarity, calculate_acc
 
@@ -71,18 +72,18 @@ class SentimentPseudoLabeler:
             return acc
         return None
 
-    def generate_pseudo_label(self, us_output, ss_output):
+    def generate_pseudo_label(self, first_output, second_output):
         """
         Generate pseudo label for incoming output from both models.
 
         Args:
-            us_output (tuple): contains data from unsupervised model's output.
+            first_output/second_output (tuple): contains data from unsupervised model's output.
                                 - us_idx: index of outputs from unsupervised model.
                                 - us_flag: indicates unsupervised model's output.
                                 - us_conf: unsupervised model's confidence for predicted label.
                                 - us_pred: unsupervised model's prediction.
                                 - text: text data / review.
-            ss_output (tuple): contains data from semi-supervised model's output.
+            first_output/second_output (tuple): contains data from semi-supervised model's output.
                                 - ss_idx: index of outputs from semi-supervised model.
                                 - ss_flag: indicates semi-supervised model's output.
                                 - ss_conf: semi-supervised model's confidence for predicted label.
@@ -94,20 +95,22 @@ class SentimentPseudoLabeler:
         """
 
         # Store outputs in dictionary to map them easily.
-        if us_output:
-            self.collector[us_output[0]][us_output[1]] = us_output[2:]
-        if ss_output:
-            self.collector[ss_output[0]][ss_output[1]] = ss_output[2:]
+        for stream_output in (first_output, second_output):
+            if stream_output:
+                self.collector[stream_output[0]
+                               ][stream_output[1]] = stream_output[2:]
 
         output = []
 
-        if ss_output and len(self.collector[ss_output[0]]) == 2:
-            conf = self.get_confidence_score(self.collector[ss_output[0]])
-            output.append(self.get_pseudo_label(conf, ss_output[0]))
-        if us_output and len(self.collector[us_output[0]]) == 2:
-            conf = self.get_confidence_score(self.collector[us_output[0]])
-            output.append(self.get_pseudo_label(conf, us_output[0]))
+        # Generate labels for data that have both predicted results.
+        for stream_output in (first_output, second_output):
+            if stream_output and len(self.collector[stream_output[0]]) == 2:
+                conf = self.get_confidence_score(
+                    self.collector[stream_output[0]])
+                output.append(self.get_pseudo_label(conf, stream_output[0]))
 
+        if not output:
+            return ['COLLECTING']
         return output
 
     def get_pseudo_label(self, conf, key):
@@ -129,3 +132,43 @@ class SentimentPseudoLabeler:
         del self.collector[key]
 
         return 'LOW_CONFIDENCE' if -0.5 < conf < 0.5 else [1 if conf >= 0.5 else 0, text]
+
+
+class PseudoLabelerCoMap(CoMapFunction):
+    """
+    CoMapFunction that uses labeler function to generate pseudo labels for stream data.
+    """
+
+    def __init__(self, labeler):
+        """
+        Initialize class with labeler function
+
+        Args:
+            labeler (SentimentPseudoLabeler): Instance of SentimentPseudoLabeler class to 
+                                            generate labels.
+        """
+        self.labeler = labeler
+
+    def map1(self, value):
+        """
+        Generate pseudo label to on of merged datastream.
+
+        Args:
+            value (tuple): Contain's pretrained model's output.
+
+        Returns:
+            list: pseudo label and text.
+        """
+        return self.labeler.generate_pseudo_label(value, None)
+
+    def map2(self, value):
+        """
+        Generate pseudo label to on of merged datastream.
+
+        Args:
+            value (tuple): Contain's pretrained model's output.
+
+        Returns:
+            list: pseudo label and text.
+        """
+        return self.labeler.generate_pseudo_label(value, None)
