@@ -54,18 +54,11 @@ def load_pseudo_data(folder_name):
 
 
 def get_average_word_embeddings(model, tokens):
-    avg_vec = np.zeros(model.vector_size)
-    count = 0
-
-    for word in tokens:
-        if word in model.wv.key_to_index:
-            avg_vec += model.wv[word]
-            count += 1
-
-    if count > 0:
-        avg_vec /= count
-
-    return avg_vec
+    filtered_tokens = [token for token in tokens if token in model.wv.key_to_index]
+    
+    if len(filtered_tokens) > 0:
+        return np.mean(model.wv[filtered_tokens], axis=0)
+    return np.zeros(model.vector_size)
 
 
 def load_word_vector_model(algo, path):
