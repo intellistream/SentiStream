@@ -19,6 +19,7 @@
     - [x] Make all utility functions suitable for batch processing and stream processing
     - [x] Define most accurate preprocessing strategy for all works.
 - [ ] Requirements (Install only required ones)
+- [ ] Create new README
 
 
 
