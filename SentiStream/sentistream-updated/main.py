@@ -1,4 +1,5 @@
 # pylint: disable=import-error
+# pylint: disable=no-name-in-module
 
 # US WORD_VECTOR_NAME = 'plstream-wv.model'
 # SS WORD_VECTOR_NAME = 'ssl-wv.model'
@@ -6,38 +7,39 @@
 
 # TORCH JIT ?
 # TODO: FIX CLASS IMBALANCE IN INITIAL TRAINING - DONE - REWATCH
-# TODO: UPDATE HAN PREPROCESSING FROM 08a914a COMMIT
-
-
-from time import time
-import pandas as pd
 
 from itertools import zip_longest
+from time import time
+
+import pandas as pd
+
+
 from gensim.models import Word2Vec, FastText
 
 from pyflink.datastream import CheckpointingMode, StreamExecutionEnvironment
+
+
 from train.supervised import TrainModel
-from train.pseudo_labeler import SentimentPseudoLabeler
+from train.pseudo_labeler import SentimentPseudoLabeler, PseudoLabelerCoMap
 from unsupervised_models.plstream import PLStream
 from inference.classifier import Classifier
 
 from utils import clean_for_wv, tokenize
 
 
-PYFLINK = True
+PYFLINK = False
 FLINK_PARALLELISM = 1
 
 SSL_MODEL = 'HAN'  # 'HAN', 'ANN'
 WORD_VEC_ALGO = FastText  # Word2Vec, FastText
 
+start = time()
 
 # ---------------- Initial training of classifier ----------------
 # Train word vector {Word2Vec or FastText} on {nrows=1000} data and get word embeddings, then use
 # that embedding to train NN sentiment classifier {ANN or HAN}
-
-start = time()
-
-# TrainModel(word_vector_algo=WORD_VEC_ALGO, ssl_model=SSL_MODEL, init=True, nrows=1000)
+TrainModel(word_vector_algo=WORD_VEC_ALGO,
+           ssl_model=SSL_MODEL, init=True, nrows=1000)
 
 
 # ---------------- Generate pesudo labels ----------------
@@ -61,13 +63,15 @@ if PYFLINK:
 
     ds = ds.map(lambda x: (x[0], x[1], clean_for_wv(tokenize(x[2]))))
 
-    ds_us = ds.map(plstream.process_data).filter(lambda x: x != 'BATCHING')
-    ds_ss = ds.map(classifier.classify).filter(lambda x: x != 'BATCHING')
+    ds_us = ds.map(plstream.process_data).filter(
+        lambda x: x != 'BATCHING').flat_map(lambda x: x)
+    ds_ss = ds.map(classifier.classify).filter(
+        lambda x: x != 'BATCHING').flat_map(lambda x: x)
 
-    ds = ds_us.connect(ds_ss).map(
-        lambda x: (x[0], x[1], x[2], x[3], x[4], x[5]))
+    ds = ds_us.connect(ds_ss).map(PseudoLabelerCoMap(pseduo_labeler)).flat_map(
+        lambda x: x).filter(lambda x: x not in ['COLLECTING', 'LOW_CONFIDENCE'])
 
-    ds.print()
+    # ds.print()
 
     env.execute()
 
@@ -75,6 +79,8 @@ else:
 
     us_predictions = []
     ss_predictions = []
+
+    pseudo_labels = []
 
     acc_list = []
 
@@ -90,11 +96,14 @@ else:
             ss_predictions += ss_output
 
         if len(us_predictions) > 0 or len(ss_predictions) > 0:
-            pseudo_labels = [pseduo_labeler.generate_pseudo_label(us_pred, ss_pred)
-                             for us_pred, ss_pred in zip_longest(us_predictions, ss_predictions)]
+            temp = [pseduo_labeler.generate_pseudo_label(us_pred, ss_pred)
+                    for us_pred, ss_pred in zip_longest(us_predictions, ss_predictions)]
+
+            for t in temp:
+                if t not in [['LOW_CONFIDENCE'], ['COLLECTING']]:
+                    pseudo_labels += t
             acc_list.append(pseduo_labeler.get_model_acc())
             us_predictions, ss_predictions = [], []
-
 
 #     print('\n-- UNSUPERVISED MODEL ACCURACY --')
 #     print(plstream.acc_list)
