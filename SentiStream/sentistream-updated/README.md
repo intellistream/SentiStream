@@ -8,12 +8,12 @@
 - [ ] SentiStream Module
     - [ ] Run with n without Flink
     - [ ] Compatible with all datasets
-- [ ] Evaluation Module
-    - [ ] Compatible with all ANN models (Last layer SoftMax or Sigmoid)
-    - [ ] Compatible with all word vector algorithms (W2V, FastText, Sense2Vec)
+- [x] Evaluation Module
+    - [x] Compatible with all ANN models (Last layer SoftMax or Sigmoid)
+    - [x] Compatible with all word vector algorithms (W2V, FastText, Sense2Vec)
 - [ ] Batch Inference Module
 - [x] Classifier Module
-- [ ] Supervised Module
+- [x] Supervised Module
     - [x] Combine Initial Train Module
 - [ ] Utils Module
     - [x] Make all utility functions suitable for batch processing and stream processing
@@ -28,6 +28,8 @@
 ## SHOULD I PUT ALL DATA TO GPU INITIALLY? - to reduce communication overhead in each batch since lost of VRAM is idle.
 ## CHECK OUTPUT OF STEMMER WHEN USING REF TABLE......
 ## PLSTREAM WORD VECOTR AVG IS WRONG ONE
+
+## VECTORIZE IF POSSIBLE - PLSTREAM COSINE SIM
 ## CONVERRT REF TABLE TO SET 
 
 ## WHAT ABT MAX SENT, WORD LEN???
