@@ -3,11 +3,11 @@
 - [x] Semi-Supervised Models
     - [x] ANN module
     - [x] HAN module
-- [ ] Unsupervised Models
+- [x] Unsupervised Models
     - [x] PLStream module (updated one)
 - [ ] SentiStream Module
     - [ ] Run with n without Flink
-    - [ ] Compatible with all datasets
+    - [ ] Compatible with all datasets (Not now)
 - [x] Evaluation Module
     - [x] Compatible with all ANN models (Last layer SoftMax or Sigmoid)
     - [x] Compatible with all word vector algorithms (W2V, FastText, Sense2Vec)
@@ -30,6 +30,8 @@
 ## PLSTREAM WORD VECOTR AVG IS WRONG ONE
 
 ## VECTORIZE IF POSSIBLE - PLSTREAM COSINE SIM
+
+## WHY DO WE HAVE BATCH INF?, EVEN IF 90% ACC, IT MAY HAVE SOME NEW VOCABS TO LEARN???
 ## CONVERRT REF TABLE TO SET 
 
 ## WHAT ABT MAX SENT, WORD LEN???
