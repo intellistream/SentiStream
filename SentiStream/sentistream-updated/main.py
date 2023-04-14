@@ -16,6 +16,7 @@ from gensim.models import Word2Vec, FastText
 
 from pyflink.datastream import CheckpointingMode, StreamExecutionEnvironment
 from train.supervised import TrainModel
+from train.pseudo_labeler import SentimentPseudoLabeler
 from unsupervised_models.plstream import PLStream
 from inference.classifier import Classifier
 
@@ -33,7 +34,7 @@ WORD_VEC_ALGO =  FastText # Word2Vec, FastText
 
 start = time()
 
-TrainModel(word_vector_algo=WORD_VEC_ALGO, ssl_model=SSL_MODEL, init=True, nrows=1000)
+# TrainModel(word_vector_algo=WORD_VEC_ALGO, ssl_model=SSL_MODEL, init=True, nrows=1000)
 
 
 # ---------------- Generate pesudo labels ----------------
@@ -44,6 +45,7 @@ df['label'] -= 1
 
 plstream = PLStream(word_vector_algo=WORD_VEC_ALGO)
 classifier = Classifier(word_vector_algo=WORD_VEC_ALGO, ssl_model=SSL_MODEL)
+pseduo_labeler = SentimentPseudoLabeler()
 
 if PYFLINK:
     env = StreamExecutionEnvironment.get_execution_environment()
@@ -53,21 +55,47 @@ if PYFLINK:
     data_stream = [(int(label), review) for label, review in df.values]
     ds = env.from_collection(collection=data_stream)
 
-    ds_us = ds.map(plstream.process_data).filter(lambda x: x != 'BATCHING').print()
-    ds_ss = ds.map(classifier.classify).filter(lambda x: x != 'BATCHING').print()
+    ds_us = ds.map(plstream.process_data).filter(lambda x: x != 'BATCHING')
+    ds_ss = ds.map(classifier.classify).filter(lambda x: x != 'BATCHING')
+
+    ds = ds_us.connect(ds_ss).map(lambda x: (x[0], x[1], x[2], x[3], x[4], x[5]))
+
+    ds.print()
 
     env.execute()
 
 else:
+
+    us_predictions = []
+    ss_predictions = []
+
+    acc_list = []
+
     for idx, row in df.iterrows():
-        results = plstream.process_data((row.label, row.review))
+        us_output = plstream.process_data((row.label, row.review))
+        ss_output = classifier.classify((row.label, row.review))
 
-        if results != 'BATCHING':
-            print(results)
+        if us_output != 'BATCHING':
+            us_predictions += us_output
+        if ss_output != 'BATCHING':
+            ss_predictions += ss_output
 
-        results = classifier.classify((row.label, row.review))
+        if len(us_predictions) > 0 and len(ss_predictions) > 0:
+            min_len = min(len(us_predictions), len(ss_predictions))
 
-        if results != 'BATCHING':
-            print(results)
+            pseudo_labels = [pseduo_labeler.generate_pseudo_label(us_pred, ss_pred) for us_pred, ss_pred in zip(us_predictions[:min_len], ss_predictions[:min_len])]
+
+            acc_list.append(pseduo_labeler.get_model_acc())
+
+            us_predictions, ss_predictions = us_predictions[min_len:], ss_predictions[min_len:]
+
+            ### CHECK FOR LAST BATCH ISSUE
+
+    print('\n-- UNSUPERVISED MODEL ACCURACY --\n')
+    print(plstream.acc_list)
+    print('\n-- SUPERVISED MODEL ACCURACY --\n')
+    print(classifier.acc_list)
+    print('\n-- SENTISTREAM ACCURACY --\n')
+    print(acc_list)
 
 print(time() - start)
