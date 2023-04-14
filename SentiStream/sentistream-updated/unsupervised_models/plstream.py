@@ -6,7 +6,7 @@ from sklearn.metrics import accuracy_score
 
 
 from unsupervised_models.utils import cos_similarity
-from utils import tokenize, clean_for_wv, train_word_vector_algo, get_average_word_embeddings
+from utils import train_word_vector_algo, get_average_word_embeddings
 
 
 class PLStream():

@@ -8,7 +8,7 @@ import pandas as pd
 from semi_supervised_models.ann.trainer import Trainer as ANNTrainer
 from semi_supervised_models.han.trainer import Trainer as HANTrainer
 
-from utils import (load_word_vector_model, load_pseudo_data, clean_for_wv,
+from utils import (load_pseudo_data, clean_for_wv,
                    tokenize, train_word_vector_algo, get_average_word_embeddings)
 
 
@@ -61,8 +61,7 @@ class TrainModel:
                 print(f'acc: {acc}, threshold: {acc_threshold}\npseudo_data_size: {len(df)}" \
                         " threshold: {pseudo_data_threshold}')
                 return
-            self.wv_model = load_word_vector_model(
-                word_vector_algo, 'ssl-wv.model')
+            self.wv_model = word_vector_algo.load('ssl-wv.model')
 
         # Preprocess data for training word vectors.
         self.labels = df.label.tolist()

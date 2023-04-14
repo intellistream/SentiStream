@@ -8,8 +8,7 @@ import torch
 from sklearn.metrics import accuracy_score
 
 from semi_supervised_models.han.utils import join_tokens, preprocess
-from utils import (load_word_vector_model, load_torch_model,
-                   clean_for_wv, tokenize, get_average_word_embeddings)
+from utils import load_torch_model, get_average_word_embeddings
 
 
 class Classifier:
@@ -49,8 +48,7 @@ class Classifier:
             'cuda:0' if torch.cuda.is_available() else 'cpu')
 
         # Load models.
-        self.wv_model = load_word_vector_model(
-            word_vector_algo, 'ssl-wv.model')
+        self.wv_model = word_vector_algo.load('ssl-wv.model')
         self.clf_model = load_torch_model('ssl-clf.pth').to(self.device)
         self.ssl_model = ssl_model
 

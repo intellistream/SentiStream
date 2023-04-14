@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 
 from semi_supervised_models.han.dataset import SentimentDataset
 from semi_supervised_models.han.model import HAN
-from semi_supervised_models.han.utils import calc_acc, join_tokens, preprocess, get_max_lengths
+from semi_supervised_models.han.utils import calc_acc, join_tokens, preprocess
 from utils import load_torch_model, downsampling
 
 
