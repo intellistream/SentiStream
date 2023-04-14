@@ -96,26 +96,24 @@ class Classifier:
                 conf = torch.abs(max_t / (max_t - min_t))
                 _, preds = torch.max(preds, 1)
 
-        preds = preds.tolist()
-        self.acc_list.append(accuracy_score(self.labels, preds))
-
-        return conf.tolist(), preds
+        return conf.tolist(), preds.tolist()
 
     def classify(self, data):
         """
         Classify incoming stream data by batch.
 
         Args:
-            data (tuple): Contains label and text data.
+            data (tuple): Contains index, label and text data.
 
         Returns:
             tuple or str: 'BATCHING' if collection data for batch, else, tuple containing ground 
                         truth label, confidence score and predicted label for current batch.
         """
-        label, text = data
+        idx, label, text = data
 
+        self.idx.append(idx)
         self.labels.append(label)
-        self.texts.append(clean_for_wv(tokenize(text)))
+        self.texts.append(text)
 
         # Check if batch size is reached.
         if len(self.labels) >= self.batch_size:
@@ -132,10 +130,17 @@ class Classifier:
             conf, preds = self.get_prediction(
                 np.array(embeddings))
 
-            # Generate output data
-            output = [[c, p, l] for c, p, l in zip(conf, preds, self.labels)]
+            # Calculate model's accuracy.
+            output = accuracy_score(self.labels, preds)
+            self.acc_list.append(output)
+
+            if not self.is_eval:
+                # Generate output data.
+                output = [[i, 'ss', c, p, l]
+                          for i, c, p, l in zip(self.idx, conf, preds, self.labels)]
 
             # Clear the lists for the next batch.
+            self.idx = []
             self.labels = []
             self.texts = []
 
