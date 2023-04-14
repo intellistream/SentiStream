@@ -31,7 +31,7 @@ class Classifier:
     """
     TIME_TO_UPDATE = 600
 
-    def __init__(self, word_vector_algo, ssl_model, batch_size=None):
+    def __init__(self, word_vector_algo, ssl_model, batch_size=None, is_eval=False):
         """
         Initialize class with pretrained models.
 
@@ -40,9 +40,11 @@ class Classifier:
                                     'FastText').
             ssl_model (str): Type of SSL model to use (either 'ANN' or 'HAN').
             batch_size (_type_, optional): Batch size to use for processing data. Defaults to None.
+            is_eval (bool, optional): Flag indicating whether to use model for prediction or
+                                    evaluation. Defaults to False.
         """
 
-        # Determine if GPU available for training.
+        # Determine if GPU available for inference.
         self.device = torch.device(
             'cuda:0' if torch.cuda.is_available() else 'cpu')
 
@@ -54,10 +56,15 @@ class Classifier:
 
         self.acc_list = []
 
+        # Set classifier mode. If evaluation, model predicts labels for stream data else model used
+        # to test accuracy on pseudo labels
+        self.is_eval = is_eval
+
         # Set batch size and initialize lists for labels and texts.
         self.batch_size = batch_size if batch_size is not None else (
             16 if ssl_model == 'ANN' else 128)
 
+        self.idx = []
         self.labels = []
         self.texts = []
 
