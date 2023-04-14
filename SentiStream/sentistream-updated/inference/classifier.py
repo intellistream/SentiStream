@@ -5,6 +5,8 @@ import time
 import numpy as np
 import torch
 
+from sklearn.metrics import accuracy_score
+
 from semi_supervised_models.han.utils import join_tokens, preprocess
 from utils import (load_word_vector_model, load_torch_model,
                    clean_for_wv, tokenize, get_average_word_embeddings)
@@ -15,13 +17,14 @@ class Classifier:
     Classify polarity using trained word vector and NN model.
 
     Attributes:
-        wv_model: Pre-trained word vector model.
-        clf_model: Pre-trained PyTorch model.
-        ssl_model: Type of SSL model used for classification (either 'ANN' or 'HAN').
-        batch_size: Batch size to use for processing data.
-        labels: Labels for each text in the current batch.
-        texts: Cleaned and tokenized texts in the current batch.
-        start_time: Start time of classification.
+        wv_model (class): Pre-trained word vector model.
+        clf_model (class): Pre-trained PyTorch model.
+        ssl_model (str): Type of SSL model used for classification (either 'ANN' or 'HAN').
+        acc_list (list): Store accuracy of each batch.
+        batch_size (int): Batch size to use for processing data.
+        labels (list): Labels for each text in the current batch.
+        texts (list): Cleaned and tokenized texts in the current batch.
+        start_time (float): Start time of classification.
 
     Constants:
         TIME_TO_UPDATE: Time interval in seconds to load updated word vector and/or NN model.
@@ -48,6 +51,8 @@ class Classifier:
             word_vector_algo, 'ssl-wv.model')
         self.clf_model = load_torch_model('ssl-clf.pth').to(self.device)
         self.ssl_model = ssl_model
+
+        self.acc_list = []
 
         # Set batch size and initialize lists for labels and texts.
         self.batch_size = batch_size if batch_size is not None else (
@@ -77,7 +82,7 @@ class Classifier:
 
                 # Calculate binary predictions and confidence scores.
                 conf = torch.abs(preds - 0.5) * 2
-                preds = preds.gt(0.5).long()
+                preds = preds.ge(0.5).long()
 
             else:
                 # Reset hidden state for current batch.
@@ -91,7 +96,10 @@ class Classifier:
                 conf = torch.abs(max_t / (max_t - min_t))
                 _, preds = torch.max(preds, 1)
 
-        return conf.tolist(), preds.tolist()
+        preds = preds.tolist()
+        self.acc_list.append(accuracy_score(self.labels, preds))
+
+        return conf.tolist(), preds
 
     def classify(self, data):
         """
@@ -125,12 +133,11 @@ class Classifier:
                 np.array(embeddings))
 
             # Generate output data
-            data = [[self.labels[i], conf[i], preds[i]]
-                    for i in range(len(self.labels))]
+            output = [[c, p, l] for c, p, l in zip(conf, preds, self.labels)]
 
             # Clear the lists for the next batch.
             self.labels = []
             self.texts = []
 
-            return data
+            return output
         return 'BATCHING'

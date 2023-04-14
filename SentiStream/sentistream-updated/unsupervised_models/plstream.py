@@ -2,7 +2,7 @@
 # pylint: disable=no-name-in-module
 import multiprocessing
 
-from sklearn.metrics import accuracy_score, f1_score
+from sklearn.metrics import accuracy_score
 
 
 from unsupervised_models.utils import cos_similarity
@@ -22,6 +22,7 @@ class PLStream():
         batch_size (int): Number of samples to wait on before processing.
         temporal_trend_detection (bool): If True, perform temporal trend detection.
         confidence (float): Confidence difference to distinguish polarity.
+        acc_list(list): Store accuracy of each batch.
         wv_model (class): The word vector model.
         pos_ref (list): List of positive reference words.
         neg_ref (list): List of negative reference words.
@@ -52,6 +53,8 @@ class PLStream():
         self.batch_size = batch_size
         self.temporal_trend_detection = temporal_trend_detection
         self.confidence = confidence
+
+        self.acc_list = []
 
         # Initialize word vector model.
         num_workers = int(0.8 * multiprocessing.cpu_count())
@@ -91,17 +94,19 @@ class PLStream():
             train_word_vector_algo(
                 self.wv_model, self.texts, 'plstream-wv.model', update=self.update)
 
-            acc_score, f1_score = self.eval_model(self.texts, self.labels)
+            # Get predictions and confidence scores.
+            conf, preds = self.eval_model(self.texts, self.labels)
+
+            # Generate output data
+            output = [[c, p, t] for c, p, t in zip(conf, preds, self.texts)]
 
             # Clear the lists for the next batch
             self.update = True
             self.labels = []
             self.texts = []
 
-        else:
-            return 'BATCHING'
-
-        return acc_score, f1_score
+            return output
+        return 'BATCHING'
 
     def update_temporal_trend(self, y_preds):
         """
@@ -133,15 +138,16 @@ class PLStream():
         Returns:
             tuple: Accuracy and F1 score of model on current batch.
         """
-        confidences, y_preds = [], []
+        confidence, y_preds = [], []
         for tokens in sent_tokens:
             conf, y_pred = self.predict(tokens)
-            confidences.append(conf)
+            confidence.append(conf)
             y_preds.append(y_pred)
 
         self.update_temporal_trend(y_preds)
 
-        return accuracy_score(labels, y_preds), f1_score(labels, y_preds)
+        self.acc_list.append(accuracy_score(labels, y_preds))
+        return confidence, y_preds
 
     def predict(self, tokens):
         """
