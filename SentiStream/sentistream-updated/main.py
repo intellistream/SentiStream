@@ -24,14 +24,13 @@ from train.pseudo_labeler import SentimentPseudoLabeler, PseudoLabelerCoMap
 from unsupervised_models.plstream import PLStream
 from inference.classifier import Classifier
 
-from utils import clean_for_wv, tokenize
+from utils import tokenize
 
-
-PYFLINK = False
+PYFLINK = True
 FLINK_PARALLELISM = 1
 
-SSL_MODEL = 'HAN'  # 'HAN', 'ANN'
-WORD_VEC_ALGO = FastText  # Word2Vec, FastText
+SSL_MODEL = 'ANN'  # 'HAN', 'ANN'
+WORD_VEC_ALGO = Word2Vec  # Word2Vec, FastText
 
 start = time()
 
@@ -51,6 +50,8 @@ df['label'] -= 1
 plstream = PLStream(word_vector_algo=WORD_VEC_ALGO)
 classifier = Classifier(word_vector_algo=WORD_VEC_ALGO, ssl_model=SSL_MODEL)
 pseduo_labeler = SentimentPseudoLabeler()
+inference = Classifier(word_vector_algo=WORD_VEC_ALGO,
+                       ssl_model=SSL_MODEL, is_eval=True)
 
 if PYFLINK:
     env = StreamExecutionEnvironment.get_execution_environment()
@@ -61,7 +62,7 @@ if PYFLINK:
                    for idx, (label, text) in enumerate(df.values)]
     ds = env.from_collection(collection=data_stream)
 
-    ds = ds.map(lambda x: (x[0], x[1], clean_for_wv(tokenize(x[2]))))
+    ds = ds.map(lambda x: (x[0], x[1], tokenize(x[2])))
 
     ds_us = ds.map(plstream.process_data).filter(
         lambda x: x != 'BATCHING').flat_map(lambda x: x)
@@ -71,21 +72,24 @@ if PYFLINK:
     ds = ds_us.connect(ds_ss).map(PseudoLabelerCoMap(pseduo_labeler)).flat_map(
         lambda x: x).filter(lambda x: x not in ['COLLECTING', 'LOW_CONFIDENCE'])
 
-    # ds.print()
+    ds = ds.map(inference.classify).filter(lambda x: x != 'BATCHING')
 
-    env.execute()
+    ds.print()
+
+    result = env.execute()
 
 else:
 
     us_predictions = []
     ss_predictions = []
 
-    pseudo_labels = []
+    pseudo_data = []
+    dump = []
 
     acc_list = []
 
     for idx, row in df.iterrows():
-        text = clean_for_wv(tokenize(row.review))
+        text = tokenize(row.review)
 
         us_output = plstream.process_data((idx, row.label, text))
         ss_output = classifier.classify((idx, row.label, text))
@@ -95,21 +99,34 @@ else:
         if ss_output != 'BATCHING':
             ss_predictions += ss_output
 
-        if len(us_predictions) > 0 or len(ss_predictions) > 0:
+        if len(ss_predictions) > 0 or len(us_predictions) > 0:
             temp = [pseduo_labeler.generate_pseudo_label(us_pred, ss_pred)
                     for us_pred, ss_pred in zip_longest(us_predictions, ss_predictions)]
 
             for t in temp:
                 if t not in [['LOW_CONFIDENCE'], ['COLLECTING']]:
-                    pseudo_labels += t
+                    pseudo_data += t
             acc_list.append(pseduo_labeler.get_model_acc())
             us_predictions, ss_predictions = [], []
 
-#     print('\n-- UNSUPERVISED MODEL ACCURACY --')
-#     print(plstream.acc_list)
-#     print('\n-- SUPERVISED MODEL ACCURACY --')
-#     print(classifier.acc_list)
-#     print('\n-- SENTISTREAM ACCURACY --')
-#     print(acc_list)
+        for data in pseudo_data:
+            dump.append((data))
+            inference.classify((data[0], data[1], data[2]))
 
-# print('Elapsed Time: ', time() - start)
+        pseudo_data = []
+
+if not PYFLINK:
+    print('\n-- UNSUPERVISED MODEL ACCURACY --')
+    print(plstream.acc_list)
+
+    print('\n-- SUPERVISED MODEL ACCURACY --')
+    print(classifier.acc_list)
+
+    print('\n-- SENTISTREAM ACCURACY --')
+    print(acc_list)
+
+    print('\n-- SUPERVISED MODEL ACCURACY ON PSEUDO DATA --')
+    print(inference.acc_list)
+
+
+print('Elapsed Time: ', time() - start)
