@@ -6,7 +6,7 @@ from sklearn.metrics import accuracy_score
 
 
 from unsupervised_models.utils import cos_similarity
-from utils import train_word_vector_algo, get_average_word_embeddings
+from utils import train_word_vector_algo, get_average_word_embeddings, clean_for_wv
 
 
 class PLStream():
@@ -88,7 +88,7 @@ class PLStream():
         # Append idx, label and preprocessed text to respective lists.
         self.idx.append(idx)
         self.labels.append(label)
-        self.texts.append(text)
+        self.texts.append(clean_for_wv(text))
 
         # Train model & classify once batch size is reached.
         if len(self.labels) >= self.batch_size:

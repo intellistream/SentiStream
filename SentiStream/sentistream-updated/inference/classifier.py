@@ -8,7 +8,7 @@ import torch
 from sklearn.metrics import accuracy_score
 
 from semi_supervised_models.han.utils import join_tokens, preprocess
-from utils import load_torch_model, get_average_word_embeddings
+from utils import load_torch_model, get_average_word_embeddings, clean_for_wv
 
 
 class Classifier:
@@ -126,7 +126,7 @@ class Classifier:
             # Get document embeddings.
             if self.ssl_model == 'ANN':
                 embeddings = [get_average_word_embeddings(
-                    self.wv_model, tokens) for tokens in self.texts]
+                    self.wv_model, clean_for_wv(tokens)) for tokens in self.texts]
             else:
                 embeddings = preprocess(join_tokens(
                     self.texts), self.wv_model.wv.key_to_index)
