@@ -23,8 +23,8 @@ class SentimentPseudoLabeler:
         ADAPTIVE_SEMI_SUPERVISED_PREDICTION_WEIGHT: Dynamic weight for semi-supervised model for 
                                                 ensembled predictions.
     """
-    ADAPTIVE_UNSUPERVISED_PREDICTION_WEIGHT = 0.5
-    ADAPTIVE_SEMI_SUPERVISED_PREDICTION_WEIGHT = 0.5
+    ADAPTIVE_UNSUPERVISED_PREDICTION_WEIGHT = 1
+    ADAPTIVE_SEMI_SUPERVISED_PREDICTION_WEIGHT = 5
 
     def __init__(self):
         """
@@ -131,7 +131,7 @@ class SentimentPseudoLabeler:
         # Delete item from collector to avoid re-generating labels.
         del self.collector[key]
 
-        return 'LOW_CONFIDENCE' if -0.5 < conf < 0.5 else [1 if conf >= 0.5 else 0, text]
+        return 'LOW_CONFIDENCE' if -0.5 < conf < 0.5 else [key, 1 if conf >= 0.5 else 0, text]
 
 
 class PseudoLabelerCoMap(CoMapFunction):

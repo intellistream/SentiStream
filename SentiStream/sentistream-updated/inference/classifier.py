@@ -86,8 +86,8 @@ class Classifier:
                 preds = self.clf_model(torch.FloatTensor(data).to(self.device))
 
                 # Calculate binary predictions and confidence scores.
-                conf = torch.abs(preds - 0.5) * 2
-                preds = preds.ge(0.5).long()
+                conf = (torch.abs(preds - 0.5) * 2).view(-1)
+                preds = preds.ge(0.5).long().view(-1)
 
             else:
                 # Reset hidden state for current batch.
