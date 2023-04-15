@@ -63,6 +63,7 @@ class WordAttentionNet(nn.Module):
 
         # Pass output through GRU layer.
         f_output, h_output = self.gru(output, hidden_state)
+        self.gru.flatten_parameters()
 
         # Compute word-level attention and apply it to output of GRU layer.
         output = mat_mul(f_output, self.word_weight, self.word_bias)
@@ -127,6 +128,7 @@ class SentenceAttentionNet(nn.Module):
         """
         # Pass input through GRU layer.
         f_output, h_output = self.gru(x, hidden_state)
+        self.gru.flatten_parameters()
 
         # Compute sentence-level attention and apply it to output of GRU layer.
         output = mat_mul(f_output, self.sent_weight, self.sent_bias)
