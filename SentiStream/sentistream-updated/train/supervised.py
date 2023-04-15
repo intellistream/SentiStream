@@ -8,12 +8,7 @@ import pandas as pd
 from semi_supervised_models.ann.trainer import Trainer as ANNTrainer
 from semi_supervised_models.han.trainer import Trainer as HANTrainer
 
-from utils import (load_pseudo_data, clean_for_wv,
-                   tokenize, train_word_vector_algo, get_average_word_embeddings)
-
-
-PSEUDO_DATA_FOLDER = './senti_output'
-
+from utils import clean_for_wv, tokenize, train_word_vector_algo, get_average_word_embeddings
 
 class TrainModel:
     """
@@ -53,15 +48,15 @@ class TrainModel:
             df = pd.read_csv('train.csv', names=[
                              'label', 'review'], nrows=nrows)
             df['label'] -= 1
-        else:
-            # Load pseudo data.
-            df = load_pseudo_data(PSEUDO_DATA_FOLDER)
-            # If there is too low pseudo data or the accuracy is too high, do not update model.
-            if (len(df) < pseudo_data_threshold or acc > acc_threshold):
-                print(f'acc: {acc}, threshold: {acc_threshold}\npseudo_data_size: {len(df)}" \
-                        " threshold: {pseudo_data_threshold}')
-                return
-            self.wv_model = word_vector_algo.load('ssl-wv.model')
+        # else:
+        #     # Load pseudo data.
+        #     df = load_pseudo_data(PSEUDO_DATA_FOLDER)
+        #     # If there is too low pseudo data or the accuracy is too high, do not update model.
+        #     if (len(df) < pseudo_data_threshold or acc > acc_threshold):
+        #         print(f'acc: {acc}, threshold: {acc_threshold}\npseudo_data_size: {len(df)}" \
+        #                 " threshold: {pseudo_data_threshold}')
+        #         return
+        #     self.wv_model = word_vector_algo.load('ssl-wv.model')
 
         # Preprocess data for training word vectors.
         self.labels = df.label.tolist()
@@ -101,5 +96,3 @@ class TrainModel:
 
         # Fit classifier and save model.
         clf.fit_and_save('ssl-clf.pth')
-
-        print('FINISHED TRAINING')
