@@ -30,30 +30,6 @@ STOP_WORDS = ['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you'
 stemmer = SnowballStemmer('english')
 
 
-# def load_pseudo_data(folder_name):
-#     """Load ground truth and pseudo data to memory
-
-#     Parameters:
-#         folder_name (str): name of psedo data folder
-#         data_file (str): name of train/test data
-
-#     Returns:
-#         (tuple): tupe of length of pseudo data and combined dataframe to test
-#     """
-
-#     path_list = []
-#     for subdir_name in os.scandir(folder_name):
-#         for file_name in os.scandir(subdir_name):
-#             if file_name.is_file():
-#                 path_list.append(file_name.path)
-
-#     pseudo_df = pd.concat(map(lambda path: pd.read_csv(
-#         path, delimiter='\t', header=None), path_list), ignore_index=True)
-#     pseudo_df.columns = ['label', 'review']
-
-#     return pseudo_df
-
-
 def get_average_word_embeddings(model, tokens):
     """
     Calcualte average word embeddings for list of tokens using word vector model.
@@ -90,30 +66,30 @@ def load_torch_model(path):
     return model
 
 
-# #### NEED TO OPTIMIZE
-# def downsampling(label, text):
-#     """
-#     Downsample majority class in binary classification to balance class.
+# TODO: NEED TO OPTIMIZE
+def downsampling(label, text):
+    """
+    Downsample majority class in binary classification to balance class.
 
-#     Args:
-#         label (list): List of labels.
-#         text (list): List of documents.
+    Args:
+        label (list): List of labels.
+        text (list): List of documents.
 
-#     Returns:
-#         tuple: Downsampled labels and documents.
-#     """
-#     pos_idx = [idx for idx, x in enumerate(label) if x == 1]
-#     neg_idx = [idx for idx, x in enumerate(label) if x == 0]
+    Returns:
+        tuple: Downsampled labels and documents.
+    """
+    pos_idx = [idx for idx, x in enumerate(label) if x == 1]
+    neg_idx = [idx for idx, x in enumerate(label) if x == 0]
 
-#     if len(pos_idx) < len(neg_idx):
-#         # no need to shuflle majority since already shuffled in train_test_split
-#         downsampled_idx = pos_idx + neg_idx[:len(pos_idx)]
-#     else:
-#         downsampled_idx = neg_idx + pos_idx[:len(neg_idx)]
+    if len(pos_idx) < len(neg_idx):
+        # no need to shuflle majority since already shuffled in train_test_split
+        downsampled_idx = pos_idx + neg_idx[:len(pos_idx)]
+    else:
+        downsampled_idx = neg_idx + pos_idx[:len(neg_idx)]
 
-#     random.shuffle(downsampled_idx)
+    random.shuffle(downsampled_idx)
 
-#     return [label[i] for i in downsampled_idx], [text[i] for i in downsampled_idx]
+    return [label[i] for i in downsampled_idx], [text[i] for i in downsampled_idx]
 
 
 def train_word_vector_algo(model, texts, path, update=True):
