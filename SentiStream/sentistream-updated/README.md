@@ -11,14 +11,14 @@
 - [x] Evaluation Module
     - [x] Compatible with all ANN models (Last layer SoftMax or Sigmoid)
     - [x] Compatible with all word vector algorithms (W2V, FastText, Sense2Vec)
-- [ ] Batch Inference Module
+- [x] Batch Inference Module
 - [x] Classifier Module
 - [x] Supervised Module
     - [x] Combine Initial Train Module
 - [ ] Utils Module
     - [x] Make all utility functions suitable for batch processing and stream processing
     - [x] Define most accurate preprocessing strategy for all works.
-- [ ] Requirements (Install only required ones)
+- [x] Requirements (Install only required ones)
 - [ ] Create new README
 
 
@@ -29,6 +29,8 @@
 ## SHOULD I PUT ALL DATA TO GPU INITIALLY? - to reduce communication overhead in each batch since lost of VRAM is idle.
 ## CHECK OUTPUT OF STEMMER WHEN USING REF TABLE......
 ## PLSTREAM WORD VECOTR AVG IS WRONG ONE
+
+### PLSTREAM REF WORD NNED TO STEM
 
 ## VECTORIZE IF POSSIBLE - PLSTREAM COSINE SIM
 
@@ -43,6 +45,8 @@
 
 ## Plstream neg <-> pos count -- wrong one
 
+
+### PSEUDO_LABEL -> THRESHOLDDDDS
 
 
 # UPGRADE NUMPY AFTER INSTALLING REQUIREMENTS
