@@ -31,7 +31,7 @@ class PLStream():
     """
 
     def __init__(self, word_vector_algo, vector_size=20, batch_size=250,
-                 temporal_trend_detection=True, confidence=0.5):
+                 temporal_trend_detection=True, confidence=0.5, is_stem=True):
         """
         Initialize PLStream with hyperparameters.
 
@@ -39,10 +39,13 @@ class PLStream():
             word_vector_algo (class): Type of word vector algorithm to use (either 'Word2Vec' or
                                     'FastText').
             vector_size (int, optional): Size of word vectors. Defaults to 20.
-            batch_size (int): Number of samples to wait on before processing. Defaults to 250.
-            temporal_trend_detection (bool): If True, perform temporal trend detection.
+            batch_size (int, optional): Number of samples to wait on before processing. Defaults 
+                                        to 250.
+            temporal_trend_detection (bool, optional): If True, perform temporal trend detection.
                                             Defaults to True.
-            confidence (float): Confidence difference to distinguish polarity. Defaults to 0.5.
+            confidence (float, optional): Confidence difference to distinguish polarity. Defaults 
+                                        to 0.5.
+            is_stem (bool, optional): Flag indicating whether to stem vocab or not.
         """
         self.neg_coef = 0.5
         self.pos_coef = 0.5
@@ -62,10 +65,15 @@ class PLStream():
             vector_size=vector_size, workers=num_workers)
 
         # Set up positive and negative reference words for trend detection.
-        self.pos_ref = ['love', 'best', 'beautiful', 'great',
-                        'cool', 'awesome', 'wonderful', 'brilliant', 'excellent', 'fantastic']
-        self.neg_ref = ['bad', 'worst', 'stupid', 'disappointing',
-                        'terrible', 'rubbish', 'boring', 'awful', 'unwatchable', 'awkward']
+        self.pos_ref = {'love', 'best', 'beautiful', 'great',
+                        'cool', 'awesome', 'wonderful', 'brilliant', 'excellent', 'fantastic'}
+        self.neg_ref = {'bad', 'worst', 'stupid', 'disappointing',
+                        'terrible', 'rubbish', 'boring', 'awful', 'unwatchable', 'awkward'}
+        if is_stem:
+            self.pos_ref = {'love', 'best', 'beauti', 'great', 'cool',
+                            'awesom', 'wonder', 'brilliant', 'excel', 'fantast'}
+            self.neg_ref = {'bad', 'worst', 'stupid', 'disappoint',
+                            'terribl', 'rubbish', 'bore', 'aw', 'unwatch', 'awkward'}
 
         self.idx = []
         self.labels = []

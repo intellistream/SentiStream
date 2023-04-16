@@ -109,12 +109,13 @@ def train_word_vector_algo(model, texts, path, update=True):
     model.save(path)
 
 
-def tokenize(text):
+def tokenize(text, is_stem):
     """
     Clean and tokenize text for processing.
 
     Args:
         text (str): Text/Review to be tokenized.
+        is_stem (bool): Flag indicating whether to stem word or not.
 
     Returns:
         list: List of cleaned tokens generated from text.
@@ -129,7 +130,8 @@ def tokenize(text):
     text = re.sub(r'\s+', ' ', text).strip()
 
     tokens = word_tokenize(text)
-    return [stemmer.stem(token) for token in tokens if token not in STOP_WORDS]
+    return [stemmer.stem(token) if is_stem else token
+            for token in tokens if token not in STOP_WORDS]
 
 
 def clean_for_wv(tokens):

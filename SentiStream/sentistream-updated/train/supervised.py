@@ -10,13 +10,14 @@ from semi_supervised_models.han.trainer import Trainer as HANTrainer
 
 from utils import clean_for_wv, tokenize, train_word_vector_algo, get_average_word_embeddings
 
+
 class TrainModel:
     """
     Train model from scratch and then continously train model when data is available.
     """
 
     def __init__(self, word_vector_algo, ssl_model, init, nrows=1000, vector_size=20, window=5,
-                 min_count=5, acc=0.0, pseudo_data_threshold=0.0, acc_threshold=0.9):
+                 min_count=5, acc=0.0, pseudo_data_threshold=0.0, acc_threshold=0.9, is_stem=True):
         """
         Initialize semi-supervised model training
 
@@ -36,6 +37,7 @@ class TrainModel:
                                                     update model. Defaults to 0.0.
             acc_threshold (float, optional): Threshold for max accuracy to not update model.
                                             Defaults to 0.9.
+            is_stem (bool, optional): Flag indicating whether to stem vocab or not.
         """
 
         # self.redis = redis.StrictRedis(host='localhost', port=6379, db=0)
@@ -60,7 +62,7 @@ class TrainModel:
 
         # Preprocess data for training word vectors.
         self.labels = df.label.tolist()
-        self.texts = [tokenize(text) for text in df.review.tolist()]
+        self.texts = [tokenize(text, is_stem) for text in df.review.tolist()]
         self.filtered_tokens = [clean_for_wv(text) for text in self.texts]
 
         # Train word vector model.

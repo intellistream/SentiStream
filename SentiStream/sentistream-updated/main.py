@@ -27,7 +27,7 @@ from inference.classifier import Classifier
 
 from utils import tokenize
 
-PYFLINK = True
+PYFLINK = False
 FLINK_PARALLELISM = 1
 
 SSL_MODEL = 'HAN'  # 'HAN', 'ANN'
@@ -35,13 +35,15 @@ WORD_VEC_ALGO = Word2Vec  # Word2Vec, FastText
 
 KAFKA_TOPIC = 'sentiment-data'
 
+STEM = True
+
 start = time()
 
 # ---------------- Initial training of classifier ----------------
 # Train word vector {Word2Vec or FastText} on {nrows=1000} data and get word embeddings, then use
 # that embedding to train NN sentiment classifier {ANN or HAN}
 TrainModel(word_vector_algo=WORD_VEC_ALGO,
-           ssl_model=SSL_MODEL, init=True, nrows=2000)
+           ssl_model=SSL_MODEL, init=True, nrows=1000)
 
 
 # ---------------- Generate pesudo labels ----------------
@@ -50,7 +52,7 @@ df = pd.read_csv('train.csv', names=[
     'label', 'review'], nrows=1000)
 df['label'] -= 1
 
-plstream = PLStream(word_vector_algo=WORD_VEC_ALGO)
+plstream = PLStream(word_vector_algo=WORD_VEC_ALGO, is_stem=STEM)
 classifier = Classifier(word_vector_algo=WORD_VEC_ALGO, ssl_model=SSL_MODEL)
 pseduo_labeler = SentimentPseudoLabeler()
 inference = Classifier(word_vector_algo=WORD_VEC_ALGO,
@@ -66,7 +68,7 @@ if PYFLINK:
 
     ds = env.from_collection(collection=data_stream)
 
-    ds = ds.map(lambda x: (x[0], x[1], tokenize(x[2])))
+    ds = ds.map(lambda x: (x[0], x[1], tokenize(x[2], STEM)))
 
     ds_us = ds.map(plstream.process_data).filter(
         lambda x: x != 'BATCHING').flat_map(lambda x: x)
@@ -112,7 +114,7 @@ else:
         label, text = message.value.split('|||')
         label = int(label)
 
-        text = tokenize(text)
+        text = tokenize(text, STEM)
 
         us_output = plstream.process_data((idx, label, text))
         ss_output = classifier.classify((idx, label, text))
