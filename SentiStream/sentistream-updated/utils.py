@@ -8,6 +8,8 @@ import torch
 from nltk.stem import SnowballStemmer
 from nltk.tokenize import word_tokenize
 
+import config
+
 
 nltk.download('punkt', quiet=True)
 
@@ -30,23 +32,28 @@ STOP_WORDS = ['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you'
 stemmer = SnowballStemmer('english')
 
 
-def get_average_word_embeddings(model, tokens):
+def get_average_word_embeddings(model, docs):
     """
-    Calcualte average word embeddings for list of tokens using word vector model.
+    Calcualte average word embeddings for list of docs using word vector model.
 
     Args:
         model (class): Word vector model
-        tokens (array-like): List of tokens in a document.
+        docs (array-like): List of docs of tokens.
 
     Returns:
-        ndarray: Average word embeddings for the input document.
+        ndarray: Average word embeddings for the input documents.
     """
     filtered_tokens = [
-        token for token in tokens if token in model.wv.key_to_index]
+        [token for token in doc if token in model.wv.key_to_index]
+        for doc in docs]
 
-    if filtered_tokens:
-        return np.mean(model.wv[filtered_tokens], axis=0)
-    return np.zeros(model.vector_size)
+    doc_embeddings = np.zeros((len(filtered_tokens), model.vector_size))
+
+    for idx, tokens in enumerate(filtered_tokens):
+        if tokens:
+            doc_embeddings[idx] = np.mean(model.wv[tokens], axis=0)
+
+    return doc_embeddings
 
 
 def load_torch_model(path):
@@ -109,13 +116,12 @@ def train_word_vector_algo(model, texts, path, update=True):
     model.save(path)
 
 
-def tokenize(text, is_stem):
+def tokenize(text):
     """
     Clean and tokenize text for processing.
 
     Args:
         text (str): Text/Review to be tokenized.
-        is_stem (bool): Flag indicating whether to stem word or not.
 
     Returns:
         list: List of cleaned tokens generated from text.
@@ -130,7 +136,7 @@ def tokenize(text, is_stem):
     text = re.sub(r'\s+', ' ', text).strip()
 
     tokens = word_tokenize(text)
-    return [stemmer.stem(token) if is_stem else token
+    return [stemmer.stem(token) if config.STEM else token
             for token in tokens if token not in STOP_WORDS]
 
 
