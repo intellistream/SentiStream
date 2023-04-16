@@ -135,3 +135,10 @@ senti_output/
 
 # dataset
 *.csv
+
+# connectors
+kafka/
+
+# models 
+*.pth
+*.model
