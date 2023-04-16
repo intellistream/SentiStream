@@ -66,7 +66,6 @@ def load_torch_model(path):
     return model
 
 
-# TODO: NEED TO OPTIMIZE
 def downsampling(label, text):
     """
     Downsample majority class in binary classification to balance class.
