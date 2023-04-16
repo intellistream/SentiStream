@@ -7,6 +7,8 @@ import torch
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 
+import config
+
 from semi_supervised_models.han.dataset import SentimentDataset
 from semi_supervised_models.han.model import HAN
 from semi_supervised_models.han.utils import calc_acc, join_tokens, preprocess
@@ -87,7 +89,7 @@ class Trainer:
             self.model = HAN(word_hidden_size, sent_hidden_size, batch_size, num_class,
                              embeddings, max_sent_length, max_word_length)
         else:
-            self.model = load_torch_model('ssl-clf.pth')
+            self.model = load_torch_model(config.SSL_CLF)
         self.model.to(self.device)
         self.criterion = torch.nn.CrossEntropyLoss()
         self.optimizer = torch.optim.Adam(filter(lambda x: x.requires_grad, self.model.parameters(

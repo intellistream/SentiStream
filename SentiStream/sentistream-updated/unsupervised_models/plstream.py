@@ -4,6 +4,7 @@ import multiprocessing
 
 from sklearn.metrics import accuracy_score
 
+import config
 
 from unsupervised_models.utils import cos_similarity
 from utils import train_word_vector_algo, get_average_word_embeddings, clean_for_wv
@@ -31,7 +32,7 @@ class PLStream():
     """
 
     def __init__(self, word_vector_algo, vector_size=20, batch_size=250,
-                 temporal_trend_detection=True, confidence=0.5, is_stem=True):
+                 temporal_trend_detection=True, confidence=0.5):
         """
         Initialize PLStream with hyperparameters.
 
@@ -45,7 +46,6 @@ class PLStream():
                                             Defaults to True.
             confidence (float, optional): Confidence difference to distinguish polarity. Defaults 
                                         to 0.5.
-            is_stem (bool, optional): Flag indicating whether to stem vocab or not.
         """
         self.neg_coef = 0.5
         self.pos_coef = 0.5
@@ -60,7 +60,8 @@ class PLStream():
         self.acc_list = []
 
         # Initialize word vector model.
-        num_workers = int(0.8 * multiprocessing.cpu_count())
+        num_workers = int(0.5 * multiprocessing.cpu_count()
+                          )  # Best value for batch of 250.
         self.wv_model = word_vector_algo(
             vector_size=vector_size, workers=num_workers)
 
@@ -69,7 +70,7 @@ class PLStream():
                         'cool', 'awesome', 'wonderful', 'brilliant', 'excellent', 'fantastic'}
         self.neg_ref = {'bad', 'worst', 'stupid', 'disappointing',
                         'terrible', 'rubbish', 'boring', 'awful', 'unwatchable', 'awkward'}
-        if is_stem:
+        if config.STEM:
             self.pos_ref = {'love', 'best', 'beauti', 'great', 'cool',
                             'awesom', 'wonder', 'brilliant', 'excel', 'fantast'}
             self.neg_ref = {'bad', 'worst', 'stupid', 'disappoint',
@@ -101,7 +102,7 @@ class PLStream():
         # Train model & classify once batch size is reached.
         if len(self.labels) >= self.batch_size:
             train_word_vector_algo(
-                self.wv_model, self.texts, 'plstream-wv.model', update=self.update)
+                self.wv_model, self.texts, config.US_WV, update=self.update)
 
             # Get predictions and confidence scores.
             conf, preds = self.eval_model(self.texts, self.labels)
@@ -117,7 +118,7 @@ class PLStream():
             self.texts = []
 
             return output
-        return 'BATCHING'
+        return config.BATCHING
 
     def update_temporal_trend(self, y_preds):
         """
@@ -149,9 +150,13 @@ class PLStream():
         Returns:
             tuple: Accuracy and F1 score of model on current batch.
         """
+        # Calculate average word embeddings for text.
+        doc_embeddings = get_average_word_embeddings(
+            self.wv_model, sent_tokens)
+
         confidence, y_preds = [], []
-        for tokens in sent_tokens:
-            conf, y_pred = self.predict(tokens)
+        for embeddings in doc_embeddings:
+            conf, y_pred = self.predict(embeddings)
             confidence.append(conf)
             y_preds.append(y_pred)
 
@@ -160,18 +165,16 @@ class PLStream():
         self.acc_list.append(accuracy_score(labels, y_preds))
         return confidence, y_preds
 
-    def predict(self, tokens):
+    def predict(self, vector):
         """
         Predict polarity of text based using PLStream.
 
         Args:
-            tokens (list): Tokenized words in a text.
+            vector (list): Tokenized words in a text.
 
         Returns:
             tuple: Confidence of predicted label and predicted label.
         """
-        # Calculate average word embeddings for text.
-        vector = get_average_word_embeddings(self.wv_model, tokens)
 
         # Calculate cosine similarity between sentence and reference words.
         cos_sim_pos = sum(cos_similarity(

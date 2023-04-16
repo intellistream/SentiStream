@@ -7,6 +7,8 @@ import torch
 
 from sklearn.metrics import accuracy_score
 
+import config
+
 from semi_supervised_models.han.utils import join_tokens, preprocess
 from utils import load_torch_model, get_average_word_embeddings, clean_for_wv
 
@@ -48,8 +50,8 @@ class Classifier:
             'cuda:0' if torch.cuda.is_available() else 'cpu')
 
         # Load models.
-        self.wv_model = word_vector_algo.load('ssl-wv.model')
-        self.clf_model = load_torch_model('ssl-clf.pth').to(self.device)
+        self.wv_model = word_vector_algo.load(config.SSL_WV)
+        self.clf_model = load_torch_model(config.SSL_CLF).to(self.device)
         self.ssl_model = ssl_model
 
         self.acc_list = []
@@ -125,8 +127,8 @@ class Classifier:
 
             # Get document embeddings.
             if self.ssl_model == 'ANN':
-                embeddings = [get_average_word_embeddings(
-                    self.wv_model, clean_for_wv(tokens)) for tokens in self.texts]
+                embeddings = get_average_word_embeddings(
+                    self.wv_model, [clean_for_wv(tokens) for tokens in self.texts])
             else:
                 embeddings = preprocess(join_tokens(
                     self.texts), self.wv_model.wv.key_to_index)
@@ -150,4 +152,4 @@ class Classifier:
             self.texts = []
 
             return output
-        return 'BATCHING'
+        return config.BATCHING

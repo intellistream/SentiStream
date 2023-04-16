@@ -6,6 +6,8 @@ import torch
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 
+import config
+
 from semi_supervised_models.ann.dataset import SentimentDataset
 from semi_supervised_models.ann.model import Classifier
 from semi_supervised_models.ann.utils import calc_acc
@@ -66,7 +68,7 @@ class Trainer:
         if init:
             self.model = Classifier(input_size, hidden_size)
         else:
-            self.model = load_torch_model('ssl-clf.pth')
+            self.model = load_torch_model(config.SSL_CLF)
         self.model.to(self.device)
         self.criterion = torch.nn.BCELoss()
         self.optimizer = torch.optim.Adam(

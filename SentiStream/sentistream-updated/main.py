@@ -1,9 +1,6 @@
 # pylint: disable=import-error
 # pylint: disable=no-name-in-module
 
-
-# STEM OR NOT?
-
 # TORCH JIT ?
 # TODO: FIX CLASS IMBALANCE IN INITIAL TRAINING - DONE - REWATCH
 
@@ -13,54 +10,41 @@ from time import time
 import pandas as pd
 
 from kafka import KafkaConsumer
-
-from gensim.models import Word2Vec, FastText
-
 from pyflink.datastream import CheckpointingMode, StreamExecutionEnvironment
-from pyflink.datastream.connectors import FlinkKafkaConsumer
 
-
+import config
 from train.supervised import TrainModel
 from train.pseudo_labeler import SentimentPseudoLabeler, PseudoLabelerCoMap
 from unsupervised_models.plstream import PLStream
 from inference.classifier import Classifier
-
 from utils import tokenize
 
-PYFLINK = False
-FLINK_PARALLELISM = 1
-
-SSL_MODEL = 'HAN'  # 'HAN', 'ANN'
-WORD_VEC_ALGO = Word2Vec  # Word2Vec, FastText
-
-KAFKA_TOPIC = 'sentiment-data'
-
-STEM = True
 
 start = time()
 
 # ---------------- Initial training of classifier ----------------
 # Train word vector {Word2Vec or FastText} on {nrows=1000} data and get word embeddings, then use
 # that embedding to train NN sentiment classifier {ANN or HAN}
-TrainModel(word_vector_algo=WORD_VEC_ALGO,
-           ssl_model=SSL_MODEL, init=True, nrows=1000)
+TrainModel(word_vector_algo=config.WORD_VEC_ALGO,
+           ssl_model=config.SSL_MODEL, init=True, nrows=1000)
 
 
 # ---------------- Generate pesudo labels ----------------
 
-df = pd.read_csv('train.csv', names=[
+df = pd.read_csv(config.DATA, names=[
     'label', 'review'], nrows=1000)
 df['label'] -= 1
 
-plstream = PLStream(word_vector_algo=WORD_VEC_ALGO, is_stem=STEM)
-classifier = Classifier(word_vector_algo=WORD_VEC_ALGO, ssl_model=SSL_MODEL)
+plstream = PLStream(word_vector_algo=config.WORD_VEC_ALGO)
+classifier = Classifier(
+    word_vector_algo=config.WORD_VEC_ALGO, ssl_model=config.SSL_MODEL)
 pseduo_labeler = SentimentPseudoLabeler()
-inference = Classifier(word_vector_algo=WORD_VEC_ALGO,
-                       ssl_model=SSL_MODEL, is_eval=True)
+inference = Classifier(word_vector_algo=config.WORD_VEC_ALGO,
+                       ssl_model=config.SSL_MODEL, is_eval=True)
 
-if PYFLINK:
+if config.PYFLINK:
     env = StreamExecutionEnvironment.get_execution_environment()
-    env.set_parallelism(FLINK_PARALLELISM)
+    env.set_parallelism(1)
     env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
 
     data_stream = [(idx, label, text)
@@ -68,17 +52,17 @@ if PYFLINK:
 
     ds = env.from_collection(collection=data_stream)
 
-    ds = ds.map(lambda x: (x[0], x[1], tokenize(x[2], STEM)))
+    ds = ds.map(lambda x: (x[0], x[1], tokenize(x[2])))
 
     ds_us = ds.map(plstream.process_data).filter(
-        lambda x: x != 'BATCHING').flat_map(lambda x: x)
+        lambda x: x != config.BATCHING).flat_map(lambda x: x)
     ds_ss = ds.map(classifier.classify).filter(
-        lambda x: x != 'BATCHING').flat_map(lambda x: x)
+        lambda x: x != config.BATCHING).flat_map(lambda x: x)
 
     ds = ds_us.connect(ds_ss).map(PseudoLabelerCoMap(pseduo_labeler)).flat_map(
-        lambda x: x).filter(lambda x: x not in ['COLLECTING', 'LOW_CONFIDENCE'])
+        lambda x: x).filter(lambda x: x not in [config.BATCHING, config.LOW_CONF])
 
-    ds = ds.map(inference.classify).filter(lambda x: x != 'BATCHING')
+    ds = ds.map(inference.classify).filter(lambda x: x != config.BATCHING)
 
     ds.print()
 
@@ -88,8 +72,8 @@ else:
 
     # Create Kafka consumer.
     consumer = KafkaConsumer(
-        KAFKA_TOPIC,
-        bootstrap_servers='localhost:9092',
+        config.KAFKA_TOPIC,
+        bootstrap_servers=config.BOOTSTRAP_SERVER,
         auto_offset_reset='earliest',
         enable_auto_commit=True,
         value_deserializer=lambda x: x.decode('utf-8')
@@ -103,25 +87,28 @@ else:
 
     acc_list = []
 
+    count = 0
+
     for idx, message in enumerate(consumer):
 
         # TODO: REMOVE --- ONLY FOR FAST DEBUGGING
         if idx < 1000:
             continue
-        if idx > 2000:
+        if idx > 2200:
             break
 
         label, text = message.value.split('|||')
         label = int(label)
 
-        text = tokenize(text, STEM)
+        text = tokenize(text)
 
         us_output = plstream.process_data((idx, label, text))
         ss_output = classifier.classify((idx, label, text))
 
-        if us_output != 'BATCHING':
+        if us_output != config.BATCHING:
             us_predictions += us_output
-        if ss_output != 'BATCHING':
+            count += len(us_output)
+        if ss_output != config.BATCHING:
             ss_predictions += ss_output
 
         if len(ss_predictions) > 0 or len(us_predictions) > 0:
@@ -129,7 +116,7 @@ else:
                     for us_pred, ss_pred in zip_longest(us_predictions, ss_predictions)]
 
             for t in temp:
-                if t not in [['LOW_CONFIDENCE'], ['COLLECTING']]:
+                if t not in [[config.LOW_CONF], [config.BATCHING]]:
                     pseudo_data += t
             acc_list.append(pseduo_labeler.get_model_acc())
             us_predictions, ss_predictions = [], []
@@ -140,7 +127,7 @@ else:
 
         pseudo_data = []
 
-if not PYFLINK:
+if not config.PYFLINK:
     print('\n-- UNSUPERVISED MODEL ACCURACY --')
     print(plstream.acc_list)
 
@@ -153,5 +140,6 @@ if not PYFLINK:
     print('\n-- SUPERVISED MODEL ACCURACY ON PSEUDO DATA --')
     print(inference.acc_list)
 
+print(count)
 
 print('Elapsed Time: ', time() - start)

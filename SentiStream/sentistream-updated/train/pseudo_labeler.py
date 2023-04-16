@@ -4,6 +4,8 @@
 from collections import defaultdict
 from pyflink.datastream.functions import CoMapFunction
 
+import config
+
 from train.utils import polarity, calculate_acc
 
 
@@ -110,7 +112,7 @@ class SentimentPseudoLabeler:
                 output.append(self.get_pseudo_label(conf, stream_output[0]))
 
         if not output:
-            return ['COLLECTING']
+            return [config.BATCHING]
         return output
 
     def get_pseudo_label(self, conf, key):
@@ -131,7 +133,7 @@ class SentimentPseudoLabeler:
         # Delete item from collector to avoid re-generating labels.
         del self.collector[key]
 
-        return 'LOW_CONFIDENCE' if -0.5 < conf < 0.5 else [key, 1 if conf >= 0.5 else 0, text]
+        return config.LOW_CONF if -0.5 < conf < 0.5 else [key, 1 if conf >= 0.5 else 0, text]
 
 
 class PseudoLabelerCoMap(CoMapFunction):

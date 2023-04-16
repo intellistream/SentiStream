@@ -6,19 +6,20 @@ from kafka import KafkaProducer
 from kafka.admin import KafkaAdminClient, NewTopic
 from kafka.errors import TopicAlreadyExistsError
 
-TOPIC_NAME = 'sentiment-data'
+import config
+
 NUM_PARTITIONS = 1
 REPLICATION_FACTOR = 1
 
 # Initialize KafkaAdminClient with bootstrap servers.
-admin_client = KafkaAdminClient(bootstrap_servers='localhost:9092')
+admin_client = KafkaAdminClient(bootstrap_servers=config.BOOTSTRAP_SERVER)
 
 # Delete topic if already created.
-if TOPIC_NAME in admin_client.list_topics():
-    admin_client.delete_topics([TOPIC_NAME])
+if config.KAFKA_TOPIC in admin_client.list_topics():
+    admin_client.delete_topics([config.KAFKA_TOPIC])
 
 # Create new topic with desired number of partitions and replication factor.
-new_topic = NewTopic(name=TOPIC_NAME, num_partitions=NUM_PARTITIONS,
+new_topic = NewTopic(name=config.KAFKA_TOPIC, num_partitions=NUM_PARTITIONS,
                      replication_factor=REPLICATION_FACTOR)
 
 # Create the topic.
@@ -29,19 +30,20 @@ while True:
     except TopicAlreadyExistsError:
         pass
 
-print(f"{TOPIC_NAME} topic has been created.")
+print(f"{config.KAFKA_TOPIC} topic has been created.")
 
 
 # Create Kafka producer.
 producer = KafkaProducer(
-    bootstrap_servers='localhost:9092',
+    bootstrap_servers=config.BOOTSTRAP_SERVER,
     value_serializer=lambda x: x.encode('utf-8')
 )
 
 # Read CSV file and create data stream.
-with open('train.csv', 'r', encoding='utf-8') as file:
+with open(config.DATA, 'r', encoding='utf-8') as file:
     reader = csv.reader(file)
 
     # use triple pipe to separate label and text as it is unlikely to occur in text.
     for row in reader:
-        producer.send(TOPIC_NAME, value=f'{int(row[0]) - 1}|||{row[1]}')
+        producer.send(config.KAFKA_TOPIC,
+                      value=f'{int(row[0]) - 1}|||{row[1]}')
