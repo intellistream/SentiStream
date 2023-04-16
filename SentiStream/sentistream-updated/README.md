@@ -1,4 +1,4 @@
-## TODO
+## TODO ######## REMOVE PANDAS _
 
 - [x] Semi-Supervised Models
     - [x] ANN module
@@ -50,3 +50,9 @@
 
 
 # UPGRADE NUMPY AFTER INSTALLING REQUIREMENTS
+
+
+
+APACHE KAFKA - https://downloads.apache.org/kafka/3.4.0/kafka_2.13-3.4.0.tgz
+
+tar -xzvf kafka_2.13-3.4.0.tgz && mv kafka_2.13-3.4.0 kafka
