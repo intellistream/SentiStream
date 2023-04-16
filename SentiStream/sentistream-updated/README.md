@@ -7,7 +7,6 @@
     - [x] PLStream module (updated one)
 - [ ] SentiStream Module
     - [ ] Run with n without Flink
-    - [ ] Compatible with all datasets (Not now)
 - [x] Evaluation Module
     - [x] Compatible with all ANN models (Last layer SoftMax or Sigmoid)
     - [x] Compatible with all word vector algorithms (W2V, FastText, Sense2Vec)
@@ -15,7 +14,7 @@
 - [x] Classifier Module
 - [x] Supervised Module
     - [x] Combine Initial Train Module
-- [ ] Utils Module
+- [x] Utils Module
     - [x] Make all utility functions suitable for batch processing and stream processing
     - [x] Define most accurate preprocessing strategy for all works.
 - [x] Requirements (Install only required ones)
@@ -24,18 +23,16 @@
 
 
 ## CHECK WORD EMBEDDINGS FOR INCREMENTAL TRAIINNG
-## CONTINOUS TRAIN
 ## DONT SINK PSEUDO LABELS...
+## CONTINOUS TRAIN
+
 ## SHOULD I PUT ALL DATA TO GPU INITIALLY? - to reduce communication overhead in each batch since lost of VRAM is idle.
 ## CHECK OUTPUT OF STEMMER WHEN USING REF TABLE......
-## PLSTREAM WORD VECOTR AVG IS WRONG ONE
-
-### PLSTREAM REF WORD NNED TO STEM
+## PLSTREAM WORD VECOTR AVG IS WRONG ONE --- ZERO COMMING
 
 ## VECTORIZE IF POSSIBLE - PLSTREAM COSINE SIM
 
 ## WHY DO WE HAVE BATCH INF?, EVEN IF 90% ACC, IT MAY HAVE SOME NEW VOCABS TO LEARN???
-## CONVERRT REF TABLE TO SET 
 
 ## WHAT ABT MAX SENT, WORD LEN???
 
