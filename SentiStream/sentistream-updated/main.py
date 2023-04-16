@@ -1,9 +1,8 @@
 # pylint: disable=import-error
 # pylint: disable=no-name-in-module
 
-# US WORD_VECTOR_NAME = 'plstream-wv.model'
-# SS WORD_VECTOR_NAME = 'ssl-wv.model'
-# CLASSIFIER_NAME = 'clf.pth'
+
+# STEM OR NOT?
 
 # TORCH JIT ?
 # TODO: FIX CLASS IMBALANCE IN INITIAL TRAINING - DONE - REWATCH
@@ -13,10 +12,12 @@ from time import time
 
 import pandas as pd
 
+from kafka import KafkaConsumer
 
 from gensim.models import Word2Vec, FastText
 
 from pyflink.datastream import CheckpointingMode, StreamExecutionEnvironment
+from pyflink.datastream.connectors import FlinkKafkaConsumer
 
 
 from train.supervised import TrainModel
@@ -29,8 +30,10 @@ from utils import tokenize
 PYFLINK = True
 FLINK_PARALLELISM = 1
 
-SSL_MODEL = 'ANN'  # 'HAN', 'ANN'
+SSL_MODEL = 'HAN'  # 'HAN', 'ANN'
 WORD_VEC_ALGO = Word2Vec  # Word2Vec, FastText
+
+KAFKA_TOPIC = 'sentiment-data'
 
 start = time()
 
@@ -38,7 +41,7 @@ start = time()
 # Train word vector {Word2Vec or FastText} on {nrows=1000} data and get word embeddings, then use
 # that embedding to train NN sentiment classifier {ANN or HAN}
 TrainModel(word_vector_algo=WORD_VEC_ALGO,
-           ssl_model=SSL_MODEL, init=True, nrows=1000)
+           ssl_model=SSL_MODEL, init=True, nrows=2000)
 
 
 # ---------------- Generate pesudo labels ----------------
@@ -60,6 +63,7 @@ if PYFLINK:
 
     data_stream = [(idx, label, text)
                    for idx, (label, text) in enumerate(df.values)]
+
     ds = env.from_collection(collection=data_stream)
 
     ds = ds.map(lambda x: (x[0], x[1], tokenize(x[2])))
@@ -80,6 +84,15 @@ if PYFLINK:
 
 else:
 
+    # Create Kafka consumer.
+    consumer = KafkaConsumer(
+        KAFKA_TOPIC,
+        bootstrap_servers='localhost:9092',
+        auto_offset_reset='earliest',
+        enable_auto_commit=True,
+        value_deserializer=lambda x: x.decode('utf-8')
+    )
+
     us_predictions = []
     ss_predictions = []
 
@@ -88,11 +101,21 @@ else:
 
     acc_list = []
 
-    for idx, row in df.iterrows():
-        text = tokenize(row.review)
+    for idx, message in enumerate(consumer):
 
-        us_output = plstream.process_data((idx, row.label, text))
-        ss_output = classifier.classify((idx, row.label, text))
+        # TODO: REMOVE --- ONLY FOR FAST DEBUGGING
+        if idx < 1000:
+            continue
+        if idx > 2000:
+            break
+
+        label, text = message.value.split('|||')
+        label = int(label)
+
+        text = tokenize(text)
+
+        us_output = plstream.process_data((idx, label, text))
+        ss_output = classifier.classify((idx, label, text))
 
         if us_output != 'BATCHING':
             us_predictions += us_output
