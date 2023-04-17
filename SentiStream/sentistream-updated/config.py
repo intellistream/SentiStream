@@ -2,10 +2,10 @@
 from gensim.models import Word2Vec, FastText
 
 # PyFlink
-PYFLINK = True
+PYFLINK = False
 
 # SentiStream
-SSL_MODEL = 'HAN'  # 'HAN', 'ANN'
+SSL_MODEL = 'ANN'  # 'HAN', 'ANN'
 WORD_VEC_ALGO = Word2Vec  # Word2Vec, FastText
 STEM = True  # TODO: REMOVE FROM HERE
 
@@ -19,6 +19,7 @@ DATA = 'train.csv'
 # Outputs
 BATCHING = 'BATCHING'
 LOW_CONF = 'LOW_CONFIDENCE'
+FINISHED = 'MODEL_TRAINED'
 
 # Model filenames
 US_WV = 'plstream-wv.model'

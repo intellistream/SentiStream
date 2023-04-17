@@ -41,6 +41,9 @@ classifier = Classifier(
 pseduo_labeler = SentimentPseudoLabeler()
 inference = Classifier(word_vector_algo=config.WORD_VEC_ALGO,
                        ssl_model=config.SSL_MODEL, is_eval=True)
+model_trainer = TrainModel(word_vector_algo=config.WORD_VEC_ALGO,
+                           ssl_model=config.SSL_MODEL, init=False,
+                           pseudo_data_threshold=0.0, acc_threshold=0.9)
 
 if config.PYFLINK:
     env = StreamExecutionEnvironment.get_execution_environment()
@@ -62,7 +65,10 @@ if config.PYFLINK:
     ds = ds_us.connect(ds_ss).map(PseudoLabelerCoMap(pseduo_labeler)).flat_map(
         lambda x: x).filter(lambda x: x not in [config.BATCHING, config.LOW_CONF])
 
-    ds = ds.map(inference.classify).filter(lambda x: x != config.BATCHING)
+    ds.map(inference.classify).filter(
+        lambda x: x != config.BATCHING)  # TODO: ACC
+
+    # ds.map(model_trainer.update_model)
 
     ds.print()
 
@@ -87,14 +93,13 @@ else:
 
     acc_list = []
 
-    count = 0
-
+    # TODO: DO IT PARALLELy
     for idx, message in enumerate(consumer):
 
         # TODO: REMOVE --- ONLY FOR FAST DEBUGGING
         if idx < 1000:
             continue
-        if idx > 2200:
+        if idx > 2000:
             break
 
         label, text = message.value.split('|||')
@@ -107,7 +112,6 @@ else:
 
         if us_output != config.BATCHING:
             us_predictions += us_output
-            count += len(us_output)
         if ss_output != config.BATCHING:
             ss_predictions += ss_output
 
@@ -122,10 +126,12 @@ else:
             us_predictions, ss_predictions = [], []
 
         for data in pseudo_data:
-            dump.append((data))
+            dump.append(data[1:])
             inference.classify((data[0], data[1], data[2]))
 
         pseudo_data = []
+
+    model_trainer.update_model(dump, 0.4)
 
 if not config.PYFLINK:
     print('\n-- UNSUPERVISED MODEL ACCURACY --')
@@ -139,7 +145,5 @@ if not config.PYFLINK:
 
     print('\n-- SUPERVISED MODEL ACCURACY ON PSEUDO DATA --')
     print(inference.acc_list)
-
-print(count)
 
 print('Elapsed Time: ', time() - start)
