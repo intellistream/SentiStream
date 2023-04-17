@@ -20,8 +20,8 @@ class Trainer:
     Trainer class  to train Hierarchical Attention Network.
     """
 
-    def __init__(self, docs, labels, wb_dict, embeddings, init, test_size=0.2, batch_size=128,
-                 learning_rate=1e-3, word_hidden_size=50, sent_hidden_size=50, num_class=2,
+    def __init__(self, docs, labels, wb_dict, embeddings, init, old_embeddings=None, test_size=0.2,
+                 batch_size=128, learning_rate=1e-3, word_hidden_size=50, sent_hidden_size=50,
                  early_stopping_patience=5, downsample=False):
         """
         Initialize class to train HAN.
@@ -39,7 +39,6 @@ class Trainer:
             word_hidden_size (int): Hidden state size for word-level attention layer.Defaults to 50.
             sent_hidden_size (int): Hidden state size for sentence-level attention layer. Defaults
                                     to 50.
-            num_class (int): Number of classes for classification task. Defaults to 2.
             early_stopping_patience (int): Number of epochs to wait before early stopping. Defaults
                                              to 5.
             downsample (bool): Flag indicating whether to downsample the data to balance classes.
@@ -86,10 +85,21 @@ class Trainer:
 
         # Initialize model and optimizer.
         if init:
-            self.model = HAN(word_hidden_size, sent_hidden_size, batch_size, num_class,
-                             embeddings, max_sent_length, max_word_length)
+            self.model = HAN(embeddings, batch_size=batch_size, max_sent_length=max_sent_length,
+                             max_word_length=max_word_length, word_hidden_size=word_hidden_size,
+                             sent_hidden_size=sent_hidden_size)
         else:
-            self.model = load_torch_model(config.SSL_CLF)
+            self.model = load_torch_model(
+                HAN(np.array(old_embeddings)), config.SSL_CLF)
+
+            # TODO: TEMP SOL ------
+            # Update Lookup layer with new embeddings -- NOTE: Lookup layer weights won't be
+            # updated since it's loaded from pretrained model, so it is safe to replace.
+            embeddings = torch.from_numpy(np.concatenate(
+                [np.zeros((1, embeddings.shape[1])), embeddings], axis=0).astype(np.float32))
+            self.model.word_attention_net.lookup = torch.nn.Embedding.from_pretrained(
+                embeddings)
+
         self.model.to(self.device)
         self.criterion = torch.nn.CrossEntropyLoss()
         self.optimizer = torch.optim.Adam(filter(lambda x: x.requires_grad, self.model.parameters(
@@ -190,4 +200,4 @@ class Trainer:
         self.best_model.eval()
 
         # Save best model.
-        torch.save(self.best_model, filename)
+        torch.save(self.best_model.state_dict(), filename)
