@@ -45,10 +45,11 @@ class Trainer:
         if downsample:
             labels, vectors = downsampling(labels, vectors)
 
-        # Convert data to PyTorch tensors and move to device.
-        vectors = torch.FloatTensor(np.array(vectors))
-        labels = torch.FloatTensor(
-            labels).unsqueeze(1)
+        # Convert data to PyTorch tensors move directly to device.
+        vectors = torch.tensor(
+            vectors, dtype=torch.float32, device=self.device)
+        labels = torch.tensor(labels, dtype=torch.float32,
+                              device=self.device).unsqueeze(1)
 
         # Split data into training and validation sets.
         x_train, x_val, y_train, y_val = train_test_split(
@@ -59,10 +60,10 @@ class Trainer:
             x_train, y_train), SentimentDataset(x_val, y_val)
         self.train_loader = DataLoader(
             train_data, batch_size=batch_size, shuffle=True,
-            drop_last=True, num_workers=8)  # more cores will increase memory overhead and slowdown
+            drop_last=True, num_workers=0)
         self.test_loader = DataLoader(
             test_data, batch_size=batch_size, shuffle=False,
-            drop_last=False, num_workers=8)
+            drop_last=False, num_workers=0)
 
         # Initialize model and optimizer.
         if init:
@@ -98,8 +99,6 @@ class Trainer:
 
             # Loop through training data.
             for vecs, labels in self.train_loader:
-                vecs, labels = vecs.to(self.device), labels.to(self.device)
-
                 # Compute model output and loss, and update model parameters.
                 self.optimizer.zero_grad()
                 outputs = self.model(vecs)
@@ -123,8 +122,6 @@ class Trainer:
             with torch.no_grad():
                 # Loop through the validation data.
                 for vecs, labels in self.test_loader:
-                    vecs, labels = vecs.to(self.device), labels.to(self.device)
-
                     # Compute model output and loss.
                     outputs = self.model(vecs)
                     loss = self.criterion(outputs, labels)
@@ -152,7 +149,7 @@ class Trainer:
                 print(best_epoch_details)
                 break
 
-    def fit_and_save(self, filename, epochs=500):
+    def fit_and_save(self, filename, epochs=100):
         """
         Train model and save best model.
 

@@ -79,10 +79,10 @@ class Trainer:
             x_train, y_train), SentimentDataset(x_test, y_test)
         self.train_loader = DataLoader(
             train_data, batch_size=batch_size, shuffle=True,
-            drop_last=True, num_workers=8)  # more cores will increase memory overhead and slowdown
+            drop_last=True, num_workers=0)  # due to effect of numpy, 0 give much faster loading.
         self.test_loader = DataLoader(
             test_data, batch_size=batch_size, shuffle=False,
-            drop_last=False, num_workers=8)
+            drop_last=False, num_workers=0)
 
         # Initialize model and optimizer.
         if init:

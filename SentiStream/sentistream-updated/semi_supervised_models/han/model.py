@@ -189,7 +189,7 @@ class HAN(nn.Module):
 
         # Set device to use for computations.
         self.device = torch.device(
-            "cuda" if torch.cuda.is_available() else "cpu")
+            "cuda:0" if torch.cuda.is_available() else "cpu")
 
         # Reset hidden state for word-level and sentence-level GRUs.
         self.reset_hidden_state()
