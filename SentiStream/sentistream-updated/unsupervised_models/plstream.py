@@ -108,8 +108,8 @@ class PLStream():
             conf, preds = self.eval_model(self.texts, self.labels)
 
             # Generate output data
-            output = [[i, 'us', c, p, t]
-                      for i, c, p, t in zip(self.idx, conf, preds, self.texts)]
+            output = [[i, 'us', c, p, l]
+                      for i, c, p, l in zip(self.idx, conf, preds, self.labels)]
 
             # Clear the lists for the next batch
             self.update = True

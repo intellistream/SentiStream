@@ -143,8 +143,8 @@ class Classifier:
 
             if not self.is_eval:
                 # Generate output data.
-                output = [[i, 'ss', c, p, l]
-                          for i, c, p, l in zip(self.idx, conf, preds, self.labels)]
+                output = [[i, 'ss', c, p, t]
+                          for i, c, p, t in zip(self.idx, conf, preds, self.texts)]
 
             # Clear the lists for the next batch.
             self.idx = []

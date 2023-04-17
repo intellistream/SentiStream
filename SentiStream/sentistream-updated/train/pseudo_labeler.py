@@ -41,7 +41,7 @@ class SentimentPseudoLabeler:
 
         Args:
             data (dict): Contains predicted results of both models.
-                            - {'us': [us_conf, us_pred, text], 'ss': [ss_conf, ss_pred, label]}
+                            - {'us': [us_conf, us_pred, label], 'ss': [ss_conf, ss_pred, text]}
 
         Returns:
             float: Confidence score of final prediction.
@@ -57,7 +57,7 @@ class SentimentPseudoLabeler:
 
         # Store final prediction to calculate sentistream's accuracy.
         self.to_calc_acc.append([
-            [data['ss'][2]], [data['us'][1] if us_conf > ss_conf else data['ss'][1]]])
+            [data['us'][2]], [data['us'][1] if us_conf > ss_conf else data['ss'][1]]])
 
         return us_conf + ss_conf
 
@@ -84,13 +84,13 @@ class SentimentPseudoLabeler:
                                 - us_flag: indicates unsupervised model's output.
                                 - us_conf: unsupervised model's confidence for predicted label.
                                 - us_pred: unsupervised model's prediction.
-                                - text: text data / review.
+                                - label: ground truth label.
             first_output/second_output (tuple): contains data from semi-supervised model's output.
                                 - ss_idx: index of outputs from semi-supervised model.
                                 - ss_flag: indicates semi-supervised model's output.
                                 - ss_conf: semi-supervised model's confidence for predicted label.
                                 - ss_pred: semi-supervised model's prediction.
-                                - label: ground truth label.
+                                - text: text data / review.
 
         Returns:
             list: pseudo label for current data.
@@ -128,7 +128,7 @@ class SentimentPseudoLabeler:
                         else, model's predicted senitment along with text.
         """
 
-        text = self.collector[key]['us'][2]
+        text = self.collector[key]['ss'][2]
 
         # Delete item from collector to avoid re-generating labels.
         del self.collector[key]
