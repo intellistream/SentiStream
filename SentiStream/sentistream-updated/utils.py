@@ -10,7 +10,6 @@ from nltk.tokenize import word_tokenize
 
 import config
 
-
 nltk.download('punkt', quiet=True)
 
 
@@ -56,18 +55,18 @@ def get_average_word_embeddings(model, docs):
     return doc_embeddings
 
 
-def load_torch_model(path):
+def load_torch_model(model, path):
     """
-    Load PyTorch model and move to GPU for inference.
+    Load PyTorch model to GPU for inference.
 
     Args:
+        model (nn.Module): Model class to load state dict.
         path (str): Model path.
 
     Returns:
         Torch.nn.Module: Loaded PyTorch model
     """
-    model = torch.load(path)
-    model.cuda()
+    model.load_state_dict(torch.load(path))
     model.eval()
 
     return model

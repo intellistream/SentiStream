@@ -74,13 +74,15 @@ class TrainModel:
         # except ConnectionError:
         #     raise ConnectionError('Failed to open redis')
 
-    def train_classifier(self, ssl_model, init):
+    def train_classifier(self, ssl_model, init, old_embeddings=None):
         """
         Train appropiate classifier and store in locally.
 
         Args:
             ssl_model (str): Type of SSL model (either 'HAN' or 'ANN').
             init (bool): Flag indicating whether start training from scratch or update model.
+            old_embeddings (array-like): Embeddings of word vector before updating (needed to load 
+                                        HAN model).
         """
         if ssl_model == 'ANN':
             clf = ANNTrainer(
@@ -90,7 +92,7 @@ class TrainModel:
         else:
             clf = HANTrainer(self.texts, self.labels, self.wv_model.wv.key_to_index, [
                 self.wv_model.wv[key] for key in self.wv_model.wv.index_to_key], init,
-                downsample=False)
+                old_embeddings=old_embeddings, downsample=False)
 
         # Fit classifier and save model.
         clf.fit_and_save(config.SSL_CLF)
@@ -127,6 +129,8 @@ class TrainModel:
             self.wv_model, self.filtered_tokens, config.SSL_WV, True)
 
         # Train classifier.
-        self.train_classifier(self.ssl_model, False)
+        self.train_classifier(self.ssl_model, False,
+                              old_embeddings=[self.wv_model.wv[key]
+                                              for key in self.wv_model.wv.index_to_key])
 
         return config.FINISHED

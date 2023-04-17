@@ -14,13 +14,13 @@ class Classifier(nn.Module):
 
     """
 
-    def __init__(self, input_size, hidden_size, output_size=1):
+    def __init__(self, input_size, hidden_size=32, output_size=1):
         """
         Initialize class with given input and output dimensions.
 
         Args:
             input_size (int): Number of input features.
-            hidden_size (int): Number of neurons in the hidden layer.
+            hidden_size (int): Number of neurons in the hidden layer. Defaults to 32.
             output_size (int, optional): Number of output neurons (for binary 
                                         classification - using sigmoid) Defaults to 1.
         """

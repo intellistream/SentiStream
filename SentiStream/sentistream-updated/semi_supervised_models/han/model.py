@@ -44,6 +44,7 @@ class WordAttentionNet(nn.Module):
 
         # Initialize embedding and GRU layers.
         self.lookup = nn.Embedding.from_pretrained(embeddings)
+
         self.gru = nn.GRU(embeddings.shape[1], hidden_size, bidirectional=True)
 
     def forward(self, x, hidden_state):
@@ -87,7 +88,7 @@ class SentenceAttentionNet(nn.Module):
 
     """
 
-    def __init__(self, sent_hidden_size=50, word_hidden_size=50, num_classes=2):
+    def __init__(self, sent_hidden_size=50, word_hidden_size=50):
         """
         Intialize network
 
@@ -96,7 +97,6 @@ class SentenceAttentionNet(nn.Module):
                                             GRU. Defaults to 50.
             word_hidden_size (int, optional): Number of features in hidden state of word-level GRU.
                                             Defaults to 50.
-            num_classes (int, optional): Number of output classes. Defaults to 2.
         """
         super().__init__()
 
@@ -111,7 +111,7 @@ class SentenceAttentionNet(nn.Module):
         # Initialize GRU and Fully connected layers.
         self.gru = nn.GRU(2 * word_hidden_size,
                           sent_hidden_size, bidirectional=True)
-        self.fc_out = nn.Linear(2 * sent_hidden_size, num_classes)
+        self.fc_out = nn.Linear(2 * sent_hidden_size, 2)
 
     def forward(self, x, hidden_state):
         """
@@ -157,19 +157,19 @@ class HAN(nn.Module):
         device (torch.device): Device on which to run the model.
     """
 
-    def __init__(self, word_hidden_size, sent_hidden_size, batch_size, num_classes,
-                 embeddings, max_sent_length, max_word_length):
+    def __init__(self, embeddings, batch_size=128, max_sent_length=10, max_word_length=15,
+                 word_hidden_size=50, sent_hidden_size=50):
         """
         Initialize HAN.
 
         Args:
-            word_hidden_size (int): Size of word-level hidden state.
-            sent_hidden_size (int): Size of sentence-level hidden state.
-            batch_size (int): Batch size.
-            num_classes (int): Number of classes.
+            word_hidden_size (int): Hidden state size for word-level attention layer.Defaults to 50.
+            sent_hidden_size (int): Hidden state size for sentence-level attention layer. Defaults
+                                    to 50.
+            batch_size (int): Batch size. Defaults to 128.
             embeddings (torch.Tensor): Pre-trained embeddings.
-            max_sent_length (int): Maximum sentence length.
-            max_word_length (int): Maximum word length.
+            max_sent_length (int): Maximum sentence length. Defaults to 10.
+            max_word_length (int): Maximum word length. Defaults to 15.
         """
         super().__init__()
 
@@ -185,7 +185,7 @@ class HAN(nn.Module):
 
         # Initialize sentence-level attention network.
         self.sentence_attention_net = SentenceAttentionNet(
-            sent_hidden_size, word_hidden_size, num_classes)
+            sent_hidden_size, word_hidden_size)
 
         # Set device to use for computations.
         self.device = torch.device(

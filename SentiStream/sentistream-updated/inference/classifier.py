@@ -9,6 +9,9 @@ from sklearn.metrics import accuracy_score
 
 import config
 
+from semi_supervised_models.ann.model import Classifier as ANN
+from semi_supervised_models.han.model import HAN
+
 from semi_supervised_models.han.utils import join_tokens, preprocess
 from utils import load_torch_model, get_average_word_embeddings, clean_for_wv
 
@@ -51,7 +54,10 @@ class Classifier:
 
         # Load models.
         self.wv_model = word_vector_algo.load(config.SSL_WV)
-        self.clf_model = load_torch_model(config.SSL_CLF).to(self.device)
+        self.clf_model = load_torch_model(
+            ANN(self.wv_model.vector_size) if ssl_model == 'ANN' else HAN(np.array([
+                self.wv_model.wv[key] for key in self.wv_model.wv.index_to_key])),
+            config.SSL_CLF).to(self.device)
         self.ssl_model = ssl_model
 
         self.acc_list = []

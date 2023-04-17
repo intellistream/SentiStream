@@ -69,7 +69,8 @@ class Trainer:
         if init:
             self.model = Classifier(input_size, hidden_size)
         else:
-            self.model = load_torch_model(config.SSL_CLF)
+            self.model = load_torch_model(Classifier(
+                input_size, hidden_size), config.SSL_CLF)
         self.model.to(self.device)
         self.criterion = torch.nn.BCELoss()
         self.optimizer = torch.optim.Adam(
@@ -164,4 +165,4 @@ class Trainer:
         self.best_model.eval()
 
         # Save best model.
-        torch.save(self.best_model, filename)
+        torch.save(self.best_model.state_dict(), filename)
