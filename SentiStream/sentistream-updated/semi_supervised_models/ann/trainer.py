@@ -8,9 +8,9 @@ from torch.utils.data import DataLoader
 
 import config
 
-from semi_supervised_models.ann.dataset import SentimentDataset
+from semi_supervised_models.dataset import SentimentDataset
+from semi_supervised_models.utils import calc_acc
 from semi_supervised_models.ann.model import Classifier
-from semi_supervised_models.ann.utils import calc_acc
 from utils import load_torch_model, downsampling
 
 

@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
-from semi_supervised_models.han.utils import mat_mul, element_wise_mul
+from semi_supervised_models.utils import mat_mul, element_wise_mul
 
 
 class WordAttentionNet(nn.Module):
@@ -186,7 +186,7 @@ class HAN(nn.Module):
         # Initialize sentence-level attention network.
         self.sentence_attention_net = SentenceAttentionNet(
             sent_hidden_size, word_hidden_size)
-        
+
         # Output layer
         self.sigmoid = nn.Sigmoid()
 

@@ -9,9 +9,9 @@ from torch.utils.data import DataLoader
 
 import config
 
-from semi_supervised_models.han.dataset import SentimentDataset
+from semi_supervised_models.dataset import SentimentDataset
+from semi_supervised_models.utils import calc_acc, join_tokens, preprocess
 from semi_supervised_models.han.model import HAN
-from semi_supervised_models.han.utils import calc_acc, join_tokens, preprocess
 from utils import load_torch_model, downsampling
 
 
@@ -138,17 +138,13 @@ class Trainer:
                 self.optimizer.zero_grad()
                 self.model.reset_hidden_state()
                 pred = self.model(vecs)
-                # print(pred)
-                # loss = self.criterion(
-                #     pred, labels.to(torch.float32).unsqueeze(1))
-                loss = self.criterion(
-                    pred, labels)
+                loss = self.criterion(pred, labels)
                 loss.backward()
                 self.optimizer.step()
 
                 # Update training loss and accuracy.
                 train_loss += loss.item()
-                train_acc += calc_acc(labels, pred).item()
+                train_acc += calc_acc(pred, labels).item()
 
             # Compute average training loss and accuracy.
             train_loss /= len(self.train_loader)
@@ -170,18 +166,12 @@ class Trainer:
                     pred = self.model(vecs)
 
                     # Update validation loss and accuracy.
-                    # val_loss += self.criterion(pred,
-                    #                            labels.to(torch.float32).unsqueeze(1)).item()
-                    val_loss += self.criterion(pred,
-                                               labels).item()
-                    val_acc += calc_acc(labels, pred).item()
+                    val_loss += self.criterion(pred, labels).item()
+                    val_acc += calc_acc(pred, labels).item()
 
             # Compute average validation loss and accuracy.
             val_loss /= len(self.test_loader)
             val_acc /= len(self.test_loader)
-
-            # print(f"epoch: {epoch+1}, train loss: {train_loss:.4f}, " \
-            #         f"train acc: {train_acc:.4f}, val loss: {val_loss:.4f}, val_acc: {val_acc:.4f}")
 
             # Check if current model has the best validation loss so far and if it is then
             # update values.

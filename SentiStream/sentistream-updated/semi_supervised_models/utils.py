@@ -6,19 +6,32 @@ import torch
 from nltk.tokenize import sent_tokenize, word_tokenize
 
 
+def calc_acc(y_pred, y_test):
+    """
+    Calculate accuracy of predictions.
+
+    Args:
+        y_pred (torch.Tensor): Predicted values.
+        y_test (torch.Tensor): True labels.
+
+    Returns:
+        float: Accuracy of binary predictions.
+    """
+    y_pred_rounded = torch.round(y_pred)
+    correct_results = (y_pred_rounded == y_test).sum()
+    return correct_results / y_pred.size(0)
+
+
 def mat_mul(output, weight, bias=None):
     """
     Matrix multiplication of output and weight tensors then apply bias and tanh activation function.
-
     Args:
         output (Torch.tensor): output tensor to be multiplied with the weight tensor.
         weight (Torch.tensor): Weight tensor to be multiplied with the output tensor.
         bias (Torch.tensor, optional): Bias tensor to be added to the output tensor.
                                         Defaults to None.
-
     Returns:
         Torch.tensor: Resulted tensor.
-
     """
     output = torch.matmul(output, weight)
     if bias is not None:
@@ -30,33 +43,14 @@ def mat_mul(output, weight, bias=None):
 def element_wise_mul(output1, output2):
     """
     Element-wise multiplication of tensors
-
     Args:
         output1 (Torch.tensor): First output tensor.
         output2 (Torch.tensor): Second output tensor.
-
     Returns:
         Torch.tensor: Resulted tensor.
     """
     output = output1 * output2.unsqueeze(2)
     return output.sum(dim=0, keepdim=True)
-
-
-def calc_acc(y_test, y_pred):
-    """
-    Calculate accuracy of predictions.
-
-    Args:
-        y_pred (torch.Tensor): Predicted values.
-        y_test (torch.Tensor): True labels.
-
-    Returns:
-        float: Accuracy of binary predictions.
-    """
-
-    y_pred_rounded = torch.round(y_pred)
-    correct_results = (y_pred_rounded == y_test).sum()
-    return correct_results / len(y_test)
 
 
 def join_tokens(doc):
