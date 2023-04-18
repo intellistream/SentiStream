@@ -111,7 +111,7 @@ class SentenceAttentionNet(nn.Module):
         # Initialize GRU and Fully connected layers.
         self.gru = nn.GRU(2 * word_hidden_size,
                           sent_hidden_size, bidirectional=True)
-        self.fc_out = nn.Linear(2 * sent_hidden_size, 2)
+        self.fc_out = nn.Linear(2 * sent_hidden_size, 1)
 
     def forward(self, x, hidden_state):
         """
@@ -186,6 +186,9 @@ class HAN(nn.Module):
         # Initialize sentence-level attention network.
         self.sentence_attention_net = SentenceAttentionNet(
             sent_hidden_size, word_hidden_size)
+        
+        # Output layer
+        self.sigmoid = nn.Sigmoid()
 
         # Set device to use for computations.
         self.device = torch.device(
@@ -242,5 +245,7 @@ class HAN(nn.Module):
         # cause unwanted computations
         output, self.sent_hidden_state = self.sentence_attention_net(
             output, self.sent_hidden_state)
+
+        output = self.sigmoid(output)
 
         return output

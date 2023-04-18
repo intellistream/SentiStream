@@ -60,6 +60,9 @@ class Trainer:
 
         embeddings = np.asarray(embeddings)
 
+        labels = torch.tensor(labels, dtype=torch.float32,
+                              device=self.device).unsqueeze(1)
+
         # Get max sentence and word length for dataset.
         # if init:
         #     max_word_length, max_sent_length = get_max_lengths(
@@ -101,7 +104,7 @@ class Trainer:
                 embeddings)
 
         self.model.to(self.device)
-        self.criterion = torch.nn.CrossEntropyLoss()
+        self.criterion = torch.nn.BCELoss()
         self.optimizer = torch.optim.Adam(filter(lambda x: x.requires_grad, self.model.parameters(
         )), lr=learning_rate)
 
@@ -135,7 +138,11 @@ class Trainer:
                 self.optimizer.zero_grad()
                 self.model.reset_hidden_state()
                 pred = self.model(vecs)
-                loss = self.criterion(pred, labels)
+                # print(pred)
+                # loss = self.criterion(
+                #     pred, labels.to(torch.float32).unsqueeze(1))
+                loss = self.criterion(
+                    pred, labels)
                 loss.backward()
                 self.optimizer.step()
 
@@ -163,12 +170,18 @@ class Trainer:
                     pred = self.model(vecs)
 
                     # Update validation loss and accuracy.
-                    val_loss += self.criterion(pred, labels).item()
+                    # val_loss += self.criterion(pred,
+                    #                            labels.to(torch.float32).unsqueeze(1)).item()
+                    val_loss += self.criterion(pred,
+                                               labels).item()
                     val_acc += calc_acc(labels, pred).item()
 
             # Compute average validation loss and accuracy.
             val_loss /= len(self.test_loader)
             val_acc /= len(self.test_loader)
+
+            # print(f"epoch: {epoch+1}, train loss: {train_loss:.4f}, " \
+            #         f"train acc: {train_acc:.4f}, val loss: {val_loss:.4f}, val_acc: {val_acc:.4f}")
 
             # Check if current model has the best validation loss so far and if it is then
             # update values.

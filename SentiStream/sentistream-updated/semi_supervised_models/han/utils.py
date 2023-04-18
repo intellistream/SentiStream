@@ -42,20 +42,21 @@ def element_wise_mul(output1, output2):
     return output.sum(dim=0, keepdim=True)
 
 
-def calc_acc(y_label, y_pred):
+def calc_acc(y_test, y_pred):
     """
-    Calulate accuracy of model's predictions.
+    Calculate accuracy of predictions.
 
     Args:
-        y_label (Torch.tensor): True labels for each sample.
-        y_pred (Torch.tensor): Predicted labels for each sample.
+        y_pred (torch.Tensor): Predicted values.
+        y_test (torch.Tensor): True labels.
 
     Returns:
-        Torch.tenosr: Accuracy of model's prediction.
+        float: Accuracy of binary predictions.
     """
-    preds = y_pred.argmax(dim=1)
-    correct = (preds == y_label).sum()
-    return correct / len(y_label)
+
+    y_pred_rounded = torch.round(y_pred)
+    correct_results = (y_pred_rounded == y_test).sum()
+    return correct_results / len(y_test)
 
 
 def join_tokens(doc):
