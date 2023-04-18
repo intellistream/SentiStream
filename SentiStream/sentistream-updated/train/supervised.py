@@ -119,10 +119,12 @@ class TrainModel:
         if (len(self.labels) < self.pseudo_data_threshold or acc > self.acc_threshold):
             print(f'acc: {acc}, threshold: {acc_threshold}\npseudo_data_size: {len(self.labels)}" \
                     " threshold: {pseudo_data_threshold}')
-            return (f'acc: {acc}, threshold: {acc_threshold}\npseudo_size: {len(self.labels)}" \
-                    " threshold: {pseudo_data_threshold}')  # TODO: REMOVE -- TO DEBUG PLSTREAM
+            return config.SKIPPED
 
         self.wv_model = self.word_vector_algo.load(config.SSL_WV)
+
+        old_embeddings = [self.wv_model.wv[key]
+                          for key in self.wv_model.wv.index_to_key]
 
         # Train word vector model.
         train_word_vector_algo(
@@ -130,7 +132,6 @@ class TrainModel:
 
         # Train classifier.
         self.train_classifier(self.ssl_model, False,
-                              old_embeddings=[self.wv_model.wv[key]
-                                              for key in self.wv_model.wv.index_to_key])
+                              old_embeddings=old_embeddings)
 
         return config.FINISHED
