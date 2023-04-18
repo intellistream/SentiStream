@@ -9,10 +9,10 @@ from sklearn.metrics import accuracy_score
 
 import config
 
+from semi_supervised_models.utils import join_tokens, preprocess
 from semi_supervised_models.ann.model import Classifier as ANN
 from semi_supervised_models.han.model import HAN
 
-from semi_supervised_models.han.utils import join_tokens, preprocess
 from utils import load_torch_model, get_average_word_embeddings, clean_for_wv
 
 
