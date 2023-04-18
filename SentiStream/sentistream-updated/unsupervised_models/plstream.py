@@ -62,8 +62,11 @@ class PLStream():
         # Initialize word vector model.
         num_workers = int(0.5 * multiprocessing.cpu_count()
                           )  # Best value for batch of 250.
-        self.wv_model = word_vector_algo(
-            vector_size=vector_size, workers=num_workers)
+        # self.wv_model = word_vector_algo(
+        #     vector_size=vector_size, workers=num_workers)
+
+        self.wv_model = word_vector_algo.load(config.SSL_WV)
+
 
         # Set up positive and negative reference words for trend detection.
         self.pos_ref = {'love', 'best', 'beautiful', 'great',
