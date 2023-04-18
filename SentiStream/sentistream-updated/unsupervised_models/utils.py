@@ -1,7 +1,9 @@
 # pylint: disable=import-error
 
-from numpy import dot
+import numpy as np
 from numpy.linalg import norm
+
+np.seterr(all='ignore')
 
 
 def cos_similarity(vec1, vec2):
@@ -15,4 +17,4 @@ def cos_similarity(vec1, vec2):
     Returns:
         float: Cosine similarity between 2 vectors.
     """
-    return dot(vec1, vec2) / (norm(vec1) * norm(vec2))
+    return np.dot(vec1, vec2) / (norm(vec1) * norm(vec2))

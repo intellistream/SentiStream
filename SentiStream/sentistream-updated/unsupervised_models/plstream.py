@@ -52,7 +52,7 @@ class PLStream():
         self.neg_count = 0
         self.pos_count = 0  # watch-out for integer overflow error in horizon.
 
-        self.update = False
+        self.update = True
         self.batch_size = batch_size
         self.temporal_trend_detection = temporal_trend_detection
         self.confidence = confidence
@@ -65,15 +65,16 @@ class PLStream():
         # self.wv_model = word_vector_algo(
         #     vector_size=vector_size, workers=num_workers)
 
+        # TODO: TEMP --- WE CAN STILL CALL THIS AS UNSUPERVISED LEARNING??? THIS DOESNT ALTER
+        # CLASSIFICATION METHOD. SO....  ---- ALSO CHANGE self.update when changing this ....
         self.wv_model = word_vector_algo.load(config.SSL_WV)
-
 
         # Set up positive and negative reference words for trend detection.
         self.pos_ref = {'love', 'best', 'beautiful', 'great',
                         'cool', 'awesome', 'wonderful', 'brilliant', 'excellent', 'fantastic'}
         self.neg_ref = {'bad', 'worst', 'stupid', 'disappointing',
                         'terrible', 'rubbish', 'boring', 'awful', 'unwatchable', 'awkward'}
-        if config.STEM:
+        if config.STEM:  # TODO: TEMP --- DLT OTHER WHEN FINALIZED.
             self.pos_ref = {'love', 'best', 'beauti', 'great', 'cool',
                             'awesom', 'wonder', 'brilliant', 'excel', 'fantast'}
             self.neg_ref = {'bad', 'worst', 'stupid', 'disappoint',
