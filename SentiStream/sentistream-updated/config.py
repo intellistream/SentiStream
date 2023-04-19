@@ -6,7 +6,8 @@ PYFLINK = False
 
 # SentiStream
 SSL_MODEL = 'ANN'  # 'HAN', 'ANN'
-WORD_VEC_ALGO = Word2Vec  # Word2Vec, FastText
+# Word2Vec, FastText ---------------WORD2VEC is BETTER IN PERFORMANCE
+WORD_VEC_ALGO = Word2Vec
 STEM = True  # TODO: REMOVE FROM HERE
 
 # Kafka

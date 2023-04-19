@@ -45,11 +45,6 @@ model_trainer = TrainModel(word_vector_algo=config.WORD_VEC_ALGO,
                            ssl_model=config.SSL_MODEL, init=False,
                            acc_threshold=0.9)
 
-us_acc = []
-ss_acc = []
-senti_acc = []
-ss_pseudo_acc = []
-
 if config.PYFLINK:
     env = StreamExecutionEnvironment.get_execution_environment()
     env.set_parallelism(1)
@@ -146,31 +141,34 @@ else:
                 if message == config.FINISHED:
                     dump = []
 
-            us_acc += [x for x in plstream.acc_list if x]
-            ss_acc += [x for x in classifier.acc_list if x]
-            senti_acc = [x for x in acc_list if x]
-            ss_pseudo_acc += [x for x in inference.acc_list if x]
+print(
+    f'\n\nBOTH SAME - CORRECT: {pseduo_labeler.us_ss_same_crct}, WRONG: {pseduo_labeler.us_ss_same_wrng}')
+print(
+    f'SS CORRECT: {pseduo_labeler.ss_crct}, US_CORRECT: {pseduo_labeler.us_crct}')
+# print(pseduo_labeler.both_same_crct_conf)
 
-            classifier = Classifier(
-                word_vector_algo=config.WORD_VEC_ALGO, ssl_model=config.SSL_MODEL)
-            inference = Classifier(word_vector_algo=config.WORD_VEC_ALGO,
-                                   ssl_model=config.SSL_MODEL, is_eval=True)
-            model_trainer = TrainModel(word_vector_algo=config.WORD_VEC_ALGO,
-                                       ssl_model=config.SSL_MODEL, init=False,
-                                       acc_threshold=0.9)
+# print(pseduo_labeler.both_same_wrong_conf)
+
+# NOTE: MOST OF BOTH SAME RESULTS IN CORRECT PREDICTION
+# NOTE: EVEN HIGH CONFIDENT LABELS HAVE 10% WRONG LABELS (SAME WEIGHT FOR BOTH and set conf 0.5)
+# NOTE: HAVING 0.3 as conf thresh remove most of the noise in pseudo labels.
+
 
 if not config.PYFLINK:
     print('\n-- UNSUPERVISED MODEL ACCURACY --')
-    print(us_acc)
+    print(plstream.acc_list)
+    print(sum(plstream.acc_list)/len(plstream.acc_list))
 
     print('\n-- SUPERVISED MODEL ACCURACY --')
-    # print(sum(ss_acc) / len(ss_acc))
-    print(ss_acc)
+    print(classifier.acc_list)
+    print(sum(classifier.acc_list)/len(classifier.acc_list))
 
     print('\n-- SENTISTREAM ACCURACY --')
-    print(senti_acc)
+    print(acc_list)
+    print(sum([x for x in acc_list if x])/len([x for x in acc_list if x]))
 
     print('\n-- SUPERVISED MODEL ACCURACY ON PSEUDO DATA --')
-    print(ss_pseudo_acc)
+    print(inference.acc_list)
+    print(sum(inference.acc_list)/len(inference.acc_list))
 
 print('Elapsed Time: ', time() - start)
