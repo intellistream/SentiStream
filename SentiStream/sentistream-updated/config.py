@@ -20,6 +20,7 @@ DATA = 'train.csv'
 BATCHING = 'BATCHING'
 LOW_CONF = 'LOW_CONFIDENCE'
 FINISHED = 'MODEL_TRAINED'
+SKIPPED = 'SKIPPED_TRAINING'
 
 # Model filenames
 US_WV = 'plstream-wv.model'

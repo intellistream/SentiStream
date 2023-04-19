@@ -26,7 +26,7 @@ start = time()
 # Train word vector {Word2Vec or FastText} on {nrows=1000} data and get word embeddings, then use
 # that embedding to train NN sentiment classifier {ANN or HAN}
 TrainModel(word_vector_algo=config.WORD_VEC_ALGO,
-           ssl_model=config.SSL_MODEL, init=True, nrows=1000)
+           ssl_model=config.SSL_MODEL, init=True, nrows=5600, vector_size=20)
 
 
 # ---------------- Generate pesudo labels ----------------
@@ -43,7 +43,12 @@ inference = Classifier(word_vector_algo=config.WORD_VEC_ALGO,
                        ssl_model=config.SSL_MODEL, is_eval=True)
 model_trainer = TrainModel(word_vector_algo=config.WORD_VEC_ALGO,
                            ssl_model=config.SSL_MODEL, init=False,
-                           pseudo_data_threshold=0.0, acc_threshold=0.9)
+                           acc_threshold=0.9)
+
+us_acc = []
+ss_acc = []
+senti_acc = []
+ss_pseudo_acc = []
 
 if config.PYFLINK:
     env = StreamExecutionEnvironment.get_execution_environment()
@@ -93,13 +98,15 @@ else:
 
     acc_list = []
 
+    start = time()
+
     # TODO: DO IT PARALLELy
     for idx, message in enumerate(consumer):
 
         # TODO: REMOVE --- ONLY FOR FAST DEBUGGING
-        if idx < 1000:
+        if idx < 5600:
             continue
-        if idx > 2000:
+        if idx > 20000:
             break
 
         label, text = message.value.split('|||')
@@ -108,6 +115,7 @@ else:
         text = tokenize(text)
 
         us_output = plstream.process_data((idx, label, text))
+
         ss_output = classifier.classify((idx, label, text))
 
         if us_output != config.BATCHING:
@@ -131,19 +139,38 @@ else:
 
         pseudo_data = []
 
-    model_trainer.update_model(dump, 0.4)
+        if idx % 1000 == 0:
+            if dump:
+                message = model_trainer.update_model(dump, 0.4, 0.2)
+
+                if message == config.FINISHED:
+                    dump = []
+
+            us_acc += [x for x in plstream.acc_list if x]
+            ss_acc += [x for x in classifier.acc_list if x]
+            senti_acc = [x for x in acc_list if x]
+            ss_pseudo_acc += [x for x in inference.acc_list if x]
+
+            classifier = Classifier(
+                word_vector_algo=config.WORD_VEC_ALGO, ssl_model=config.SSL_MODEL)
+            inference = Classifier(word_vector_algo=config.WORD_VEC_ALGO,
+                                   ssl_model=config.SSL_MODEL, is_eval=True)
+            model_trainer = TrainModel(word_vector_algo=config.WORD_VEC_ALGO,
+                                       ssl_model=config.SSL_MODEL, init=False,
+                                       acc_threshold=0.9)
 
 if not config.PYFLINK:
     print('\n-- UNSUPERVISED MODEL ACCURACY --')
-    print(plstream.acc_list)
+    print(us_acc)
 
     print('\n-- SUPERVISED MODEL ACCURACY --')
-    print(classifier.acc_list)
+    # print(sum(ss_acc) / len(ss_acc))
+    print(ss_acc)
 
     print('\n-- SENTISTREAM ACCURACY --')
-    print(acc_list)
+    print(senti_acc)
 
     print('\n-- SUPERVISED MODEL ACCURACY ON PSEUDO DATA --')
-    print(inference.acc_list)
+    print(ss_pseudo_acc)
 
 print('Elapsed Time: ', time() - start)
