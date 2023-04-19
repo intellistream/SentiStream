@@ -32,7 +32,7 @@ class PLStream():
     """
 
     def __init__(self, word_vector_algo, vector_size=20, batch_size=250,
-                 temporal_trend_detection=True, confidence=0.5):
+                 temporal_trend_detection=True, confidence=0.01):
         """
         Initialize PLStream with hyperparameters.
 
@@ -181,22 +181,39 @@ class PLStream():
         """
 
         # Calculate cosine similarity between sentence and reference words.
-        cos_sim_pos = sum(cos_similarity(
+        # cos_sim_pos = sum(cos_similarity(
+        #     vector, self.wv_model.wv[word])
+        #     for word in self.pos_ref if word in self.wv_model.wv.key_to_index)
+        # cos_sim_neg = sum(cos_similarity(
+        #     vector, self.wv_model.wv[word])
+        #     for word in self.neg_ref if word in self.wv_model.wv.key_to_index)
+
+        cos_sim_pos = [cos_similarity(
             vector, self.wv_model.wv[word])
-            for word in self.pos_ref if word in self.wv_model.wv.key_to_index)
-        cos_sim_neg = sum(cos_similarity(
+            for word in self.pos_ref if word in self.wv_model.wv.key_to_index]
+        cos_sim_neg = [cos_similarity(
             vector, self.wv_model.wv[word])
-            for word in self.neg_ref if word in self.wv_model.wv.key_to_index)
+            for word in self.neg_ref if word in self.wv_model.wv.key_to_index]
+
+        # TODO: COS SIM IS NOT ALL POSITIVE ------ REWRITE CLASSIFIER
+
+        cos_sim_pos = sum(cos_sim_pos) / len(cos_sim_pos)
+        cos_sim_neg = sum(cos_sim_neg) / len(cos_sim_neg)
 
         # Predict polarity based on temporal trend and cosine similarity.
-        if cos_sim_neg - cos_sim_pos > self.confidence:
-            return cos_sim_neg - cos_sim_pos, 0
-        if cos_sim_pos - cos_sim_neg > self.confidence:
-            return cos_sim_pos - cos_sim_neg, 1
-        if self.temporal_trend_detection:
-            if cos_sim_neg * self.neg_coef >= cos_sim_pos * self.pos_coef:
-                return cos_sim_neg - cos_sim_pos, 0
-            return cos_sim_pos - cos_sim_neg, 1
+
+        # if cos_sim_neg - cos_sim_pos > self.confidence:
+        #     return cos_sim_neg - cos_sim_pos, 0
+        # if cos_sim_pos - cos_sim_neg > self.confidence:
+        #     return cos_sim_pos - cos_sim_neg, 1
+        # if self.temporal_trend_detection:
+        #     if cos_sim_neg * self.neg_coef >= cos_sim_pos * self.pos_coef:
+        #         return cos_sim_neg - cos_sim_pos, 0
+        #     return cos_sim_pos - cos_sim_neg, 1
+        # if cos_sim_neg > cos_sim_pos:
+        #     return cos_sim_neg - cos_sim_pos, 0
+        # return cos_sim_pos - cos_sim_neg, 1
+
         if cos_sim_neg > cos_sim_pos:
-            return cos_sim_neg - cos_sim_pos, 0
-        return cos_sim_pos - cos_sim_neg, 1
+            return (cos_sim_neg + 1)/2, 0
+        return (cos_sim_pos + 1)/2, 1
