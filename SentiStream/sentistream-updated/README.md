@@ -55,7 +55,9 @@ python3 main.py
 
 ###### ----------------------
 ## DONT SINK PSEUDO LABELS...
-## PLSTREAM WORD VECOTR AVG IS WRONG ONE --- ZERO COMMING
+
+
+## MOVE TO CONFLUENT-KAFKA
 
 ## WHAT ABT MAX SENT, WORD LEN???
 
@@ -63,6 +65,8 @@ python3 main.py
 
 # TO REM
 ## WHY DO WE HAVE BATCH INF?, EVEN IF 90% ACC, IT MAY HAVE SOME NEW VOCABS TO LEARN??? 
+
+### IS TEMPORAL TREAD DETECTION REQ??
 ### PSEUDO_LABEL -> THRESHOLDDDDS
 
 
@@ -71,3 +75,11 @@ python3 main.py
 
 
 ### NUM WORKERS FOR WV - PLSTREAM, CLASSIFIER ---- find best for each batchsizw
+
+
+
+### THINGS TO NOTE;;;
+
+- plstream uses trained word vec from initial training
+- han uses dynamic expansion of embedding matrix for continual training
+- took avg of cosine sim
