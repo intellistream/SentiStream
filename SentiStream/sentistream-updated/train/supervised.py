@@ -1,7 +1,5 @@
 # pylint: disable=import-error
 # pylint: disable=no-name-in-module
-
-# import redis
 import multiprocessing
 import pandas as pd
 
@@ -39,8 +37,6 @@ class TrainModel:
             acc_threshold (float, optional): Threshold for max accuracy to not update model.
                                             Defaults to 0.9.
         """
-
-        # self.redis = redis.StrictRedis(host='localhost', port=6379, db=0)
         self.pseudo_data_threshold = pseudo_data_threshold
         self.acc_threshold = acc_threshold
         self.word_vector_algo = word_vector_algo
@@ -67,12 +63,6 @@ class TrainModel:
 
             # Train classifier.
             self.train_classifier(ssl_model, init)
-
-        # try:
-        #     self.redis.set('word_vector_update', int(True))
-        #     self.redis.set('classifier_update', int(True))
-        # except ConnectionError:
-        #     raise ConnectionError('Failed to open redis')
 
     def train_classifier(self, ssl_model, init, old_embeddings=None):
         """
