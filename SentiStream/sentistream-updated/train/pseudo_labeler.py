@@ -25,8 +25,8 @@ class SentimentPseudoLabeler:
         ADAPTIVE_SEMI_SUPERVISED_PREDICTION_WEIGHT: Dynamic weight for semi-supervised model for 
                                                 ensembled predictions.
     """
-    ADAPTIVE_UNSUPERVISED_PREDICTION_WEIGHT = 1
-    ADAPTIVE_SEMI_SUPERVISED_PREDICTION_WEIGHT = 5
+    ADAPTIVE_UNSUPERVISED_PREDICTION_WEIGHT = 0.5
+    ADAPTIVE_SEMI_SUPERVISED_PREDICTION_WEIGHT = 0.5
 
     def __init__(self):
         """
