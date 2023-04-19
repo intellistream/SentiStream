@@ -2,6 +2,7 @@
 # pylint: disable=no-name-in-module
 import numpy as np
 import torch
+import matplotlib.pyplot as plt
 
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
@@ -19,8 +20,8 @@ class Trainer:
     Trainer class  to train simple feed forward network.
     """
 
-    def __init__(self, vectors, labels, input_size, init, test_size=0.2, batch_size=16,
-                 hidden_size=32, learning_rate=5e-3, downsample=False):
+    def __init__(self, vectors, labels, input_size, init, test_size=0.2, batch_size=256,
+                 hidden_size=32, learning_rate=3e-3, downsample=True):
         """
         Initialize class to train classifier
 
@@ -31,11 +32,11 @@ class Trainer:
             init (bool): Flag indicating whether to initialize new model or train an existing one.
             test_size (float, optional): Fraction of the data to be used for validation.
                                         Defaults to 0.2.
-            batch_size (int, optional): Batch size for training. Defaults to 16.
+            batch_size (int, optional): Batch size for training. Defaults to 256.
             hidden_size (int, optional): Size of the hidden layer of neural network. Defaults to 32.
-            learning_rate (float, optional): Learning rate for the optimizer. Defaults to 5e-3.
+            learning_rate (float, optional): Learning rate for the optimizer. Defaults to 3e-3.
             downsample (bool, optional): Flag indicating whether to downsample to balance classes.
-                                        Defaults to False.
+                                        Defaults to True.
         """
         # Determine if GPU available for training.
         self.device = torch.device(
@@ -44,6 +45,7 @@ class Trainer:
         # Optionally perform downsample to balance classes.
         if downsample:
             labels, vectors = downsampling(labels, vectors)
+            vectors = np.asarray(vectors)
 
         # Convert data to PyTorch tensors move directly to device.
         vectors = torch.tensor(
@@ -76,8 +78,19 @@ class Trainer:
         self.optimizer = torch.optim.Adam(
             params=self.model.parameters(), lr=learning_rate)
 
+        if not init:
+            self.optimizer.load_state_dict(torch.load('best_optimizer.pth'))
+
+        self.sheduler = torch.optim.lr_scheduler.StepLR(
+            self.optimizer, step_size=5, gamma=0.01)
+
+        if not init:
+            self.sheduler.load_state_dict(torch.load('best_scheduler.pth'))
+
         # Initialize best model to None (will be updated during training).
-        self.best_model = None
+        self.best_model_checkpoint = None
+        self.optimizer_checkpoint = None
+        self.sheduler_checkpoint = None
 
     def fit(self, epochs):
         """
@@ -90,13 +103,18 @@ class Trainer:
         best_epoch = 0
         best_loss = 1e5
 
+        train_loss = [0] * epochs
+        train_acc = [0] * epochs
+        val_loss = [0] * epochs
+        val_acc = [0] * epochs
+
         # Loop through number of epochs.
         for epoch in range(epochs):
 
             # Set model to training mode and initialize training loss and accuracy.
             self.model.train()
-            train_loss = 0
-            train_acc = 0
+            # train_loss = 0
+            # train_acc = 0
 
             # Loop through training data.
             for vecs, labels in self.train_loader:
@@ -108,17 +126,21 @@ class Trainer:
                 self.optimizer.step()
 
                 # Update training loss and accuracy.
-                train_loss += loss.item()
-                train_acc += calc_acc(outputs, labels).item()
+                # train_loss += loss.item()
+                # train_acc += calc_acc(outputs, labels).item()
+                train_loss[epoch] += loss.item()
+                train_acc[epoch] += calc_acc(outputs, labels).item()
 
             # Compute average training loss and accuracy.
-            train_loss /= len(self.train_loader)
-            train_acc /= len(self.train_loader)
+            train_loss[epoch] /= len(self.train_loader)
+            train_acc[epoch] /= len(self.train_loader)
+
+            self.sheduler.step()
 
             # Set model to evaluation mode and initialize validation loss and accuracy.
             self.model.eval()
-            val_loss = 0
-            val_acc = 0
+            # val_loss = 0
+            # val_acc = 0
 
             with torch.no_grad():
                 # Loop through the validation data.
@@ -128,27 +150,50 @@ class Trainer:
                     loss = self.criterion(outputs, labels)
 
                     # Update validation loss and accuracy.
-                    val_loss += loss.item()
-                    val_acc += calc_acc(outputs, labels).item()
+                    val_loss[epoch] += loss.item()
+                    val_acc[epoch] += calc_acc(outputs, labels).item()
 
             # Compute average validation loss and accuracy.
-            val_loss /= len(self.test_loader)
-            val_acc /= len(self.test_loader)
+            val_loss[epoch] /= len(self.test_loader)
+            val_acc[epoch] /= len(self.test_loader)
+
+            print(f"epoch: {epoch+1}, train loss: {train_loss[epoch]:.4f}, "
+                  f"train acc: {train_acc[epoch]:.4f}, val loss: {val_loss[epoch]:.4f}, val_acc: {val_acc[epoch]:.4f}, lr: {self.optimizer.param_groups[0]['lr']}")
 
             # Check if current model has the best validation loss so far and if it is then
             # update values.
-            if best_loss - val_loss > 0.001:
+            if best_loss - val_loss[epoch] > 0.001:
                 best_epoch = epoch
-                best_loss = val_loss
-                best_epoch_details = f"epoch: {epoch+1}, train loss: {train_loss:.4f}, " \
-                    f"train acc: {train_acc:.4f}, val loss: {val_loss:.4f}, val_acc: {val_acc:.4f}"
-                self.best_model = self.model
+                best_loss = val_loss[epoch]
+                best_epoch_details = f"epoch: {epoch+1}, train loss: {train_loss[epoch]:.4f}, " \
+                    f"train acc: {train_acc[epoch]:.4f}, val loss: {val_loss[epoch]:.4f}, val_acc: {val_acc[epoch]:.4f}"
+                self.best_model_checkpoint = self.model.state_dict()
+                self.optimizer_checkpoint = self.optimizer.state_dict()
+                self.sheduler_checkpoint = self.sheduler.state_dict()
 
             # Check if the current epoch is more than 5 epochs away from the best epoch, if it is,
             # then stop training.
             if epoch - best_epoch > 5:
                 print(best_epoch_details)
                 break
+
+        # Plot training and validation losses.
+        plt.subplot(2, 1, 1)
+        plt.plot(train_loss[:epoch+1], label='train')
+        plt.plot(val_loss[:epoch+1], label='val')
+        plt.title('Loss')
+        plt.legend()
+
+        # Plot training and validation accuracies.
+        plt.subplot(2, 1, 2)
+        plt.plot(train_acc[:epoch+1], label='train')
+        plt.plot(val_acc[:epoch+1], label='val')
+        plt.title('Accuracy')
+        plt.legend()
+
+        # Save the fig.
+        plt.savefig(
+            f'{val_loss[best_epoch]}-{best_epoch}-{train_loss[best_epoch]}.png')
 
     def fit_and_save(self, filename, epochs=100):
         """
@@ -161,8 +206,7 @@ class Trainer:
         # Train model.
         self.fit(epochs=epochs)
 
-        # Set best model to eval mode.
-        self.best_model.eval()
-
         # Save best model.
-        torch.save(self.best_model.state_dict(), filename)
+        torch.save(self.best_model_checkpoint, filename)
+        torch.save(self.optimizer_checkpoint, 'best_optimizer.pth')
+        torch.save(self.sheduler_checkpoint, 'best_scheduler.pth')

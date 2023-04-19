@@ -17,7 +17,7 @@ class TrainModel:
     """
 
     def __init__(self, word_vector_algo, ssl_model, init, nrows=1000, vector_size=20, window=5,
-                 min_count=5, pseudo_data_threshold=0.0, acc_threshold=0.9):
+                 min_count=5, pseudo_data_threshold=1000, acc_threshold=0.9, test_size=0.2):
         """
         Initialize semi-supervised model training
 
@@ -41,6 +41,7 @@ class TrainModel:
         self.acc_threshold = acc_threshold
         self.word_vector_algo = word_vector_algo
         self.ssl_model = ssl_model
+        self.test_size = test_size
 
         # Initialize word vector model and load training data.
         if init:
@@ -78,7 +79,7 @@ class TrainModel:
             clf = ANNTrainer(
                 get_average_word_embeddings(
                     self.wv_model, self.filtered_tokens),
-                self.labels, self.wv_model.vector_size, init, downsample=False)
+                self.labels, self.wv_model.vector_size, init, downsample=True, test_size=self.test_size)
         else:
             clf = HANTrainer(self.texts, self.labels, self.wv_model.wv.key_to_index, [
                 self.wv_model.wv[key] for key in self.wv_model.wv.index_to_key], init,
@@ -87,7 +88,7 @@ class TrainModel:
         # Fit classifier and save model.
         clf.fit_and_save(config.SSL_CLF)
 
-    def update_model(self, data, acc, pseudo_data_threshold=None, acc_threshold=None):
+    def update_model(self, data, acc, test_size, pseudo_data_threshold=None, acc_threshold=None):
         """
 
 
@@ -96,6 +97,7 @@ class TrainModel:
             acc (float): Current accuracy of SSL model.
         """
 
+        self.test_size = test_size
         self.labels, self.texts = zip(*data)
         self.filtered_tokens = [clean_for_wv(text) for text in self.texts]
 
@@ -107,8 +109,8 @@ class TrainModel:
 
         # If there is too low pseudo data or the accuracy is too high, do not update model.
         if (len(self.labels) < self.pseudo_data_threshold or acc > self.acc_threshold):
-            print(f'acc: {acc}, threshold: {acc_threshold}\npseudo_data_size: {len(self.labels)}" \
-                    " threshold: {pseudo_data_threshold}')
+            print(f'TRAINING SKIPPED - acc: {acc}, threshold: {self.acc_threshold}\npseudo_data_size: {len(self.labels)}'
+                  f' threshold: {self.pseudo_data_threshold}')
             return config.SKIPPED
 
         self.wv_model = self.word_vector_algo.load(config.SSL_WV)
