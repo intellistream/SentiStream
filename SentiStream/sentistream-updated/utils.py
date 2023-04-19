@@ -5,30 +5,54 @@ import re
 import numpy as np
 import nltk
 import torch
-from nltk.stem import SnowballStemmer
+from nltk.stem import SnowballStemmer, WordNetLemmatizer
 from nltk.tokenize import word_tokenize
 
 import config
 
 nltk.download('punkt', quiet=True)
+nltk.download('wordnet', quiet=True)
+# nltk.
 
 
-STOP_WORDS = ['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', "you're",
-              "you've", "you'd", 'your', 'yours', 'yourself', 'yourselves', 'he', 'him', 'his',
-              'himself', 'she', "she's", 'her', 'hers', 'herself', 'it', "it's", 'its', 'itself',
-              'they', 'them', 'their', 'theirs', 'themselves', 'what', 'which', 'who', 'whom',
-              'this', 'that', "that'll", 'these', 'those', 'am', 'is', 'are', 'was', 'were', 'be',
-              'been', 'being', 'have', 'has', 'had', 'having', 'do', 'does', 'did', 'doing', 'a',
-              'an', 'the', 'and', 'but', 'if', 'or', 'because', 'as', 'until', 'while', 'of', 'at',
-              'by', 'for', 'with', 'about', 'against', 'between', 'into', 'through', 'during',
-              'before', 'after', 'above', 'below', 'to', 'from', 'up', 'down', 'in', 'out', 'on',
-              'off', 'over', 'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when',
-              'where', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other',
-              'some', 'such', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 's', 't', 'can',
-              'will', 'just', 'should', "should've", 'now', 'd', 'll', 'm', 'o', 're', 've', 'y',
-              'ma', 'st', 'nd', 'rd', 'th', "you'll", 'dr', 'mr', 'mrs']
+STOP_WORDS = {'also', 'ltd', 'once', 'll', 'make', 'he', 'through', 'all', 'top', 'from', 'or', 's',
+              'hereby', 'so',  'yours', 'since', 'meanwhile', 're', 'over', 'mrs', 'thereafter',
+              'ca', 'move', 'mill', 'such', 'wherever', 'on', 'besides', 'few', 'does', 'yet',  'y',
+              'much', 'my', 'him', 'yourselves', 'as', 'ours', 'therefore', 'amongst', 'due', 'mr',
+              'here', 'may', 'onto', 'it', 'whose', 'himself', 'least', 'i', 'what', 'many', 'd',
+              'hereafter', 'anything', 'of', 'whoever', 'made', 'be', 'sometimes', 'put', 'found',
+              'than', 'although', 'anyway', 'seems', 'you', 'under', 'above', 'themselves', 'thus',
+              'a', 'con', 'when', 'why', 'back', 'until', 'first', 'theirs', 'describe', 'because',
+              'always', 'too', 'across', 't', 'anyhow', 'her', 'ourselves', 'latterly', 'six', 'an',
+              'somewhere', 'else', 'for', 'really', 'up', 'among', 'used', 'whenever', 'during',
+              'nowhere', 'nothing', 'if', 'afterwards', 'that', 'whereas', 'elsewhere', 'along',
+              'been', 'both', 'etc', 'ie', 'might', 'into', 'inc', 'with', 'formerly', 'there',
+              'will', 'own', 'seemed', 'though', 'was', 'whereupon', 'just', 'except', 'has',
+              'your', 'do', 'around', 'herein', 'anywhere', 'rd',  'now', 'sincere', 'this',  'me',
+              'throughout',  'unless', 'against', 'out', 'most', 'various', 'others', 'them', 'th',
+              'eleven', 'am', 'indeed', 'name', 'his', 'often', 'yourself', 'only', 'kg', 'take',
+              'everything', 'cry', 'and',  'quite', 'itself', 'in', 'to', 'well', 'namely', 'thru',
+              'see', 'would', 'which', 'beforehand', 'myself', 'having', 'however', 'go', 'did',
+              'below', 'those', 'st', 'computer', 'several', 'whether', 'have', 'between', 'any',
+              'becoming', 'thereby', 'while', 'were', 'whole', 'latter', 'but', 'km', 'amount',
+              'either', 'herself', 'whereafter', 'never', 'system', 'un', 'find', 'please', 'o',
+              'hereupon', 'thin', 'give', 'third', 'every', 'doing', 'our', 'towards', 'another',
+              'before', 'within', 'mine', 'almost', 'mostly', 'down', 'de', 'seeming', 'moreover',
+              'some', 'us', 'former', 'call', 'should', 'she', 'even', 'beyond', 'became', 'other',
+              'show', 'eg', 'about', 'side', 'its', 'these', 'rather', 'alone', 'nd', 'after',
+              'already', 'keep', 'more', 'behind', 'thick', 'together', 'upon', 'interest', 'dr',
+              'otherwise', 'full', 'can', 'next', 'last', 'bill', 'their', 'hers', 'hence', 'by',
+              'become', 'something', 'who', 'further', 'someone', 'must', 'say', 'each', 'very',
+              'whom', 'again', 'then', 'we', 'same', 'via', 'where', 'per', 'are', 'the', 'still',
+              'toward', 'anyone', 'therein', 'being', 'off', 'perhaps', 'is', 'had', 'co', 'at',
+              'done', 'everywhere', 'less', 'wherein', 'could', 'ma', 'sometime', 'seem', 'somehow',
+              'beside', 'whatever', 'whereby', 'ever', 'everyone', 'nevertheless', 'serious',
+              'using', 'becomes', 'enough', 'how', 'bottom', 've', 'regarding', 'm', 'they', 'part',
+              'front', 'fill', 'get', 'nobody', 'detail'}
+
 
 stemmer = SnowballStemmer('english')
+lemmatizer = WordNetLemmatizer()
 
 
 def get_average_word_embeddings(model, docs):
@@ -135,7 +159,9 @@ def tokenize(text):
     text = re.sub(r'\s+', ' ', text).strip()
 
     tokens = word_tokenize(text)
-    return [stemmer.stem(token) if config.STEM else token
+    # return [stemmer.stem(token) if config.STEM else token
+    #         for token in tokens if token not in STOP_WORDS]
+    return [lemmatizer.lemmatize(token) if config.STEM else token
             for token in tokens if token not in STOP_WORDS]
 
 
