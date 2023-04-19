@@ -52,6 +52,8 @@ class Classifier:
         self.device = torch.device(
             'cuda:0' if torch.cuda.is_available() else 'cpu')
 
+        self.word_vector_algo = word_vector_algo
+
         # Load models.
         self.wv_model = word_vector_algo.load(config.SSL_WV)
         self.clf_model = load_torch_model(
@@ -76,6 +78,16 @@ class Classifier:
 
         # Set start time of classifier.
         self.start_time = time.time()
+
+    def load_updated_model(self):
+        """
+        Load updated model from local.
+        """
+        self.wv_model = self.word_vector_algo.load(config.SSL_WV)
+        self.clf_model = load_torch_model(
+            ANN(self.wv_model.vector_size) if self.ssl_model == 'ANN' else HAN(np.array([
+                self.wv_model.wv[key] for key in self.wv_model.wv.index_to_key])),
+            config.SSL_CLF).to(self.device)
 
     def get_prediction(self, data, tensor_func):
         """
@@ -118,6 +130,8 @@ class Classifier:
 
         # Check if batch size is reached.
         if len(self.labels) >= self.batch_size:
+
+            self.load_updated_model()
 
             # Get document embeddings.
             if self.ssl_model == 'ANN':

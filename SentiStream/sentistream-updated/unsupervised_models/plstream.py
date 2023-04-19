@@ -47,15 +47,17 @@ class PLStream():
             confidence (float, optional): Confidence difference to distinguish polarity. Defaults 
                                         to 0.5.
         """
-        self.neg_coef = 0.5
-        self.pos_coef = 0.5
-        self.neg_count = 0
-        self.pos_count = 0  # watch-out for integer overflow error in horizon.
+        # self.neg_coef = 0.5
+        # self.pos_coef = 0.5
+        # self.neg_count = 0
+        # self.pos_count = 0  # watch-out for integer overflow error in horizon.
 
         self.update = True
         self.batch_size = batch_size
         self.temporal_trend_detection = temporal_trend_detection
         self.confidence = confidence
+
+        self.word_vector_algo = word_vector_algo
 
         self.acc_list = []
 
@@ -75,14 +77,24 @@ class PLStream():
         self.neg_ref = {'bad', 'worst', 'stupid', 'disappointing',
                         'terrible', 'rubbish', 'boring', 'awful', 'unwatchable', 'awkward'}
         if config.STEM:  # TODO: TEMP --- DLT OTHER WHEN FINALIZED.
-            self.pos_ref = {'love', 'best', 'beauti', 'great', 'cool',
-                            'awesom', 'wonder', 'brilliant', 'excel', 'fantast'}
-            self.neg_ref = {'bad', 'worst', 'stupid', 'disappoint',
-                            'terribl', 'rubbish', 'bore', 'aw', 'unwatch', 'awkward'}
+            # self.pos_ref = {'love', 'best', 'beauti', 'great', 'cool',
+            #                 'awesom', 'wonder', 'brilliant', 'excel', 'fantast'}
+            # self.neg_ref = {'bad', 'worst', 'stupid', 'disappoint',
+            #                 'terribl', 'rubbish', 'bore', 'aw', 'unwatch', 'awkward'}
+            self.pos_ref = {'love', 'best', 'beautiful', 'great',
+                            'cool', 'awesome', 'wonderful', 'brilliant', 'excellent', 'fantastic'}
+            self.neg_ref = {'bad', 'worst', 'stupid', 'disappointing',
+                            'terrible', 'rubbish', 'boring', 'awful', 'unwatchable', 'awkward'}
 
         self.idx = []
         self.labels = []
         self.texts = []
+
+    def load_updated_model(self):
+        """
+        Load updated model from local.
+        """
+        self.wv_model = self.word_vector_algo.load(config.US_WV)
 
     def process_data(self, data):
         """
@@ -108,6 +120,8 @@ class PLStream():
             train_word_vector_algo(
                 self.wv_model, self.texts, config.US_WV, update=self.update)
 
+            self.load_updated_model()
+
             # Get predictions and confidence scores.
             conf, preds = self.eval_model(self.texts, self.labels)
 
@@ -124,24 +138,24 @@ class PLStream():
             return output
         return config.BATCHING
 
-    def update_temporal_trend(self, y_preds):
-        """
-        Update temporal trend of sentiment analysis based on predictions.
+    # def update_temporal_trend(self, y_preds):
+    #     """
+    #     Update temporal trend of sentiment analysis based on predictions.
 
-        Args:
-            y_preds (list): Predicted sentiments for current batch.
-        """
-        # Calculate positive and negative predictions so far.
-        for pred in y_preds:
-            if pred == 1:
-                self.pos_count += 1
-            else:
-                self.neg_count += 1
+    #     Args:
+    #         y_preds (list): Predicted sentiments for current batch.
+    #     """
+    #     # Calculate positive and negative predictions so far.
+    #     for pred in y_preds:
+    #         if pred == 1:
+    #             self.pos_count += 1
+    #         else:
+    #             self.neg_count += 1
 
-        # Update temporal trend based on predictions.
-        total = self.neg_count + self.pos_count
-        self.neg_coef = self.neg_count / total
-        self.pos_coef = self.pos_count / total
+    #     # Update temporal trend based on predictions.
+    #     total = self.neg_count + self.pos_count
+    #     self.neg_coef = self.neg_count / total
+    #     self.pos_coef = self.pos_count / total
 
     def eval_model(self, sent_tokens, labels):
         """
@@ -164,7 +178,7 @@ class PLStream():
             confidence.append(conf)
             y_preds.append(y_pred)
 
-        self.update_temporal_trend(y_preds)
+        # self.update_temporal_trend(y_preds)
 
         self.acc_list.append(accuracy_score(labels, y_preds))
         return confidence, y_preds
