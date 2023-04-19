@@ -77,37 +77,25 @@ class Classifier:
         # Set start time of classifier.
         self.start_time = time.time()
 
-    def get_prediction(self, data):
+    def get_prediction(self, data, tensor_func):
         """
         Get NN model's prediction for batch data.
 
         Args:
             data (ndarray): Word embeddings to input to model for prediction.
+            tensor_func (func): Function to convert numpy array to float or scalar
 
         Returns:
             tuple: Predictions and it's confidence scores for current batch.
         """
 
         with torch.no_grad():
-            if self.ssl_model == 'ANN':
-                # Get predicted probabilities.
-                preds = self.clf_model(torch.FloatTensor(data).to(self.device))
+            # Get predicted probabilities.
+            preds = self.clf_model(tensor_func(data).to(self.device))
 
-                # Calculate binary predictions and confidence scores.
-                conf = (torch.abs(preds - 0.5) * 2).view(-1)
-                preds = preds.ge(0.5).long().view(-1)
-
-            else:
-                # Reset hidden state for current batch.
-                self.clf_model.reset_hidden_state(data.shape[0])
-                # Get predicted probabilities.
-                preds = self.clf_model(torch.from_numpy(data).to(self.device))
-
-                # Calculate binary predictions and confidence scores.
-                max_t, _ = torch.max(preds, 1)
-                min_t, _ = torch.min(preds, 1)
-                conf = torch.abs(max_t / (max_t - min_t))
-                _, preds = torch.max(preds, 1)
+            # Calculate binary predictions and confidence scores.
+            conf = (torch.abs(preds - 0.5) * 2).view(-1)
+            preds = preds.ge(0.5).long().view(-1)
 
         return conf.tolist(), preds.tolist()
 
@@ -141,7 +129,7 @@ class Classifier:
 
             # Get predictions and confidence scores.
             conf, preds = self.get_prediction(
-                np.array(embeddings))
+                np.array(embeddings), torch.FloatTensor if self.ssl_model == 'ANN' else torch.from_numpy)
 
             # Calculate model's accuracy.
             output = accuracy_score(self.labels, preds)
