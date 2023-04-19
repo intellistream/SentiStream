@@ -82,7 +82,7 @@ class Trainer:
             self.optimizer.load_state_dict(torch.load('best_optimizer.pth'))
 
         self.sheduler = torch.optim.lr_scheduler.StepLR(
-            self.optimizer, step_size=5, gamma=0.01)
+            self.optimizer, step_size=5, gamma=0.9)
 
         if not init:
             self.sheduler.load_state_dict(torch.load('best_scheduler.pth'))
@@ -157,8 +157,8 @@ class Trainer:
             val_loss[epoch] /= len(self.test_loader)
             val_acc[epoch] /= len(self.test_loader)
 
-            print(f"epoch: {epoch+1}, train loss: {train_loss[epoch]:.4f}, "
-                  f"train acc: {train_acc[epoch]:.4f}, val loss: {val_loss[epoch]:.4f}, val_acc: {val_acc[epoch]:.4f}, lr: {self.optimizer.param_groups[0]['lr']}")
+            # print(f"epoch: {epoch+1}, train loss: {train_loss[epoch]:.4f}, "
+            #       f"train acc: {train_acc[epoch]:.4f}, val loss: {val_loss[epoch]:.4f}, val_acc: {val_acc[epoch]:.4f}, lr: {self.optimizer.param_groups[0]['lr']}")
 
             # Check if current model has the best validation loss so far and if it is then
             # update values.
@@ -177,23 +177,23 @@ class Trainer:
                 print(best_epoch_details)
                 break
 
-        # Plot training and validation losses.
-        plt.subplot(2, 1, 1)
-        plt.plot(train_loss[:epoch+1], label='train')
-        plt.plot(val_loss[:epoch+1], label='val')
-        plt.title('Loss')
-        plt.legend()
+        # # Plot training and validation losses.
+        # plt.subplot(2, 1, 1)
+        # plt.plot(train_loss[:epoch+1], label='train')
+        # plt.plot(val_loss[:epoch+1], label='val')
+        # plt.title('Loss')
+        # plt.legend()
 
-        # Plot training and validation accuracies.
-        plt.subplot(2, 1, 2)
-        plt.plot(train_acc[:epoch+1], label='train')
-        plt.plot(val_acc[:epoch+1], label='val')
-        plt.title('Accuracy')
-        plt.legend()
+        # # Plot training and validation accuracies.
+        # plt.subplot(2, 1, 2)
+        # plt.plot(train_acc[:epoch+1], label='train')
+        # plt.plot(val_acc[:epoch+1], label='val')
+        # plt.title('Accuracy')
+        # plt.legend()
 
-        # Save the fig.
-        plt.savefig(
-            f'{val_loss[best_epoch]}-{best_epoch}-{train_loss[best_epoch]}.png')
+        # # Save the fig.
+        # plt.savefig(
+        #     f'{val_loss[best_epoch]}-{best_epoch}-{train_loss[best_epoch]}.png')
 
     def fit_and_save(self, filename, epochs=100):
         """
