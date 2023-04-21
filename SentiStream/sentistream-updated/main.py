@@ -4,7 +4,6 @@
 # TORCH JIT ?
 # TODO: FIX CLASS IMBALANCE IN INITIAL TRAINING - DONE - REWATCH
 
-from itertools import zip_longest
 from time import time
 
 import pandas as pd
@@ -113,14 +112,16 @@ else:
 
         ss_output = classifier.classify((idx, label, text))
 
+        # print(text)
+
         if us_output != config.BATCHING:
             us_predictions += us_output
         if ss_output != config.BATCHING:
             ss_predictions += ss_output
 
         if len(ss_predictions) > 0 or len(us_predictions) > 0:
-            temp = [pseduo_labeler.generate_pseudo_label(us_pred, ss_pred)
-                    for us_pred, ss_pred in zip_longest(us_predictions, ss_predictions)]
+            temp = pseduo_labeler.generate_pseudo_label(
+                us_predictions, ss_predictions)
 
             for t in temp:
                 if t not in [[config.LOW_CONF], [config.BATCHING]]:
@@ -128,26 +129,33 @@ else:
             acc_list.append(pseduo_labeler.get_model_acc())
             us_predictions, ss_predictions = [], []
 
-        for data in pseudo_data:
-            dump.append(data[1:])
-            inference.classify((data[0], data[1], data[2]))
+        # for data in pseudo_data:
+        #     dump.append(data[1:])
+        #     inference.classify((data[0], data[1], data[2]))
 
-        pseudo_data = []
+        # pseudo_data = []
 
-        if idx % 1000 == 0:
-            if dump:
-                message = model_trainer.update_model(dump, 0.4, 0.2)
+        # if idx % 1000 == 0:
+        #     if dump:
+        #         message = model_trainer.update_model(dump, 0.4, 0.2)
 
-                if message == config.FINISHED:
-                    dump = []
+        #         if message == config.FINISHED:
+        #             dump = []
 
 print(
-    f'\n\nBOTH SAME - CORRECT: {pseduo_labeler.us_ss_same_crct}, WRONG: {pseduo_labeler.us_ss_same_wrng}')
+    f'\n\nBOTH PREDICTIONS ARE SAME - CORRECT: {pseduo_labeler.us_ss_same_crct}, WRONG: {pseduo_labeler.us_ss_same_wrng}')
 print(
     f'SS CORRECT: {pseduo_labeler.ss_crct}, US_CORRECT: {pseduo_labeler.us_crct}')
-# print(pseduo_labeler.both_same_crct_conf)
 
-# print(pseduo_labeler.both_same_wrong_conf)
+
+print(f'\n TOTAL LABELS BY GROUND TRUTHU, US PRED, SS PRED --- POS  {pseduo_labeler.ttl_true_pos}, {pseduo_labeler.ttl_us_pos}, {pseduo_labeler.ttl_ss_pos},,, NEG {pseduo_labeler.ttl_true_neg}, {pseduo_labeler.ttl_us_neg}, {pseduo_labeler.ttl_ss_neg}')
+
+print(f'PSEUDO (CORRECT, WRONG) --- POS {pseduo_labeler.pseudo_pos_crct}, {pseduo_labeler.pseudo_pos_wrng},, NEG {pseduo_labeler.pseudo_neg_crct}, {pseduo_labeler.pseudo_neg_wrng}')
+
+# print(f'\n AFTER -- CRCT - {pseduo_labeler.crct_aft}, WRNG: {pseduo_labeler.wrng_aft}')
+# # print(pseduo_labeler.both_same_crct_conf)
+
+# # print(pseduo_labeler.both_same_wrong_conf)
 
 # NOTE: MOST OF BOTH SAME RESULTS IN CORRECT PREDICTION
 # NOTE: EVEN HIGH CONFIDENT LABELS HAVE 10% WRONG LABELS (SAME WEIGHT FOR BOTH and set conf 0.5)
@@ -157,18 +165,18 @@ print(
 if not config.PYFLINK:
     print('\n-- UNSUPERVISED MODEL ACCURACY --')
     print(plstream.acc_list)
-    print(sum(plstream.acc_list)/len(plstream.acc_list))
+    print('AVG ACC SO FAR: ', sum(plstream.acc_list)/len(plstream.acc_list))
 
     print('\n-- SUPERVISED MODEL ACCURACY --')
     print(classifier.acc_list)
-    print(sum(classifier.acc_list)/len(classifier.acc_list))
+    print('AVG ACC SO FAR: ', sum(classifier.acc_list)/len(classifier.acc_list))
 
     print('\n-- SENTISTREAM ACCURACY --')
     print(acc_list)
-    print(sum([x for x in acc_list if x])/len([x for x in acc_list if x]))
+    print('AVG ACC SO FAR: ', sum([x for x in acc_list if x])/len([x for x in acc_list if x]))
 
     print('\n-- SUPERVISED MODEL ACCURACY ON PSEUDO DATA --')
     print(inference.acc_list)
-    print(sum(inference.acc_list)/len(inference.acc_list))
+    print('AVG ACC SO FAR: ', sum(inference.acc_list)/len(inference.acc_list))
 
 print('Elapsed Time: ', time() - start)
