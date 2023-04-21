@@ -83,7 +83,7 @@ class TrainModel:
         else:
             clf = HANTrainer(self.texts, self.labels, self.wv_model.wv.key_to_index, [
                 self.wv_model.wv[key] for key in self.wv_model.wv.index_to_key], init,
-                old_embeddings=old_embeddings, downsample=False)
+                old_embeddings=old_embeddings, downsample=True, test_size=self.test_size)
 
         # Fit classifier and save model.
         clf.fit_and_save(config.SSL_CLF)

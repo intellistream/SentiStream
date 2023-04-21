@@ -70,7 +70,7 @@ class Classifier:
 
         # Set batch size and initialize lists for labels and texts.
         self.batch_size = batch_size if batch_size is not None else (
-            256 if ssl_model == 'ANN' else 128)
+            256 if ssl_model == 'ANN' else 256)
 
         self.idx = []
         self.labels = []

@@ -19,14 +19,14 @@ class WordAttentionNet(nn.Module):
         gru (torch.nn.GRU): Word-level Bidirectional GRU layer.
     """
 
-    def __init__(self, embeddings, hidden_size=50):
+    def __init__(self, embeddings, hidden_size=32):
         """
         Initialize network with embeddings.
 
         Args:
             embeddings (ndarray): Pre-trained word embeddings.
             hidden_size (int, optional): Number of features in the hidden state of word-level GRU.
-                                        Defaults to 50.
+                                        Defaults to 32.
         """
         super().__init__()
 
@@ -88,7 +88,7 @@ class SentenceAttentionNet(nn.Module):
 
     """
 
-    def __init__(self, sent_hidden_size=50, word_hidden_size=50):
+    def __init__(self, sent_hidden_size=32, word_hidden_size=32):
         """
         Intialize network
 
@@ -157,8 +157,8 @@ class HAN(nn.Module):
         device (torch.device): Device on which to run the model.
     """
 
-    def __init__(self, embeddings, batch_size=128, max_sent_length=10, max_word_length=15,
-                 word_hidden_size=50, sent_hidden_size=50):
+    def __init__(self, embeddings, batch_size=256, max_sent_length=15, max_word_length=15,
+                 word_hidden_size=32, sent_hidden_size=32):
         """
         Initialize HAN.
 
