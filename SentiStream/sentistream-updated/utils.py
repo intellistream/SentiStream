@@ -12,8 +12,6 @@ import config
 
 nltk.download('punkt', quiet=True)
 nltk.download('wordnet', quiet=True)
-# nltk.
-
 
 STOP_WORDS = {'also', 'ltd', 'once', 'll', 'make', 'he', 'through', 'all', 'top', 'from', 'or', 's',
               'hereby', 'so',  'yours', 'since', 'meanwhile', 're', 'over', 'mrs', 'thereafter',
@@ -49,7 +47,6 @@ STOP_WORDS = {'also', 'ltd', 'once', 'll', 'make', 'he', 'through', 'all', 'top'
               'beside', 'whatever', 'whereby', 'ever', 'everyone', 'nevertheless', 'serious',
               'using', 'becomes', 'enough', 'how', 'bottom', 've', 'regarding', 'm', 'they', 'part',
               'front', 'fill', 'get', 'nobody', 'detail'}
-
 
 stemmer = SnowballStemmer('english')
 lemmatizer = WordNetLemmatizer()
@@ -159,6 +156,7 @@ def tokenize(text):
     text = re.sub(r'\s+', ' ', text).strip()
 
     tokens = word_tokenize(text)
+
     # return [stemmer.stem(token) if config.STEM else token
     #         for token in tokens if token not in STOP_WORDS]
     return [lemmatizer.lemmatize(token) if config.STEM else token
