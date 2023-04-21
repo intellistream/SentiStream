@@ -52,13 +52,26 @@ python3 main.py
 > NOTE: Change parameters from `config.py` to train with different word vector or classifier algorithms.
 
 
+## 5608 5806
+
+
+## 0.5 --> 0.8
 
 ###### ----------------------
-## DONT SINK PSEUDO LABELS...
-
 
 ## MOVE TO CONFLUENT-KAFKA
 
+## CHECK LESS AACCURATE TEXTS AND FIND THE PROB
+
+### CALC VARIANCE OF EACH DTA POINT
+
+## NGRAM APPORAHC ????
+
+## CHECK PERFORMANCE OF SPACY VS NLTK FOR LEMMATIzation
+
+## CHECK WHY CLF NOT PREDICTS NEG 
+
+#### VECTORIZE EVAL FUNC
 ## WHAT ABT MAX SENT, WORD LEN???
 
 ## CHECK FOR LAST BATCH IN STREAM
