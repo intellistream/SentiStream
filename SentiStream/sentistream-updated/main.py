@@ -143,14 +143,25 @@ else:
         #             dump = []
 
 print(
-    f'\n\nBOTH PREDICTIONS ARE SAME - CORRECT: {pseduo_labeler.us_ss_same_crct}, WRONG: {pseduo_labeler.us_ss_same_wrng}')
+    f'\n\nFLEXMATCH - BOTH PREDICTIONS ARE SAME - CORRECT: {pseduo_labeler.us_ss_same_crct}, WRONG: {pseduo_labeler.us_ss_same_wrng}')
 print(
-    f'SS CORRECT: {pseduo_labeler.ss_crct}, US_CORRECT: {pseduo_labeler.us_crct}')
+    f'FLEXMATCH - SS CORRECT: {pseduo_labeler.ss_crct}, US_CORRECT: {pseduo_labeler.us_crct}')
+
+print(
+    f'\n\nWITHOUT FLEXMATCH - BOTH PREDICTIONS ARE SAME - CORRECT: {pseduo_labeler.us_ss_same_crct_aft}, WRONG: {pseduo_labeler.us_ss_same_wrng_aft}')
+print(
+    f'WITHOUT FLEXMATCH - SS CORRECT: {pseduo_labeler.ss_crct_aft}, US_CORRECT: {pseduo_labeler.us_crct_aft}')
 
 
-print(f'\n TOTAL LABELS BY GROUND TRUTHU, US PRED, SS PRED --- POS  {pseduo_labeler.ttl_true_pos}, {pseduo_labeler.ttl_us_pos}, {pseduo_labeler.ttl_ss_pos},,, NEG {pseduo_labeler.ttl_true_neg}, {pseduo_labeler.ttl_us_neg}, {pseduo_labeler.ttl_ss_neg}')
+print(
+    f'\n TOTAL LABELS BY GROUND TRUTHU, US PRED, SS PRED --- POS  {pseduo_labeler.ttl_true_pos}, {pseduo_labeler.ttl_us_pos}, {pseduo_labeler.ttl_ss_pos},,, NEG {pseduo_labeler.ttl_true_neg}, {pseduo_labeler.ttl_us_neg}, {pseduo_labeler.ttl_ss_neg}')
 
-print(f'PSEUDO (CORRECT, WRONG) --- POS {pseduo_labeler.pseudo_pos_crct}, {pseduo_labeler.pseudo_pos_wrng},, NEG {pseduo_labeler.pseudo_neg_crct}, {pseduo_labeler.pseudo_neg_wrng}')
+print(
+    f'FLEXMATCH - PSEUDO (CORRECT, WRONG) --- POS {pseduo_labeler.pseudo_pos_crct}, {pseduo_labeler.pseudo_pos_wrng},, NEG {pseduo_labeler.pseudo_neg_crct}, {pseduo_labeler.pseudo_neg_wrng}')
+
+print(
+    f'WITHOUT FLEXMATCH - PSEUDO (CORRECT, WRONG) --- POS {pseduo_labeler.pseudo_pos_crct_aft}, {pseduo_labeler.pseudo_pos_wrng_aft},, NEG {pseduo_labeler.pseudo_neg_crct_aft}, {pseduo_labeler.pseudo_neg_wrng_aft}')
+
 
 # print(f'\n AFTER -- CRCT - {pseduo_labeler.crct_aft}, WRNG: {pseduo_labeler.wrng_aft}')
 # # print(pseduo_labeler.both_same_crct_conf)
@@ -161,22 +172,25 @@ print(f'PSEUDO (CORRECT, WRONG) --- POS {pseduo_labeler.pseudo_pos_crct}, {psedu
 # NOTE: EVEN HIGH CONFIDENT LABELS HAVE 10% WRONG LABELS (SAME WEIGHT FOR BOTH and set conf 0.5)
 # NOTE: HAVING 0.3 as conf thresh remove most of the noise in pseudo labels.
 
+# NOTE: HAN IS BETTER THAN ANN ---- NOT MUCH DIFF IN PREDICTIONS AT EARLY STAGE,, BUT LOSS IS LOW, AND GENERATES HIGH CONF -- CORRECT PSEUDO LABELS THAN ANN
 
-if not config.PYFLINK:
-    print('\n-- UNSUPERVISED MODEL ACCURACY --')
-    print(plstream.acc_list)
-    print('AVG ACC SO FAR: ', sum(plstream.acc_list)/len(plstream.acc_list))
 
-    print('\n-- SUPERVISED MODEL ACCURACY --')
-    print(classifier.acc_list)
-    print('AVG ACC SO FAR: ', sum(classifier.acc_list)/len(classifier.acc_list))
+# if not config.PYFLINK:
+#     print('\n-- UNSUPERVISED MODEL ACCURACY --')
+#     print(plstream.acc_list)
+#     print('AVG ACC SO FAR: ', sum(plstream.acc_list)/len(plstream.acc_list))
 
-    print('\n-- SENTISTREAM ACCURACY --')
-    print(acc_list)
-    print('AVG ACC SO FAR: ', sum([x for x in acc_list if x])/len([x for x in acc_list if x]))
+#     print('\n-- SUPERVISED MODEL ACCURACY --')
+#     print(classifier.acc_list)
+#     print('AVG ACC SO FAR: ', sum(classifier.acc_list)/len(classifier.acc_list))
 
-    print('\n-- SUPERVISED MODEL ACCURACY ON PSEUDO DATA --')
-    print(inference.acc_list)
-    print('AVG ACC SO FAR: ', sum(inference.acc_list)/len(inference.acc_list))
+#     print('\n-- SENTISTREAM ACCURACY --')
+#     print(acc_list)
+#     print('AVG ACC SO FAR: ', sum(
+#         [x for x in acc_list if x])/len([x for x in acc_list if x]))
+
+#     print('\n-- SUPERVISED MODEL ACCURACY ON PSEUDO DATA --')
+#     print(inference.acc_list)
+#     print('AVG ACC SO FAR: ', sum(inference.acc_list)/len(inference.acc_list))
 
 print('Elapsed Time: ', time() - start)
