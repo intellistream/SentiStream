@@ -162,11 +162,6 @@ def tokenize(text):
     tokens = [lemmatizer.lemmatize(token)
               for token in tokens if token not in STOP_WORDS]
 
-    # for i in range(len(tokens)):
-    #     if tokens[i] == 'not' and len(tokens) > i+1:
-    #         tokens[i] = 'n_' + tokens[i+1]
-    #         tokens[i+1] = ''
-
     for i, token in enumerate(tokens[:-1]):
         if token == 'not':
             tokens[i:i+2] = ['n_' + tokens[i+1]] + \

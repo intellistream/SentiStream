@@ -5,5 +5,7 @@ numpy
 pandas
 redis
 kafka-python
+python-Levenshtein
+matplotlib
 scikit-learn
 torch==1.13.1 --index-url https://download.pytorch.org/whl/cu118

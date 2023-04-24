@@ -54,8 +54,8 @@ class PLStream():
 
         self.update = True
         self.batch_size = batch_size
-        self.temporal_trend_detection = temporal_trend_detection
-        self.confidence = confidence
+        # self.temporal_trend_detection = temporal_trend_detection
+        # self.confidence = confidence
 
         self.word_vector_algo = word_vector_algo
 
@@ -66,8 +66,8 @@ class PLStream():
         self.count2 = 0
 
         # Initialize word vector model.
-        num_workers = int(0.5 * multiprocessing.cpu_count()
-                          )  # Best value for batch of 250.
+        # num_workers = int(0.5 * multiprocessing.cpu_count()
+        #   )  # Best value for batch of 250.
         # self.wv_model = word_vector_algo(
         #     vector_size=vector_size, workers=num_workers)
 
@@ -186,10 +186,6 @@ class PLStream():
             # confidence.append(conf)
             y_preds.append(y_pred)
 
-            # _, y_tt_pred = self.predict(
-            #     embeddings, sent_tokens[idx], temp='tt', sent=sent_tokens[idx])
-            # y_tt_preds.append(y_tt_pred)
-
             conf_ts, y_ts_pred = self.predict(
                 embeddings, sent_tokens[idx], temp='t')
             confidence.append(conf_ts)
@@ -213,7 +209,6 @@ class PLStream():
         # self.update_temporal_trend(y_tt_preds)
 
         self.baseline_acc_list.append(accuracy_score(labels, y_preds))
-        # self.temporal_list.append(accuracy_score(labels, y_tt_preds))
         self.text_similarity_list.append(accuracy_score(labels, y_ts_preds))
         return confidence, y_preds
 
@@ -241,8 +236,6 @@ class PLStream():
         if temp == 't':
             # if abs(cos_sim_pos - cos_sim_neg) < 0.01:
             if True and tokens:
-                # if -0.2 < cos_sim_pos < 0.2 or -0.2 < cos_sim_neg < 0.2:
-
                 sent_n = [word for word in tokens if not word.startswith('n_')]
                 negation = [word for word in tokens if word.startswith('n_')]
 
@@ -263,7 +256,6 @@ class PLStream():
                 cos_sim_neg += text_sim_neg
 
         # # Predict polarity based on temporal trend and cosine similarity.
-
         # if temp == 'tt':
         #     if cos_sim_neg - cos_sim_pos > self.confidence:
         #         return cos_sim_neg - cos_sim_pos, 0
