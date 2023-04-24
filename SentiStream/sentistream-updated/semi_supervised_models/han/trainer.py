@@ -191,15 +191,17 @@ class Trainer:
             val_acc[epoch] /= len(self.test_loader)
 
             # print(f"epoch: {epoch+1}, train loss: {train_loss[epoch]:.4f}, "
-            #       f"train acc: {train_acc[epoch]:.4f}, val loss: {val_loss[epoch]:.4f}, val_acc: {val_acc[epoch]:.4f}, lr: {self.optimizer.param_groups[0]['lr']}")
+            #       f"train acc: {train_acc[epoch]:.4f}, val loss: {val_loss[epoch]:.4f},"
+            #       f" val_acc: {val_acc[epoch]:.4f}, lr: {self.optimizer.param_groups[0]['lr']}")
 
             # Check if current model has the best validation loss so far and if it is then
             # update values.
             if val_loss[epoch] < best_loss:
                 best_loss = val_loss[epoch]
                 best_epoch = epoch
-                best_epoch_details = f"HAN epoch: {epoch+1}, train loss: {train_loss[epoch]:.4f}, " \
-                    f"train acc: {train_acc[epoch]:.4f}, val loss: {val_loss[epoch]:.4f}, val_acc: {val_acc[epoch]:.4f}"
+                best_epoch_details = f"HAN epoch: {epoch+1},"\
+                    f" train loss: {train_loss[epoch]:.4f}, train acc: {train_acc[epoch]:.4f},"\
+                    f" val loss: {val_loss[epoch]:.4f}, val_acc: {val_acc[epoch]:.4f}"
                 self.best_model_checkpoint = self.model.state_dict()
                 self.optimizer_checkpoint = self.optimizer.state_dict()
                 self.sheduler_checkpoint = self.sheduler.state_dict()

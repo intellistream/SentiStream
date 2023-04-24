@@ -113,8 +113,6 @@ class Trainer:
 
             # Set model to training mode and initialize training loss and accuracy.
             self.model.train()
-            # train_loss = 0
-            # train_acc = 0
 
             # Loop through training data.
             for vecs, labels in self.train_loader:
@@ -126,8 +124,6 @@ class Trainer:
                 self.optimizer.step()
 
                 # Update training loss and accuracy.
-                # train_loss += loss.item()
-                # train_acc += calc_acc(outputs, labels).item()
                 train_loss[epoch] += loss.item()
                 train_acc[epoch] += calc_acc(outputs, labels).item()
 
@@ -139,8 +135,6 @@ class Trainer:
 
             # Set model to evaluation mode and initialize validation loss and accuracy.
             self.model.eval()
-            # val_loss = 0
-            # val_acc = 0
 
             with torch.no_grad():
                 # Loop through the validation data.
@@ -158,15 +152,17 @@ class Trainer:
             val_acc[epoch] /= len(self.test_loader)
 
             # print(f"epoch: {epoch+1}, train loss: {train_loss[epoch]:.4f}, "
-            #       f"train acc: {train_acc[epoch]:.4f}, val loss: {val_loss[epoch]:.4f}, val_acc: {val_acc[epoch]:.4f}, lr: {self.optimizer.param_groups[0]['lr']}")
+            #       f"train acc: {train_acc[epoch]:.4f}, val loss: {val_loss[epoch]:.4f}, "
+            #       f"val_acc: {val_acc[epoch]:.4f}, lr: {self.optimizer.param_groups[0]['lr']}")
 
             # Check if current model has the best validation loss so far and if it is then
             # update values.
             if best_loss - val_loss[epoch] > 0.001:
                 best_epoch = epoch
                 best_loss = val_loss[epoch]
-                best_epoch_details = f"epoch: {epoch+1}, train loss: {train_loss[epoch]:.4f}, " \
-                    f"train acc: {train_acc[epoch]:.4f}, val loss: {val_loss[epoch]:.4f}, val_acc: {val_acc[epoch]:.4f}"
+                best_epoch_details = f"ANN epoch: {epoch+1}," \
+                    f" train loss: {train_loss[epoch]:.4f}, train acc: {train_acc[epoch]:.4f}," \
+                    f" val loss: {val_loss[epoch]:.4f}, val_acc: {val_acc[epoch]:.4f}"
                 self.best_model_checkpoint = self.model.state_dict()
                 self.optimizer_checkpoint = self.optimizer.state_dict()
                 self.sheduler_checkpoint = self.sheduler.state_dict()

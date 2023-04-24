@@ -79,7 +79,8 @@ class TrainModel:
             clf = ANNTrainer(
                 get_average_word_embeddings(
                     self.wv_model, self.filtered_tokens),
-                self.labels, self.wv_model.vector_size, init, downsample=True, test_size=self.test_size)
+                self.labels, self.wv_model.vector_size, init,
+                downsample=True, test_size=self.test_size)
         else:
             clf = HANTrainer(self.texts, self.labels, self.wv_model.wv.key_to_index, [
                 self.wv_model.wv[key] for key in self.wv_model.wv.index_to_key], init,
@@ -90,13 +91,21 @@ class TrainModel:
 
     def update_model(self, data, acc, test_size, pseudo_data_threshold=None, acc_threshold=None):
         """
-
+        Update pretrained model using incremental learning technique.
 
         Args:
-            data (_type_): _description_
+            data (list): Tuples containing label and processed text.
             acc (float): Current accuracy of SSL model.
-        """
+            test_size (float): Altered test size when doing incremental learning with small data.
+            pseudo_data_threshold (float, optional): Threshold for number of pseudo data needed to
+                                                    update model. Defaults to None.
+            acc_threshold (_type_, optional): Threshold for max accuracy to not update model.
+                                            Defaults to None.
 
+        Returns:
+            str: 'FINISHED' if model is successfully updated, 'SKIPPED' if current batch doesn't 
+                meet requirements to be trained.
+        """
         self.test_size = test_size
         self.labels, self.texts = zip(*data)
         self.filtered_tokens = [clean_for_wv(text) for text in self.texts]
@@ -108,8 +117,9 @@ class TrainModel:
             self.acc_threshold = acc_threshold
 
         # If there is too low pseudo data or the accuracy is too high, do not update model.
-        if (len(self.labels) < self.pseudo_data_threshold or acc > self.acc_threshold):
-            print(f'TRAINING SKIPPED - acc: {acc}, threshold: {self.acc_threshold}\npseudo_data_size: {len(self.labels)}'
+        if (len(data) < self.pseudo_data_threshold or acc > self.acc_threshold):
+            print(f'TRAINING SKIPPED - acc: {acc}, threshold: {self.acc_threshold}\n'
+                  f'pseudo_data_size: {len(data)}'
                   f' threshold: {self.pseudo_data_threshold}')
             return config.SKIPPED
 
