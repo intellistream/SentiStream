@@ -32,11 +32,11 @@ class SentimentPseudoLabeler:
     POS_LEARNING_EFFECT = 0
     NEG_LEARNING_EFFECT = 0
 
-    ADAPTIVE_POS_LE_GAP = 0.02
-    ADAPTIVE_NEG_LE_GAP = 0.02
+    ADAPTIVE_POS_LE_GAP = 0.03
+    ADAPTIVE_NEG_LE_GAP = 0.03
 
-    ADAPTIVE_POS_THRESHOLD = 0.78
-    ADAPTIVE_NEG_THRESHOLD = 0.78
+    ADAPTIVE_POS_THRESHOLD = 0.77
+    ADAPTIVE_NEG_THRESHOLD = 0.77
 
     def __init__(self):
         """
@@ -94,9 +94,18 @@ class SentimentPseudoLabeler:
         ss_conf = data['ss'][0] * polarity(data['ss'][1]) * \
             SentimentPseudoLabeler.ADAPTIVE_SEMI_SUPERVISED_PREDICTION_WEIGHT
 
+        # ss_conf = 0
+
+        # if abs(us_conf) < 1:
+        #     # Calculate semi-supervised model's weighted confidence.
+        #     ss_conf = data['ss'][0] * polarity(data['ss'][1]) * \
+        #         SentimentPseudoLabeler.ADAPTIVE_SEMI_SUPERVISED_PREDICTION_WEIGHT
+
+        # print(us_conf, ss_conf)
+
         # Store final prediction to calculate sentistream's accuracy.
         self.to_calc_acc.append([
-            [data['us'][2]], [data['us'][1] if us_conf > ss_conf else data['ss'][1]]])
+            [data['us'][2]], [data['us'][1] if abs(us_conf) > abs(ss_conf) else data['ss'][1]]])
 
         mean_pred = (us_conf + ss_conf) / 2
 
@@ -160,13 +169,12 @@ class SentimentPseudoLabeler:
                     conf, var_p = self.get_confidence_score(
                         self.collector[stream_output[0]])
 
-                    conf_list.append(conf)
-                    var_list.append(var_p)
-                    key_list.append(stream_output[0])
+                    if stream_output[0] not in key_list:
+                        conf_list.append(conf)
+                        var_list.append(var_p)
+                        key_list.append(stream_output[0])
 
         output = self.get_pseudo_label(conf_list, var_list, key_list)
-
-        # print(output)
 
         if not output:
             return [config.BATCHING]
@@ -285,15 +293,6 @@ class SentimentPseudoLabeler:
                     else:
                         self.us_crct += 1
 
-            else:
-                if ss == us:
-                    if ss == t:
-                        if var_p[idx] < 0.0001:
-                            self.crct_aft += 1
-                    else:
-                        if var_p[idx] < 0.0001:
-                            self.wrng_aft += 1
-
         for idx, key in enumerate(key_list):
             text = self.collector[key]['ss'][2]
 
@@ -328,22 +327,24 @@ class SentimentPseudoLabeler:
                     else:
                         self.us_crct_aft += 1
 
-        # if -0.1 < conf < 0.1:
-        #     print(conf, text, key, self.collector[key]['us'][2],
-        #           self.collector[key]['us'][1], self.collector[key]['ss'][1])
+        # # if -0.1 < conf < 0.1:
+        # #     print(conf, text, key, self.collector[key]['us'][2],
+        # #           self.collector[key]['us'][1], self.collector[key]['ss'][1])
 
         for idx, c in enumerate(conf):
-            if c <= -(SentimentPseudoLabeler.ADAPTIVE_NEG_THRESHOLD +
-                      SentimentPseudoLabeler.NEG_LEARNING_EFFECT) or \
-                    c >= (SentimentPseudoLabeler.ADAPTIVE_POS_THRESHOLD +
-                          SentimentPseudoLabeler.POS_LEARNING_EFFECT):
+            if conf[idx] <= -(SentimentPseudoLabeler.ADAPTIVE_NEG_THRESHOLD +
+                              SentimentPseudoLabeler.ADAPTIVE_NEG_LE_GAP *
+                              SentimentPseudoLabeler.NEG_LEARNING_EFFECT) or \
+                    conf[idx] >= (SentimentPseudoLabeler.ADAPTIVE_POS_THRESHOLD +
+                                  SentimentPseudoLabeler.ADAPTIVE_POS_LE_GAP *
+                                  SentimentPseudoLabeler.POS_LEARNING_EFFECT):
                 pseudo_labels.append([
-                    key_list[idx], 1 if c >= 0.5 else 0, self.collector[key_list[idx]]['ss'][2]])
+                    key_list[idx], 1 if c >= 0 else 0, self.collector[key_list[idx]]['ss'][2]])
 
             # Delete item from collector to avoid re-generating labels.
             del self.collector[key_list[idx]]
 
-        # return config.LOW_CONF if -0.80 < conf < 0.80 else [key, 1 if conf >= 0.5 else 0, text]
+        # # return config.LOW_CONF if -0.80 < conf < 0.80 else [key, 1 if conf >= 0.5 else 0, text]
         return pseudo_labels
 
 
