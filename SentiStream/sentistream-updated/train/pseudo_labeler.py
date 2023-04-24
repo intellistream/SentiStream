@@ -100,7 +100,7 @@ class SentimentPseudoLabeler:
 
         mean_pred = (us_conf + ss_conf) / 2
 
-        var_pred = ((us_conf - mean_pred) ** 2 + (ss_conf - mean_pred) ** 2)
+        var_pred = (us_conf - mean_pred) ** 2 + (ss_conf - mean_pred) ** 2
 
         return us_conf + ss_conf, var_pred
 
@@ -164,7 +164,9 @@ class SentimentPseudoLabeler:
                     var_list.append(var_p)
                     key_list.append(stream_output[0])
 
-        self.get_pseudo_label(conf_list, var_list, key_list)
+        output = self.get_pseudo_label(conf_list, var_list, key_list)
+
+        # print(output)
 
         if not output:
             return [config.BATCHING]
@@ -211,7 +213,8 @@ class SentimentPseudoLabeler:
                 2 - SentimentPseudoLabeler.NEG_LEARNING_EFFECT)
 
             # print('\POS & NEG LABELS BEFORE FLEXMATCH: ', pos_, neg_)
-            # print('FLEXMATCH LEARNING EFFECT FOR POS & NEG: ', SentimentPseudoLabeler.POS_LEARNING_EFFECT,
+            # print('FLEXMATCH LEARNING EFFECT FOR POS & NEG: ',
+            #       SentimentPseudoLabeler.POS_LEARNING_EFFECT,
             #       SentimentPseudoLabeler.NEG_LEARNING_EFFECT)
 
             pos_ = 0
@@ -232,8 +235,6 @@ class SentimentPseudoLabeler:
             # print('POS & NEG LABELS AFTER FLEXMATCH ', pos_, neg_)
 
         for idx, key in enumerate(key_list):
-            text = self.collector[key]['ss'][2]
-
             temp = self.collector[key]
             ss = temp['ss'][1]
             us = temp['us'][1]
@@ -327,29 +328,23 @@ class SentimentPseudoLabeler:
                     else:
                         self.us_crct_aft += 1
 
-        # print(
-        #     f'\n\nBOTH SAME - CORRECT: {self.us_ss_same_crct}, WRONG: {self.us_ss_same_wrng}')
-        # print(
-        #     f'SS CORRECT: {self.ss_crct}, US_CORRECT: {self.us_crct}')
+        # if -0.1 < conf < 0.1:
+        #     print(conf, text, key, self.collector[key]['us'][2],
+        #           self.collector[key]['us'][1], self.collector[key]['ss'][1])
 
-        # print(
-        #     f'\n CRCT  --- POS  {self.ttl_true_pos}, {self.ttl_us_pos}, {self.ttl_ss_pos},,, NEG {self.ttl_true_neg}, {self.ttl_us_neg}, {self.ttl_ss_neg}')
+        for idx, c in enumerate(conf):
+            if c <= -(SentimentPseudoLabeler.ADAPTIVE_NEG_THRESHOLD +
+                      SentimentPseudoLabeler.NEG_LEARNING_EFFECT) or \
+                    c >= (SentimentPseudoLabeler.ADAPTIVE_POS_THRESHOLD +
+                          SentimentPseudoLabeler.POS_LEARNING_EFFECT):
+                pseudo_labels.append([
+                    key_list[idx], 1 if c >= 0.5 else 0, self.collector[key_list[idx]]['ss'][2]])
 
-        # print(
-        #     f'PSE POS {self.pseudo_pos_crct}, {self.pseudo_pos_wrng},, NEG {self.pseudo_neg_crct}, {self.pseudo_neg_wrng}')
-
-        # self.pseudo_neg_crct = 0
-        # self.pseudo_neg_wrng = 0
-        # self.pseudo_pos_crct = 0
-        # self.pseudo_pos_wrng = 0
-
-        # # if -0.1 < conf < 0.1:
-        # #     print(conf, text, key, self.collector[key]['us'][2], self.collector[key]['us'][1], self.collector[key]['ss'][1])
-
-        # # Delete item from collector to avoid re-generating labels.
-        # del self.collector[key]
+            # Delete item from collector to avoid re-generating labels.
+            del self.collector[key_list[idx]]
 
         # return config.LOW_CONF if -0.80 < conf < 0.80 else [key, 1 if conf >= 0.5 else 0, text]
+        return pseudo_labels
 
 
 class PseudoLabelerCoMap(CoMapFunction):
