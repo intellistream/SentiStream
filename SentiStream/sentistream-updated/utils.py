@@ -8,8 +8,6 @@ import torch
 from nltk.stem import SnowballStemmer, WordNetLemmatizer
 from nltk.tokenize import word_tokenize
 
-import config
-
 nltk.download('punkt', quiet=True)
 nltk.download('wordnet', quiet=True)
 
@@ -148,19 +146,39 @@ def tokenize(text):
     """
     # Remove URLs, tags.
     text = re.sub(r"http\S+|www\S+|\@\w+", '', text).lower()
-    text = re.sub(r"[\n\t\r]", " ", text)
+    text = text.replace('\\n', ' ')
+    text = text.replace('\\t', ' ')
+    text = text.replace('\\r', ' ')
     # Replace anything other than alphabets -- ?, !, . will be sentence stoppers -- needed for
     # sentence tokenization.
     text = re.sub(r'[^a-z.?!]+', ' ', text)
     text = re.sub(r'\.+', '.', text)
+    text = text.replace('.', ' . ')
     text = re.sub(r'\s+', ' ', text).strip()
 
     tokens = word_tokenize(text)
 
+    # TODO: CHECK
+    tokens = [lemmatizer.lemmatize(token)
+              for token in tokens if token not in STOP_WORDS]
+
+    # for i in range(len(tokens)):
+    #     if tokens[i] == 'not' and len(tokens) > i+1:
+    #         tokens[i] = 'n_' + tokens[i+1]
+    #         tokens[i+1] = ''
+
+    for i, token in enumerate(tokens[:-1]):
+        if token == 'not':
+            tokens[i:i+2] = ['n_' + tokens[i+1]] + \
+                [''] if i < len(tokens) - 1 else ['n_' + tokens[i+1]]
+
+            # print(tokens[i])
+
     # return [stemmer.stem(token) if config.STEM else token
     #         for token in tokens if token not in STOP_WORDS]
-    return [lemmatizer.lemmatize(token) if config.STEM else token
-            for token in tokens if token not in STOP_WORDS]
+    # return [lemmatizer.lemmatize(token) if config.STEM else token
+    #         for token in tokens if token not in STOP_WORDS]
+    return tokens
 
 
 def clean_for_wv(tokens):
