@@ -143,7 +143,8 @@ class Classifier:
 
             # Get predictions and confidence scores.
             conf, preds = self.get_prediction(
-                np.array(embeddings), torch.FloatTensor if self.ssl_model == 'ANN' else torch.from_numpy)
+                np.array(embeddings),
+                torch.FloatTensor if self.ssl_model == 'ANN' else torch.from_numpy)
 
             # Calculate model's accuracy.
             output = accuracy_score(self.labels, preds)

@@ -46,4 +46,4 @@ with open(config.DATA, 'r', encoding='utf-8') as file:
     # use triple pipe to separate label and text as it is unlikely to occur in text.
     for row in reader:
         producer.send(config.KAFKA_TOPIC,
-                      value=f'{int(row[0]) - 1}|||{row[1]}')
+                      value=f'{int(row[0]) - 1}|||{str(row[1])}')
