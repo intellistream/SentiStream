@@ -52,20 +52,25 @@ python3 main.py
 > NOTE: Change parameters from `config.py` to train with different word vector or classifier algorithms.
 
 
-## 5608 5806
-
-
-## 0.5 --> 0.8
-
 ###### ----------------------
 
+
+## ############################################# CHECK PREPROCESSING OUT FOR HAN
+
+### CHECK PSEUDO LABEERS<<<>>>,, CLASSIFIER..
+
+### TRAIN FULLY THEN TEST --- AAN
+######### TRAINED ON 100000 AND TEST---- 87%% ON SEMI-SUPER
+######### TRAINED ON 5600 AND TESST ----- 83 % ON SEMI-SUPER
+######### TRAINED ON 5600 THEN CONTINUED TRAINIED ON ORIGINAL DATA - 1000 DATA EACH - 83% --- 5000 DATA EACH - 86% ------ 
+
+############# OURs - 1000- 84 % 5000 - 83 %
+### CHECK ANN THRESHOLD is it predict P & N correctly?
 ## MOVE TO CONFLUENT-KAFKA
 
 ## CHECK LESS AACCURATE TEXTS AND FIND THE PROB
 
 ### CALC VARIANCE OF EACH DTA POINT
-
-## NGRAM APPORAHC ????
 
 ## CHECK PERFORMANCE OF SPACY VS NLTK FOR LEMMATIzation
 
