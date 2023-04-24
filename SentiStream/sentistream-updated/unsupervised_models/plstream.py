@@ -6,7 +6,7 @@ from sklearn.metrics import accuracy_score
 
 import config
 
-from unsupervised_models.utils import cos_similarity
+from unsupervised_models.utils import cos_similarity, text_similarity
 from utils import train_word_vector_algo, get_average_word_embeddings, clean_for_wv
 
 
@@ -47,10 +47,10 @@ class PLStream():
             confidence (float, optional): Confidence difference to distinguish polarity. Defaults 
                                         to 0.5.
         """
-        # self.neg_coef = 0.5
-        # self.pos_coef = 0.5
-        # self.neg_count = 0
-        # self.pos_count = 0  # watch-out for integer overflow error in horizon.
+        self.neg_coef = 0.5
+        self.pos_coef = 0.5
+        self.neg_count = 0
+        self.pos_count = 0  # watch-out for integer overflow error in horizon.
 
         self.update = True
         self.batch_size = batch_size
@@ -59,7 +59,11 @@ class PLStream():
 
         self.word_vector_algo = word_vector_algo
 
-        self.acc_list = []
+        self.baseline_acc_list = []
+        # self.temporal_list = []
+        self.text_similarity_list = []
+        self.count = 0
+        self.count2 = 0
 
         # Initialize word vector model.
         num_workers = int(0.5 * multiprocessing.cpu_count()
@@ -81,10 +85,12 @@ class PLStream():
             #                 'awesom', 'wonder', 'brilliant', 'excel', 'fantast'}
             # self.neg_ref = {'bad', 'worst', 'stupid', 'disappoint',
             #                 'terribl', 'rubbish', 'bore', 'aw', 'unwatch', 'awkward'}
-            self.pos_ref = {'love', 'best', 'beautiful', 'great',
-                            'cool', 'awesome', 'wonderful', 'brilliant', 'excellent', 'fantastic'}
-            self.neg_ref = {'bad', 'worst', 'stupid', 'disappointing',
-                            'terrible', 'rubbish', 'boring', 'awful', 'unwatchable', 'awkward'}
+            self.pos_ref = {'love', 'best', 'beautiful', 'great', 'cool', 'awesome', 'wonderful',
+                            'brilliant', 'excellent', 'fantastic', 'super', 'fun', 'masterpiece',
+                            'rejoice', 'admire', 'amuse', 'bliss', 'yumm', 'glamour'}
+            self.neg_ref = {'bad', 'worst', 'stupid', 'disappointing', 'terrible', 'rubbish',
+                            'boring', 'awful', 'unwatchable', 'awkward', 'bullshi', 'fraud',
+                            'abuse', 'outrange', 'disgust'}
 
         self.idx = []
         self.labels = []
@@ -168,22 +174,50 @@ class PLStream():
         Returns:
             tuple: Accuracy and F1 score of model on current batch.
         """
+
         # Calculate average word embeddings for text.
         doc_embeddings = get_average_word_embeddings(
             self.wv_model, sent_tokens)
 
         confidence, y_preds = [], []
-        for embeddings in doc_embeddings:
+        y_tt_preds, y_ts_preds = [], []
+        for idx, embeddings in enumerate(doc_embeddings):
             conf, y_pred = self.predict(embeddings)
-            confidence.append(conf)
+            # confidence.append(conf)
             y_preds.append(y_pred)
 
-        # self.update_temporal_trend(y_preds)
+            # _, y_tt_pred = self.predict(
+            #     embeddings, sent_tokens[idx], temp='tt', sent=sent_tokens[idx])
+            # y_tt_preds.append(y_tt_pred)
 
-        self.acc_list.append(accuracy_score(labels, y_preds))
+            conf_ts, y_ts_pred = self.predict(
+                embeddings, sent_tokens[idx], temp='t')
+            confidence.append(conf_ts)
+            y_ts_preds.append(y_ts_pred)
+
+            # if y_pred != y_ts_pred and y_pred == self.labels[idx]:
+            #     # print(self.labels[idx], sent_tokens[idx], conf, y_pred, conf_ts, y_ts_pred)
+            #     self.count += 1
+
+            # if y_pred != y_ts_pred and y_ts_pred == self.labels[idx]:
+            #     self.count2 += 1
+
+            # if y_ts_pred == y_pred and y_ts_pred != self.labels[idx]:
+            #     print(self.labels[idx], y_ts_pred, y_pred, sent_tokens[idx], conf_ts, conf)
+
+            if y_ts_pred == self.labels[idx]:
+                self.count += 1
+            else:
+                self.count2 += 1
+
+        # self.update_temporal_trend(y_tt_preds)
+
+        self.baseline_acc_list.append(accuracy_score(labels, y_preds))
+        # self.temporal_list.append(accuracy_score(labels, y_tt_preds))
+        self.text_similarity_list.append(accuracy_score(labels, y_ts_preds))
         return confidence, y_preds
 
-    def predict(self, vector):
+    def predict(self, vector, tokens=None, temp=None):
         """
         Predict polarity of text based using PLStream.
 
@@ -194,14 +228,6 @@ class PLStream():
             tuple: Confidence of predicted label and predicted label.
         """
 
-        # Calculate cosine similarity between sentence and reference words.
-        # cos_sim_pos = sum(cos_similarity(
-        #     vector, self.wv_model.wv[word])
-        #     for word in self.pos_ref if word in self.wv_model.wv.key_to_index)
-        # cos_sim_neg = sum(cos_similarity(
-        #     vector, self.wv_model.wv[word])
-        #     for word in self.neg_ref if word in self.wv_model.wv.key_to_index)
-
         cos_sim_pos = [cos_similarity(
             vector, self.wv_model.wv[word])
             for word in self.pos_ref if word in self.wv_model.wv.key_to_index]
@@ -209,24 +235,47 @@ class PLStream():
             vector, self.wv_model.wv[word])
             for word in self.neg_ref if word in self.wv_model.wv.key_to_index]
 
-        # TODO: COS SIM IS NOT ALL POSITIVE ------ REWRITE CLASSIFIER
-
         cos_sim_pos = sum(cos_sim_pos) / len(cos_sim_pos)
         cos_sim_neg = sum(cos_sim_neg) / len(cos_sim_neg)
 
-        # Predict polarity based on temporal trend and cosine similarity.
+        if temp == 't':
+            # if abs(cos_sim_pos - cos_sim_neg) < 0.01:
+            if True and tokens:
+                # if -0.2 < cos_sim_pos < 0.2 or -0.2 < cos_sim_neg < 0.2:
 
-        # if cos_sim_neg - cos_sim_pos > self.confidence:
-        #     return cos_sim_neg - cos_sim_pos, 0
-        # if cos_sim_pos - cos_sim_neg > self.confidence:
-        #     return cos_sim_pos - cos_sim_neg, 1
-        # if self.temporal_trend_detection:
-        #     if cos_sim_neg * self.neg_coef >= cos_sim_pos * self.pos_coef:
+                sent_n = [word for word in tokens if not word.startswith('n_')]
+                negation = [word for word in tokens if word.startswith('n_')]
+
+                text_sim_pos = [text_similarity(word, sent_n)
+                                for word in self.pos_ref]
+                text_sim_neg = [text_similarity(word, sent_n)
+                                for word in self.neg_ref]
+
+                text_sim_pos += [text_similarity(word, negation, 0.9)
+                                 for word in self.neg_ref]
+                text_sim_neg += [text_similarity(word, negation, 0.8)
+                                 for word in self.pos_ref]
+
+                text_sim_pos = sum(text_sim_pos) / len(tokens)
+                text_sim_neg = sum(text_sim_neg) / len(tokens)
+
+                cos_sim_pos += text_sim_pos
+                cos_sim_neg += text_sim_neg
+
+        # # Predict polarity based on temporal trend and cosine similarity.
+
+        # if temp == 'tt':
+        #     if cos_sim_neg - cos_sim_pos > self.confidence:
+        #         return cos_sim_neg - cos_sim_pos, 0
+        #     if cos_sim_pos - cos_sim_neg > self.confidence:
+        #         return cos_sim_pos - cos_sim_neg, 1
+        #     if self.temporal_trend_detection:
+        #         if cos_sim_neg * self.neg_coef >= cos_sim_pos * self.pos_coef:
+        #             return cos_sim_neg - cos_sim_pos, 0
+        #         return cos_sim_pos - cos_sim_neg, 1
+        #     if cos_sim_neg > cos_sim_pos:
         #         return cos_sim_neg - cos_sim_pos, 0
         #     return cos_sim_pos - cos_sim_neg, 1
-        # if cos_sim_neg > cos_sim_pos:
-        #     return cos_sim_neg - cos_sim_pos, 0
-        # return cos_sim_pos - cos_sim_neg, 1
 
         if cos_sim_neg > cos_sim_pos:
             return (cos_sim_neg + 1)/2, 0
