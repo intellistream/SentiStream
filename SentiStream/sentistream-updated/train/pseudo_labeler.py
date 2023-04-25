@@ -27,7 +27,7 @@ class SentimentPseudoLabeler:
                                                 ensembled predictions.
     """
     ADAPTIVE_UNSUPERVISED_PREDICTION_WEIGHT = 0.5
-    ADAPTIVE_SEMI_SUPERVISED_PREDICTION_WEIGHT = 0.5
+    ADAPTIVE_SEMI_SUPERVISED_PREDICTION_WEIGHT = 1
 
     POS_LEARNING_EFFECT = 0
     NEG_LEARNING_EFFECT = 0
@@ -85,33 +85,27 @@ class SentimentPseudoLabeler:
         Returns:
             float: Confidence score of final prediction.
         """
+        ss = data['ss']
+        us = data['us']
 
-        # Calculate unsupervised model's weighted confidence.
-        us_conf = data['us'][0] * polarity(data['us'][1]) * \
-            SentimentPseudoLabeler.ADAPTIVE_UNSUPERVISED_PREDICTION_WEIGHT
+        if ss[1] == us[1] and ss[0] > 0.5 and us[0] > 0.5:
+            pred = ss[1]
+        else:
+            # Calculate unsupervised model's weighted confidence.
+            us_conf = us[0] * polarity(us[1]) * \
+                SentimentPseudoLabeler.ADAPTIVE_UNSUPERVISED_PREDICTION_WEIGHT
 
-        # Calculate semi-supervised model's weighted confidence.
-        ss_conf = data['ss'][0] * polarity(data['ss'][1]) * \
-            SentimentPseudoLabeler.ADAPTIVE_SEMI_SUPERVISED_PREDICTION_WEIGHT
+            # Calculate semi-supervised model's weighted confidence.
+            ss_conf = ss[0] * polarity(ss[1]) * \
+                SentimentPseudoLabeler.ADAPTIVE_SEMI_SUPERVISED_PREDICTION_WEIGHT
 
-        # ss_conf = 0
-
-        # if abs(us_conf) < 1:
-        #     # Calculate semi-supervised model's weighted confidence.
-        #     ss_conf = data['ss'][0] * polarity(data['ss'][1]) * \
-        #         SentimentPseudoLabeler.ADAPTIVE_SEMI_SUPERVISED_PREDICTION_WEIGHT
-
-        # print(us_conf, ss_conf)
+            pred = us[1] if abs(us_conf) > abs(
+                ss_conf) else ss[1]
 
         # Store final prediction to calculate sentistream's accuracy.
-        self.to_calc_acc.append([
-            [data['us'][2]], [data['us'][1] if abs(us_conf) > abs(ss_conf) else data['ss'][1]]])
+        self.to_calc_acc.append([[us[2]], [pred]])
 
-        mean_pred = (us_conf + ss_conf) / 2
-
-        var_pred = (us_conf - mean_pred) ** 2 + (ss_conf - mean_pred) ** 2
-
-        return us_conf + ss_conf, var_pred
+        return us_conf + ss_conf  # TODO: START FROM THIS
 
     def get_model_acc(self):
         """
@@ -153,7 +147,6 @@ class SentimentPseudoLabeler:
         output = []
 
         conf_list = []
-        var_list = []
         key_list = []
 
         for first_output, second_output in zip_longest(first_stream, second_stream):
@@ -166,31 +159,30 @@ class SentimentPseudoLabeler:
             # Generate labels for data that have both predicted results.
             for stream_output in (first_output, second_output):
                 if stream_output and len(self.collector[stream_output[0]]) == 2:
-                    conf, var_p = self.get_confidence_score(
-                        self.collector[stream_output[0]])
-
                     if stream_output[0] not in key_list:
+                        conf = self.get_confidence_score(
+                            self.collector[stream_output[0]])
+
                         conf_list.append(conf)
-                        var_list.append(var_p)
                         key_list.append(stream_output[0])
 
-        output = self.get_pseudo_label(conf_list, var_list, key_list)
+        output = self.get_pseudo_label(conf_list, key_list)
 
         if not output:
             return [config.BATCHING]
         return output
 
-    def get_pseudo_label(self, conf, var_p, key_list):
+    def get_pseudo_label(self, conf_list, key_list):
         """
         Generate pseudo label based on finalized confidence score.
 
         Args:
-            conf (float): Model's finalized confidence score.
-            key (int): Key for dictionary of predicted outputs.
+            conf_list (list): List of model's finalized confidence score.
+            key_list (list): List of keys for dictionary of predicted outputs.
 
         Returns:
-            str or list: 'LOW_CONFIDENCE' if confidence score is too low to make it as pseudo label,
-                        else, model's predicted senitment along with text.
+            list: list of model's predicted senitment along with text ffrom high 
+                confident predictions.
         """
 
         pos_ = 0
@@ -198,7 +190,7 @@ class SentimentPseudoLabeler:
 
         pseudo_labels = []
 
-        for c in conf:
+        for c in conf_list:
             if c <= -(SentimentPseudoLabeler.ADAPTIVE_NEG_THRESHOLD +
                       SentimentPseudoLabeler.ADAPTIVE_NEG_LE_GAP) or \
                 c >= (SentimentPseudoLabeler.ADAPTIVE_POS_THRESHOLD +
@@ -211,12 +203,12 @@ class SentimentPseudoLabeler:
         if pos_ or neg_:
 
             SentimentPseudoLabeler.POS_LEARNING_EFFECT = pos_ / \
-                max(len(conf) - (pos_ + neg_), pos_, neg_)
+                max(len(conf_list) - (pos_ + neg_), pos_, neg_)
             SentimentPseudoLabeler.POS_LEARNING_EFFECT /= (
                 2 - SentimentPseudoLabeler.POS_LEARNING_EFFECT)
 
             SentimentPseudoLabeler.NEG_LEARNING_EFFECT = neg_ / \
-                max(len(conf) - (pos_ + neg_), pos_, neg_)
+                max(len(conf_list) - (pos_ + neg_), pos_, neg_)
             SentimentPseudoLabeler.NEG_LEARNING_EFFECT /= (
                 2 - SentimentPseudoLabeler.NEG_LEARNING_EFFECT)
 
@@ -228,7 +220,7 @@ class SentimentPseudoLabeler:
             pos_ = 0
             neg_ = 0
 
-            for c in conf:
+            for c in conf_list:
                 if c <= -(SentimentPseudoLabeler.ADAPTIVE_NEG_THRESHOLD +
                           SentimentPseudoLabeler.ADAPTIVE_NEG_LE_GAP *
                           SentimentPseudoLabeler.NEG_LEARNING_EFFECT) or \
@@ -263,16 +255,16 @@ class SentimentPseudoLabeler:
             else:
                 self.ttl_us_neg += 1
 
-            if conf[idx] <= -(SentimentPseudoLabeler.ADAPTIVE_NEG_THRESHOLD +
-                              SentimentPseudoLabeler.ADAPTIVE_NEG_LE_GAP *
-                              SentimentPseudoLabeler.NEG_LEARNING_EFFECT) or \
-                    conf[idx] >= (SentimentPseudoLabeler.ADAPTIVE_POS_THRESHOLD +
-                                  SentimentPseudoLabeler.ADAPTIVE_POS_LE_GAP *
-                                  SentimentPseudoLabeler.POS_LEARNING_EFFECT):
+            if conf_list[idx] <= -(SentimentPseudoLabeler.ADAPTIVE_NEG_THRESHOLD +
+                                   SentimentPseudoLabeler.ADAPTIVE_NEG_LE_GAP *
+                                   SentimentPseudoLabeler.NEG_LEARNING_EFFECT) or \
+                    conf_list[idx] >= (SentimentPseudoLabeler.ADAPTIVE_POS_THRESHOLD +
+                                       SentimentPseudoLabeler.ADAPTIVE_POS_LE_GAP *
+                                       SentimentPseudoLabeler.POS_LEARNING_EFFECT):
                 if ss == us:
                     if ss == t:
                         self.us_ss_same_crct += 1
-                        self.both_same_crct_conf.append(conf[idx])
+                        self.both_same_crct_conf.append(conf_list[idx])
 
                         if ss == 0:
                             self.pseudo_neg_crct += 1
@@ -281,7 +273,7 @@ class SentimentPseudoLabeler:
 
                     else:
                         self.us_ss_same_wrng += 1
-                        self.both_same_wrong_conf.append(conf[idx])
+                        self.both_same_wrong_conf.append(conf_list[idx])
 
                         if ss == 0:
                             self.pseudo_neg_wrng += 1
@@ -294,17 +286,15 @@ class SentimentPseudoLabeler:
                         self.us_crct += 1
 
         for idx, key in enumerate(key_list):
-            text = self.collector[key]['ss'][2]
-
             temp = self.collector[key]
             ss = temp['ss'][1]
             us = temp['us'][1]
             t = temp['us'][2]
 
-            if conf[idx] <= -(SentimentPseudoLabeler.ADAPTIVE_NEG_THRESHOLD +
-                              SentimentPseudoLabeler.NEG_LEARNING_EFFECT) or \
-                    conf[idx] >= (SentimentPseudoLabeler.ADAPTIVE_POS_THRESHOLD +
-                                  SentimentPseudoLabeler.POS_LEARNING_EFFECT):
+            if conf_list[idx] <= -(SentimentPseudoLabeler.ADAPTIVE_NEG_THRESHOLD +
+                                   SentimentPseudoLabeler.NEG_LEARNING_EFFECT) or \
+                    conf_list[idx] >= (SentimentPseudoLabeler.ADAPTIVE_POS_THRESHOLD +
+                                       SentimentPseudoLabeler.POS_LEARNING_EFFECT):
                 if ss == us:
                     if ss == t:
                         self.us_ss_same_crct_aft += 1
@@ -327,24 +317,19 @@ class SentimentPseudoLabeler:
                     else:
                         self.us_crct_aft += 1
 
-        # # if -0.1 < conf < 0.1:
-        # #     print(conf, text, key, self.collector[key]['us'][2],
-        # #           self.collector[key]['us'][1], self.collector[key]['ss'][1])
-
-        for idx, c in enumerate(conf):
-            if conf[idx] <= -(SentimentPseudoLabeler.ADAPTIVE_NEG_THRESHOLD +
-                              SentimentPseudoLabeler.ADAPTIVE_NEG_LE_GAP *
-                              SentimentPseudoLabeler.NEG_LEARNING_EFFECT) or \
-                    conf[idx] >= (SentimentPseudoLabeler.ADAPTIVE_POS_THRESHOLD +
-                                  SentimentPseudoLabeler.ADAPTIVE_POS_LE_GAP *
-                                  SentimentPseudoLabeler.POS_LEARNING_EFFECT):
+        for idx, conf in enumerate(conf_list):
+            text = self.collector[key_list[idx]]['ss'][2]
+            if conf_list[idx] <= -(SentimentPseudoLabeler.ADAPTIVE_NEG_THRESHOLD +
+                                   SentimentPseudoLabeler.ADAPTIVE_NEG_LE_GAP *
+                                   SentimentPseudoLabeler.NEG_LEARNING_EFFECT) or \
+                    conf_list[idx] >= (SentimentPseudoLabeler.ADAPTIVE_POS_THRESHOLD +
+                                       SentimentPseudoLabeler.ADAPTIVE_POS_LE_GAP *
+                                       SentimentPseudoLabeler.POS_LEARNING_EFFECT):
                 pseudo_labels.append([
-                    key_list[idx], 1 if c >= 0 else 0, self.collector[key_list[idx]]['ss'][2]])
+                    key_list[idx], 1 if conf >= 0 else 0, self.collector[key_list[idx]]['ss'][2]])
 
             # Delete item from collector to avoid re-generating labels.
             del self.collector[key_list[idx]]
-
-        # # return config.LOW_CONF if -0.80 < conf < 0.80 else [key, 1 if conf >= 0.5 else 0, text]
         return pseudo_labels
 
 
