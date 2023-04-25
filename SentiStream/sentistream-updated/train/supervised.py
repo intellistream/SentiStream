@@ -1,7 +1,7 @@
 # pylint: disable=import-error
 # pylint: disable=no-name-in-module
 import multiprocessing
-import pandas as pd
+import csv
 
 import config
 
@@ -16,7 +16,7 @@ class TrainModel:
     Train model from scratch and then continously train model when data is available.
     """
 
-    def __init__(self, word_vector_algo, ssl_model, init, nrows=1000, vector_size=20, window=5,
+    def __init__(self, word_vector_algo, ssl_model, init, vector_size=20, window=5,
                  min_count=5, pseudo_data_threshold=1000, acc_threshold=0.9, test_size=0.2):
         """
         Initialize semi-supervised model training
@@ -26,8 +26,6 @@ class TrainModel:
                                     'FastText').
             ssl_model (str): Type of SSL model to use (either 'ANN' or 'HAN').
             init (bool): Flag indicating whether start training from scratch or update model.
-            nrows (int, optional): Number of rows to read from CSV for initial training. Defaults
-                                    to 1000.
             vector_size (int, optional): Size of word vectors. Defaults to 20.
             window (int, optional): Context window size for training word vectors. Defaults to 5.
             min_count (int, optional): Min frequency of a word to be included in vocab. Defaults
@@ -43,24 +41,28 @@ class TrainModel:
         self.ssl_model = ssl_model
         self.test_size = test_size
 
+        self.labels = []
+        self.texts = []
+
         # Initialize word vector model and load training data.
         if init:
             workers = int(0.5 * multiprocessing.cpu_count())
             self.wv_model = word_vector_algo(
                 vector_size=vector_size, window=window, min_count=min_count, workers=workers)
-            # TODO: REMOVE PD IMPORT, HAVE SEPARATE TRAINING DATA
-            df = pd.read_csv(config.DATA, names=[
-                             'label', 'review'], nrows=nrows)
-            df['label'] -= 1
+
+            with open(config.TRAIN_DATA, 'r', encoding='utf-8') as file:
+                reader = csv.reader(file)
+
+                for row in reader:
+                    self.labels.append(int(row[0]))
+                    self.texts.append(tokenize(row[1]))
 
             # Preprocess data for training word vectors.
-            self.labels = df.label.tolist()
-            self.texts = [tokenize(text) for text in df.review.tolist()]
-            self.filtered_tokens = [clean_for_wv(text) for text in self.texts]
+            self.filtered_tokens = clean_for_wv(self.texts)
 
             # Train word vector model.
             train_word_vector_algo(
-                self.wv_model, self.filtered_tokens, config.SSL_WV, not init)
+                self.wv_model, self.filtered_tokens, config.SSL_WV, update=not init)
 
             # Train classifier.
             self.train_classifier(ssl_model, init)
