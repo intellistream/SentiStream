@@ -35,7 +35,7 @@ class Classifier:
     """
     TIME_TO_UPDATE = 600
 
-    def __init__(self, word_vector_algo, ssl_model, batch_size=None, is_eval=False):
+    def __init__(self, word_vector_algo, ssl_model, batch_size=5000, is_eval=False):
         """
         Initialize class with pretrained models.
 
@@ -49,8 +49,10 @@ class Classifier:
         """
 
         # Determine if GPU available for inference.
-        self.device = torch.device(
-            'cuda:0' if torch.cuda.is_available() else 'cpu')
+        # self.device = torch.device(
+        #     'cuda:0' if torch.cuda.is_available() else 'cpu')
+        # TODO: DELETE ONCE FINIALIZED
+        self.device = 'cpu' if ssl_model == 'ANN' else 'cuda:1'
 
         self.word_vector_algo = word_vector_algo
 
@@ -69,8 +71,8 @@ class Classifier:
         self.is_eval = is_eval
 
         # Set batch size and initialize lists for labels and texts.
-        self.batch_size = batch_size if batch_size is not None else (
-            256 if ssl_model == 'ANN' else 256)
+        # TODO: REMOVE IF NOT NEEDED
+        self.batch_size = batch_size if ssl_model == 'ANN' else 256
 
         self.idx = []
         self.labels = []
@@ -131,12 +133,14 @@ class Classifier:
         # Check if batch size is reached.
         if len(self.labels) >= self.batch_size:
 
+            # TODO: CHECK THIS ONCE MULTITHREADING IS DONE --- HAVE A TIME INTERVAL -- NOT FOR
+            # EVERY OCCURENCE
             self.load_updated_model()
 
             # Get document embeddings.
             if self.ssl_model == 'ANN':
                 embeddings = get_average_word_embeddings(
-                    self.wv_model, [clean_for_wv(tokens) for tokens in self.texts])
+                    self.wv_model, clean_for_wv(self.texts))
             else:
                 embeddings = preprocess(join_tokens(
                     self.texts), self.wv_model.wv.key_to_index)
