@@ -7,6 +7,7 @@ import nltk
 import torch
 from nltk.stem import SnowballStemmer, WordNetLemmatizer
 
+import config
 
 import string
 
