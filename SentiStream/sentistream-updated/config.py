@@ -12,10 +12,11 @@ STEM = False  # TODO: REMOVE FROM HERE
 
 # Kafka
 KAFKA_TOPIC = 'sentiment-data'
-BOOTSTRAP_SERVER = 'localhost:9093'
+BOOTSTRAP_SERVER = 'localhost:9092'
 
 # Input files
 DATA = 'train.csv'
+TRAIN_DATA = 'ss_train.csv'
 
 # Outputs
 BATCHING = 'BATCHING'
