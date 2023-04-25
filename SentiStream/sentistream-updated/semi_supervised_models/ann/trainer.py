@@ -39,8 +39,11 @@ class Trainer:
                                         Defaults to True.
         """
         # Determine if GPU available for training.
-        self.device = torch.device(
-            'cuda:0' if torch.cuda.is_available() else 'cpu')
+        # self.device = torch.device(
+        #     'cuda:0' if torch.cuda.is_available() else 'cpu')
+        # CPU is faster than GPU for ANN -- might be simple model.
+        # TODO: Remove to(device) when finialized with CPU
+        self.device = 'cpu'
 
         # Optionally perform downsample to balance classes.
         if downsample:
