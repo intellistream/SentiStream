@@ -6,10 +6,15 @@ import numpy as np
 import nltk
 import torch
 from nltk.stem import SnowballStemmer, WordNetLemmatizer
-from nltk.tokenize import word_tokenize
+
+
+import string
 
 nltk.download('punkt', quiet=True)
 nltk.download('wordnet', quiet=True)
+
+NEGATION_WORDS = {'not', 'no', 'didn', 'didnt', 'wont',
+                  'dont', 'don', 'doesnt', 'doesn', 'shouldnt', 'shouldn'}
 
 STOP_WORDS = {'also', 'ltd', 'once', 'll', 'make', 'he', 'through', 'all', 'top', 'from', 'or', 's',
               'hereby', 'so',  'yours', 'since', 'meanwhile', 're', 'over', 'mrs', 'thereafter',
@@ -48,6 +53,14 @@ STOP_WORDS = {'also', 'ltd', 'once', 'll', 'make', 'he', 'through', 'all', 'top'
 
 stemmer = SnowballStemmer('english')
 lemmatizer = WordNetLemmatizer()
+
+
+url_rx = re.compile(r"http\S+|www\S+|\@\w+")
+multi_dot_rx = re.compile(r'\.{2,}')
+ws_rx = re.compile(r'\s+')
+
+alpha_table = str.maketrans({char: ' ' if char not in (
+    '?', '!', '.') and not char.isalpha() else char for char in string.punctuation + string.digits})
 
 
 def get_average_word_embeddings(model, docs):
@@ -116,7 +129,7 @@ def downsampling(label, text):
     return [label[i] for i in downsampled_idx], [text[i] for i in downsampled_idx]
 
 
-def train_word_vector_algo(model, texts, path, update=True):
+def train_word_vector_algo(model, texts, path, update=True, save=True, epochs=30):
     """
     Train word vector algorithm and save it locally.
 
@@ -130,8 +143,9 @@ def train_word_vector_algo(model, texts, path, update=True):
     model.build_vocab(texts, update=update)
     model.train(texts,
                 total_examples=model.corpus_count,
-                epochs=30 if not update else model.epochs)
-    model.save(path)
+                epochs=epochs)
+    if save:
+        model.save(path)
 
 
 def tokenize(text):
@@ -145,45 +159,40 @@ def tokenize(text):
         list: List of cleaned tokens generated from text.
     """
     # Remove URLs, tags.
-    text = re.sub(r"http\S+|www\S+|\@\w+", '', text).lower()
-    text = text.replace('\\n', ' ')
-    text = text.replace('\\t', ' ')
-    text = text.replace('\\r', ' ')
+    text = url_rx.sub('', text).lower()
+    text = text.replace('\\n', ' ').replace('\\t', ' ').replace('\\r', ' ')
     # Replace anything other than alphabets -- ?, !, . will be sentence stoppers -- needed for
     # sentence tokenization.
-    text = re.sub(r'[^a-z.?!]+', ' ', text)
-    text = re.sub(r'\.+', '.', text)
-    text = text.replace('.', ' . ')
-    text = re.sub(r'\s+', ' ', text).strip()
+    text = multi_dot_rx.sub('.',  text)
+    text = text.translate(alpha_table)
+    text = text.replace('.', ' . ').replace('!', ' ! ').replace('?', ' ? ')
 
-    tokens = word_tokenize(text)
+    tokens = text.split()
 
-    # TODO: CHECK
-    tokens = [lemmatizer.lemmatize(token)
-              for token in tokens if token not in STOP_WORDS]
+    # # TODO: CHECK
+    if config.STEM:
+        tokens = [lemmatizer.lemmatize(token)
+                  for token in tokens if token not in STOP_WORDS]
+    else:
+        tokens = [token
+                  for token in tokens if token not in STOP_WORDS]
 
     for i, token in enumerate(tokens[:-1]):
-        if token == 'not':
+        if token in NEGATION_WORDS:
             tokens[i:i+2] = ['n_' + tokens[i+1]] + \
                 [''] if i < len(tokens) - 1 else ['n_' + tokens[i+1]]
 
-            # print(tokens[i])
-
-    # return [stemmer.stem(token) if config.STEM else token
-    #         for token in tokens if token not in STOP_WORDS]
-    # return [lemmatizer.lemmatize(token) if config.STEM else token
-    #         for token in tokens if token not in STOP_WORDS]
     return tokens
 
 
-def clean_for_wv(tokens):
+def clean_for_wv(doc):
     """
     Clean unneccesary/meaningless tokens from generated tokens.
 
     Args:
-        tokens (list): List of tokens from documents.
+        doc (list): List of tokens from documents.
 
     Returns:
-        list: List of filtered tokens.
+        list: List of filtered tokens for documents.
     """
-    return [token for token in tokens if len(token) > 1]
+    return [[token for token in tokens if len(token) > 1] for tokens in doc]

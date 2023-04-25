@@ -1,7 +1,5 @@
 # pylint: disable=import-error
 # pylint: disable=no-name-in-module
-import multiprocessing
-
 from sklearn.metrics import accuracy_score
 
 import config
@@ -31,7 +29,7 @@ class PLStream():
         texts (list): Texts/Reviews of data
     """
 
-    def __init__(self, word_vector_algo, vector_size=20, batch_size=250,
+    def __init__(self, word_vector_algo, vector_size=20, batch_size=5000,
                  temporal_trend_detection=True, confidence=0.01):
         """
         Initialize PLStream with hyperparameters.
@@ -47,12 +45,11 @@ class PLStream():
             confidence (float, optional): Confidence difference to distinguish polarity. Defaults 
                                         to 0.5.
         """
-        self.neg_coef = 0.5
-        self.pos_coef = 0.5
-        self.neg_count = 0
-        self.pos_count = 0  # watch-out for integer overflow error in horizon.
+        # self.neg_coef = 0.5
+        # self.pos_coef = 0.5
+        # self.neg_count = 0
+        # self.pos_count = 0  # watch-out for integer overflow error in horizon.
 
-        self.update = True
         self.batch_size = batch_size
         # self.temporal_trend_detection = temporal_trend_detection
         # self.confidence = confidence
@@ -60,42 +57,18 @@ class PLStream():
         self.word_vector_algo = word_vector_algo
 
         self.baseline_acc_list = []
-        # self.temporal_list = []
         self.text_similarity_list = []
         self.count = 0
         self.count2 = 0
 
-        # Initialize word vector model.
-        # num_workers = int(0.5 * multiprocessing.cpu_count()
-        #   )  # Best value for batch of 250.
-        # self.wv_model = word_vector_algo(
-        #     vector_size=vector_size, workers=num_workers)
-
-        # TODO: TEMP --- WE CAN STILL CALL THIS AS UNSUPERVISED LEARNING??? THIS DOESNT ALTER
-        # CLASSIFICATION METHOD. SO....  ---- ALSO CHANGE self.update when changing this ....
+        # Load pre-trained word vector model.
         self.wv_model = word_vector_algo.load(config.SSL_WV)
-
-        # Set up positive and negative reference words for trend detection.
-        self.pos_ref = {'love', 'best', 'beautiful', 'great',
-                        'cool', 'awesome', 'wonderful', 'brilliant', 'excellent', 'fantastic'}
-        self.neg_ref = {'bad', 'worst', 'stupid', 'disappointing',
-                        'terrible', 'rubbish', 'boring', 'awful', 'unwatchable', 'awkward'}
-        if config.STEM:  # TODO: TEMP --- DLT OTHER WHEN FINALIZED.
-            # self.pos_ref = {'love', 'best', 'beauti', 'great', 'cool',
-            #                 'awesom', 'wonder', 'brilliant', 'excel', 'fantast'}
-            # self.neg_ref = {'bad', 'worst', 'stupid', 'disappoint',
-            #                 'terribl', 'rubbish', 'bore', 'aw', 'unwatch', 'awkward'}
-            self.pos_ref = {'love', 'best', 'beautiful', 'great', 'cool', 'awesome', 'wonderful',
-                            'brilliant', 'excellent', 'fantastic', 'super', 'fun', 'masterpiece',
-                            'rejoice', 'admire', 'amuse', 'bliss', 'yumm', 'glamour'}
-            self.neg_ref = {'bad', 'worst', 'stupid', 'disappointing', 'terrible', 'rubbish',
-                            'boring', 'awful', 'unwatchable', 'awkward', 'bullshi', 'fraud',
-                            'abuse', 'outrange', 'disgust'}
 
         self.idx = []
         self.labels = []
         self.texts = []
 
+    # TODO: USE WHEN MULTIPROCESSING
     def load_updated_model(self):
         """
         Load updated model from local.
@@ -119,14 +92,13 @@ class PLStream():
         # Append idx, label and preprocessed text to respective lists.
         self.idx.append(idx)
         self.labels.append(label)
-        self.texts.append(clean_for_wv(text))
+        self.texts.append(text)
 
         # Train model & classify once batch size is reached.
         if len(self.labels) >= self.batch_size:
+            self.texts = clean_for_wv(self.texts)
             train_word_vector_algo(
-                self.wv_model, self.texts, config.US_WV, update=self.update)
-
-            self.load_updated_model()
+                self.wv_model, self.texts, config.US_WV, update=True, save=False, epochs=10)
 
             # Get predictions and confidence scores.
             conf, preds = self.eval_model(self.texts, self.labels)
@@ -136,7 +108,6 @@ class PLStream():
                       for i, c, p, l in zip(self.idx, conf, preds, self.labels)]
 
             # Clear the lists for the next batch
-            self.update = True
             self.idx = []
             self.labels = []
             self.texts = []
@@ -180,10 +151,9 @@ class PLStream():
             self.wv_model, sent_tokens)
 
         confidence, y_preds = [], []
-        y_tt_preds, y_ts_preds = [], []
+        y_ts_preds = []
         for idx, embeddings in enumerate(doc_embeddings):
-            conf, y_pred = self.predict(embeddings)
-            # confidence.append(conf)
+            _, y_pred = self.predict(embeddings)
             y_preds.append(y_pred)
 
             conf_ts, y_ts_pred = self.predict(
@@ -191,20 +161,15 @@ class PLStream():
             confidence.append(conf_ts)
             y_ts_preds.append(y_ts_pred)
 
-            # if y_pred != y_ts_pred and y_pred == self.labels[idx]:
-            #     # print(self.labels[idx], sent_tokens[idx], conf, y_pred, conf_ts, y_ts_pred)
-            #     self.count += 1
+            if y_pred != y_ts_pred and y_pred == self.labels[idx]:
+                # print(self.labels[idx], sent_tokens[idx], conf, y_pred, conf_ts, y_ts_pred)
+                self.count += 1
 
-            # if y_pred != y_ts_pred and y_ts_pred == self.labels[idx]:
-            #     self.count2 += 1
+            if y_pred != y_ts_pred and y_ts_pred == self.labels[idx]:
+                self.count2 += 1
 
             # if y_ts_pred == y_pred and y_ts_pred != self.labels[idx]:
             #     print(self.labels[idx], y_ts_pred, y_pred, sent_tokens[idx], conf_ts, conf)
-
-            if y_ts_pred == self.labels[idx]:
-                self.count += 1
-            else:
-                self.count2 += 1
 
         # self.update_temporal_trend(y_tt_preds)
 
@@ -225,35 +190,28 @@ class PLStream():
 
         cos_sim_pos = [cos_similarity(
             vector, self.wv_model.wv[word])
-            for word in self.pos_ref if word in self.wv_model.wv.key_to_index]
+            for word in config.POS_REF if word in self.wv_model.wv.key_to_index]
         cos_sim_neg = [cos_similarity(
             vector, self.wv_model.wv[word])
-            for word in self.neg_ref if word in self.wv_model.wv.key_to_index]
+            for word in config.NEG_REF if word in self.wv_model.wv.key_to_index]
 
         cos_sim_pos = sum(cos_sim_pos) / len(cos_sim_pos)
         cos_sim_neg = sum(cos_sim_neg) / len(cos_sim_neg)
 
-        if temp == 't':
-            # if abs(cos_sim_pos - cos_sim_neg) < 0.01:
-            if True and tokens:
+        if temp == 't' and abs(cos_sim_neg - cos_sim_pos) < 0.09:  # 0.09 best so far
+            if tokens:
                 sent_n = [word for word in tokens if not word.startswith('n_')]
                 negation = [word for word in tokens if word.startswith('n_')]
 
                 text_sim_pos = [text_similarity(word, sent_n)
-                                for word in self.pos_ref]
+                                for word in config.POS_REF] + [text_similarity(word, negation, 0.8)
+                                                             for word in config.POS_REF]
                 text_sim_neg = [text_similarity(word, sent_n)
-                                for word in self.neg_ref]
+                                for word in config.NEG_REF] + [text_similarity(word, negation, 0.8)
+                                                             for word in config.NEG_REF]
 
-                text_sim_pos += [text_similarity(word, negation, 0.9)
-                                 for word in self.neg_ref]
-                text_sim_neg += [text_similarity(word, negation, 0.8)
-                                 for word in self.pos_ref]
-
-                text_sim_pos = sum(text_sim_pos) / len(tokens)
-                text_sim_neg = sum(text_sim_neg) / len(tokens)
-
-                cos_sim_pos += text_sim_pos
-                cos_sim_neg += text_sim_neg
+                cos_sim_pos += sum(text_sim_pos) / len(tokens)
+                cos_sim_neg += sum(text_sim_neg) / len(tokens)
 
         # # Predict polarity based on temporal trend and cosine similarity.
         # if temp == 'tt':
