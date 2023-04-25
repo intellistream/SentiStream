@@ -79,7 +79,8 @@ def get_average_word_embeddings(model, docs):
         [token for token in doc if token in model.wv.key_to_index]
         for doc in docs]
 
-    doc_embeddings = np.zeros((len(filtered_tokens), model.vector_size))
+    doc_embeddings = np.zeros(
+        (len(filtered_tokens), model.vector_size), dtype=np.float32)
 
     for idx, tokens in enumerate(filtered_tokens):
         if tokens:

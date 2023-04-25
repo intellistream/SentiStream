@@ -91,13 +91,12 @@ class Classifier:
                 self.wv_model.wv[key] for key in self.wv_model.wv.index_to_key])),
             config.SSL_CLF).to(self.device)
 
-    def get_prediction(self, data, tensor_func):
+    def get_prediction(self, data):
         """
         Get NN model's prediction for batch data.
 
         Args:
             data (ndarray): Word embeddings to input to model for prediction.
-            tensor_func (func): Function to convert numpy array to float or scalar
 
         Returns:
             tuple: Predictions and it's confidence scores for current batch.
@@ -105,7 +104,7 @@ class Classifier:
 
         with torch.no_grad():
             # Get predicted probabilities.
-            preds = self.clf_model(tensor_func(data).to(self.device))
+            preds = self.clf_model(torch.from_numpy(data).to(self.device))
 
             # Calculate binary predictions and confidence scores.
             conf = (torch.abs(preds - 0.5) * 2).view(-1)
@@ -146,9 +145,7 @@ class Classifier:
                     self.texts), self.wv_model.wv.key_to_index)
 
             # Get predictions and confidence scores.
-            conf, preds = self.get_prediction(
-                np.array(embeddings),
-                torch.FloatTensor if self.ssl_model == 'ANN' else torch.from_numpy)
+            conf, preds = self.get_prediction(embeddings)
 
             # Calculate model's accuracy.
             output = accuracy_score(self.labels, preds)

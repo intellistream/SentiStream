@@ -205,10 +205,10 @@ class PLStream():
 
                 text_sim_pos = [text_similarity(word, sent_n)
                                 for word in config.POS_REF] + [text_similarity(word, negation, 0.8)
-                                                             for word in config.POS_REF]
+                                                               for word in config.POS_REF]
                 text_sim_neg = [text_similarity(word, sent_n)
                                 for word in config.NEG_REF] + [text_similarity(word, negation, 0.8)
-                                                             for word in config.NEG_REF]
+                                                               for word in config.NEG_REF]
 
                 cos_sim_pos += sum(text_sim_pos) / len(tokens)
                 cos_sim_neg += sum(text_sim_neg) / len(tokens)
