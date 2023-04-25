@@ -43,7 +43,20 @@ producer = KafkaProducer(
 with open(config.DATA, 'r', encoding='utf-8') as file:
     reader = csv.reader(file)
 
+    idx = 0
+    ss_train = []
+
     # use triple pipe to separate label and text as it is unlikely to occur in text.
     for row in reader:
-        producer.send(config.KAFKA_TOPIC,
-                      value=f'{int(row[0]) - 1}|||{str(row[1])}')
+        # first create a separate train file for semi-supervised learning then push remaining to
+        # kafka producer.
+        if idx >= 5600:
+            producer.send(config.KAFKA_TOPIC,
+                          value=f'{int(row[0]) - 1}|||{str(row[1])}')
+        else:
+            ss_train.append([int(row[0]) - 1, str(row[1])])
+            idx += 1
+
+with open('ss_train.csv', 'w', encoding='utf-8') as file:
+    writer = csv.writer(file)
+    writer.writerows(ss_train)
