@@ -24,9 +24,8 @@ start = time()
 # ---------------- Initial training of classifier ----------------
 # Train word vector {Word2Vec or FastText} on {nrows=1000} data and get word embeddings, then use
 # that embedding to train NN sentiment classifier {ANN or HAN}
-TrainModel(word_vector_algo=config.WORD_VEC_ALGO,
-           ssl_model=config.SSL_MODEL, init=True, vector_size=20)
-
+mem_buffer = TrainModel(word_vector_algo=config.WORD_VEC_ALGO,
+                        ssl_model=config.SSL_MODEL, init=True, vector_size=20).mem_buffer
 
 # ---------------- Generate pesudo labels ----------------
 plstream = PLStream(word_vector_algo=config.WORD_VEC_ALGO)
@@ -37,7 +36,7 @@ inference = Classifier(word_vector_algo=config.WORD_VEC_ALGO,
                        ssl_model=config.SSL_MODEL, is_eval=True)
 model_trainer = TrainModel(word_vector_algo=config.WORD_VEC_ALGO,
                            ssl_model=config.SSL_MODEL, init=False,
-                           acc_threshold=0.9)
+                           acc_threshold=0.9, mem_buffer=mem_buffer)
 
 if config.PYFLINK:
     df = pd.read_csv(config.DATA, names=[
@@ -74,14 +73,25 @@ if config.PYFLINK:
 
 else:
 
-    # Create Kafka consumer.
-    consumer = KafkaConsumer(
-        config.KAFKA_TOPIC,
-        bootstrap_servers=config.BOOTSTRAP_SERVER,
-        auto_offset_reset='earliest',
-        enable_auto_commit=True,
-        value_deserializer=lambda x: x.decode('utf-8')
-    )
+    # # Create Kafka consumer.
+    # consumer = KafkaConsumer(
+    #     config.KAFKA_TOPIC,
+    #     bootstrap_servers=config.BOOTSTRAP_SERVER,
+    #     auto_offset_reset='earliest',
+    #     enable_auto_commit=True,
+    #     value_deserializer=lambda x: x.decode('utf-8')
+    # )
+
+    consumer = []
+    import csv
+    with open(config.DATA, 'r', encoding='utf-8') as file:
+        reader = csv.reader(file)
+
+        for row in reader:
+            consumer.append(f'{int(row[0]) - 1}|||{str(row[1])}')
+
+    # TODO: USE MULTIPROCESSING QUEUE TO THIS
+    plstream.create_lexicon()
 
     us_predictions = []
     ss_predictions = []
@@ -96,55 +106,56 @@ else:
     for idx, message in enumerate(consumer):  # 515099
         # Set MAX LIMIT (515099) here... else consumer will continously wait for new data to
         # arrive and not finish the program.
-        if idx > 100000:
-            break
+        # TODO: DELETE WHEN USING KAFKA---
+        if idx < 5600:
+            continue
+        # if idx > 500000:
+        #     break
 
-        label, text = message.value.split('|||', 1)
+        # label, text = message.value.split('|||', 1)
+        label, text = message.split('|||', 1)
         label = int(label)
 
         text = tokenize(text)
 
-        # us_output = plstream.process_data((idx, label, text))
+        us_output = plstream.process_data((idx, label, text))
 
         ss_output = classifier.classify((idx, label, text))
 
-# #         if us_output != config.BATCHING:
-# #             us_predictions += us_output
-# #         if ss_output != config.BATCHING:
-# #             ss_predictions += ss_output
+        if us_output != config.BATCHING:
+            us_predictions += us_output
+        if ss_output != config.BATCHING:
+            ss_predictions += ss_output
 
-# #         temp = []
+        if len(ss_predictions) > 0 or len(us_predictions) > 0:
+            temp = pseduo_labeler.generate_pseudo_label(
+                us_predictions, ss_predictions)
+            acc_list.append(pseduo_labeler.get_model_acc())
+            us_predictions, ss_predictions = [], []
 
-# #         # TODO: MAKE PSEUDO LABELR, INF  AS  BATCH PROC
-# #         if len(ss_predictions) > 0 or len(us_predictions) > 0:
-# #             temp = pseduo_labeler.generate_pseudo_label(
-# #                 us_predictions, ss_predictions)
-# #             acc_list.append(pseduo_labeler.get_model_acc())
-# #             us_predictions, ss_predictions = [], []
+            if temp and temp != [config.BATCHING]:
+                for data in temp:
+                    dump.append(data[1:])
+        #             inference.classify(
+        #                 (data[0], data[1], data[2]), batch_size=len(temp))
+            temp = []
+#         # dump.append([label, text]) # DEBUG - WITH GROUND TRUTH
 
-# #         # if temp and temp != [config.BATCHING]:
-# #         #     for data in temp:
-# #         #         dump.append(data[1:])
-# #         #         # inference.classify((data[0], data[1], data[2]))
-
-# #         # dump.append([label, text]) # DEBUG - WITH GROUND TRUTH
-
-# #         # if idx % 5000 == 0:
-# #         #     if dump:
-# #         #         message = model_trainer.update_model(dump, 0.4, 0.2)
-
-# #         #         if message == config.FINISHED:
-# #         #             dump = []
+#         # TODO: CHANGE COND FOR MULTIPROCESSING AS IT WONT WORK
+#         # if len(dump) > 10000:
+        if idx % 20000 == 0:
+            if dump:
+                message = model_trainer.update_model(dump, 0.4, 0.2)
+                plstream.create_lexicon()
+                message_us = plstream.update_word_lists(dump)
+                if message == config.FINISHED:
+                    dump = []
+    #                 # pass
 
 # print(
 #     f'\n\nFLEXMATCH - BOTH PREDICTIONS ARE SAME - CORRECT: {pseduo_labeler.us_ss_same_crct}, WRONG: {pseduo_labeler.us_ss_same_wrng}')
 # print(
-#     f'FLEXMATCH - SS_CORRECT: {pseduo_labeler.ss_crct}, US_CORRECT: {pseduo_labeler.us_crct}')
-
-# print(
 #     f'\n\nWITHOUT FLEXMATCH - BOTH PREDICTIONS ARE SAME - CORRECT: {pseduo_labeler.us_ss_same_crct_aft}, WRONG: {pseduo_labeler.us_ss_same_wrng_aft}')
-# print(
-#     f'WITHOUT FLEXMATCH - SS CORRECT: {pseduo_labeler.ss_crct_aft}, US_CORRECT: {pseduo_labeler.us_crct_aft}')
 
 
 # print(
@@ -164,34 +175,46 @@ else:
 # #  AND GENERATES HIGH CONF -- CORRECT PSEUDO LABELS THAN ANN
 
 if not config.PYFLINK:
-#     print('\n-- UNSUPERVISED MODEL ACCURACY --')
-#     print('--baseline--')
-#     print(plstream.baseline_acc_list)
-#     print('AVG ACC SO FAR: ', sum(plstream.baseline_acc_list) /
-#           len(plstream.baseline_acc_list))
-#     # plt.plot([x*250 for x in range(len(plstream.baseline_acc_list))],
-#     #          plstream.baseline_acc_list, label='plstream')
-#     # plt.savefig('sentistream.png')
+    # print('\n-- UNSUPERVISED MODEL ACCURACY --')
+    # # print('--text sim--')
+    # print(plstream.acc_list)
+    # print('AVG ACC SO FAR: ', sum(plstream.acc_list) /
+    #       len(plstream.acc_list))
 
-#     print('-- + text similarity --')
-#     print(plstream.text_similarity_list)
-#     print('AVG ACC SO FAR: ', sum(plstream.text_similarity_list) /
-#           len(plstream.text_similarity_list))
+    # print('--default--')
+    # print(plstream.ts_list)
+    # print('AVG ACC SO FAR: ', sum(plstream.ts_list) /
+    #       len(plstream.ts_list))
 
-#     print(f'\nORIG - {plstream.count} TS - {plstream.count2}')
+    # print('--lexicon--')
+    # print(plstream.l_list)
+    # print('AVG ACC SO FAR: ', sum(plstream.l_list) /
+    #       len(plstream.l_list))
 
-    print('\n-- SUPERVISED MODEL ACCURACY --')
-    print(classifier.acc_list)
-    print('AVG ACC SO FAR: ', sum(classifier.acc_list)/len(classifier.acc_list))
+    # print('--lexicon + ts--')
+    # print(plstream.lt_list)
+    # print('AVG ACC SO FAR: ', sum(plstream.lt_list) /
+    #       len(plstream.lt_list))
+    # plt.plot([x*5000 for x in range(len(plstream.acc_list))],
+    #          plstream.acc_list, label='default', marker='o')
 
-#     print('\n-- SENTISTREAM ACCURACY --')
-#     print(acc_list)
-#     print('AVG ACC SO FAR: ', sum(
-#         [x for x in acc_list if x])/len([x for x in acc_list if x]))
+    # plt.legend()
+    # plt.savefig('sentistream.png')
 
-#     # print('\n-- SUPERVISED MODEL ACCURACY ON PSEUDO DATA --')
-#     # print(inference.acc_list)
-#     # print('AVG ACC SO FAR: ', sum(inference.acc_list)/len(inference.acc_list))
+    # print(f'\nORIG - {plstream.count} TS - {plstream.count2}')
+
+    # print('\n-- SUPERVISED MODEL ACCURACY --')
+    # print(classifier.acc_list)
+    # print('AVG ACC SO FAR: ', sum(classifier.acc_list)/len(classifier.acc_list))
+
+    print('\n-- SENTISTREAM ACCURACY --')
+    print(acc_list)
+    print('AVG ACC SO FAR: ', sum(
+        [x for x in acc_list if x])/len([x for x in acc_list if x]))
+
+#     print('\n-- SUPERVISED MODEL ACCURACY ON PSEUDO DATA --')
+#     print(inference.acc_list)
+#     print('AVG ACC SO FAR: ', sum(inference.acc_list)/len(inference.acc_list))
 
 
 print('Elapsed Time: ', time() - start)

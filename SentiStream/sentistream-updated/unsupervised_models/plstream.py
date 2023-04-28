@@ -2,7 +2,10 @@
 # pylint: disable=no-name-in-module
 from sklearn.metrics import accuracy_score
 
+from sklearn.cluster import KMeans
+
 import config
+import numpy as np
 
 from unsupervised_models.utils import cos_similarity, text_similarity
 from utils import train_word_vector_algo, get_average_word_embeddings, clean_for_wv
@@ -13,24 +16,17 @@ class PLStream():
     Online sentiment analysis using PLStream framework.
 
     Attributes:
-        neg_coef (float): Negative coefficient for temporal trend.
-        pos_coef (float): Positive coefficient for temporal trend.
-        neg_count (int): Number of negative samples seen so far.
-        pos_count (int): Number of positive samples seen so far.
         update (bool): Flag determining whether to update word vector model or train from scratch.
         batch_size (int): Number of samples to wait on before processing.
-        temporal_trend_detection (bool): If True, perform temporal trend detection.
         confidence (float): Confidence difference to distinguish polarity.
         acc_list(list): Store accuracy of each batch.
         wv_model (class): The word vector model.
-        pos_ref (list): List of positive reference words.
-        neg_ref (list): List of negative reference words.
         labels (list): Labels of data
         texts (list): Texts/Reviews of data
     """
+    # TODO: SET BATCH SIZE TO 5000 FOR FASTER PROCESSING
 
-    def __init__(self, word_vector_algo, vector_size=20, batch_size=5000,
-                 temporal_trend_detection=True, confidence=0.01):
+    def __init__(self, word_vector_algo, vector_size=20, batch_size=10000, confidence=0.09):
         """
         Initialize PLStream with hyperparameters.
 
@@ -39,25 +35,19 @@ class PLStream():
                                     'FastText').
             vector_size (int, optional): Size of word vectors. Defaults to 20.
             batch_size (int, optional): Number of samples to wait on before processing. Defaults 
-                                        to 250.
-            temporal_trend_detection (bool, optional): If True, perform temporal trend detection.
-                                            Defaults to True.
+                                        to 5000.
             confidence (float, optional): Confidence difference to distinguish polarity. Defaults 
-                                        to 0.5.
+                                        to 0.09.
         """
-        # self.neg_coef = 0.5
-        # self.pos_coef = 0.5
-        # self.neg_count = 0
-        # self.pos_count = 0  # watch-out for integer overflow error in horizon.
-
         self.batch_size = batch_size
-        # self.temporal_trend_detection = temporal_trend_detection
-        # self.confidence = confidence
-
         self.word_vector_algo = word_vector_algo
+        self.confidence = confidence
 
-        self.baseline_acc_list = []
-        self.text_similarity_list = []
+        self.acc_list = []
+        self.ts_list = []
+        self.l_list = []
+        self.lt_list = []
+
         self.count = 0
         self.count2 = 0
 
@@ -67,6 +57,70 @@ class PLStream():
         self.idx = []
         self.labels = []
         self.texts = []
+
+        self.lexicon_size = 100
+
+        self.pos_ref_vec = []
+        self.neg_ref_vec = []
+        self.pos_ref_mean = []
+        self.neg_ref_mean = []
+
+    def create_lexicon(self):
+        self.neg_ref_vec = [self.wv_model.wv[word]
+                            for word in config.NEG_REF if word in self.wv_model.wv.key_to_index]
+        self.neg_ref_vec = np.array(self.neg_ref_vec)
+
+        self.pos_ref_vec = [self.wv_model.wv[word]
+                            for word in config.POS_REF if word in self.wv_model.wv.key_to_index]
+        self.pos_ref_vec = np.array(self.pos_ref_vec)
+        self.neg_ref_mean = self.neg_ref_vec.sum(axis=0)
+        self.neg_ref_mean = self.neg_ref_mean / self.neg_ref_vec.shape[0]
+        self.pos_ref_mean = self.pos_ref_vec.sum(axis=0)
+        self.pos_ref_mean = self.pos_ref_mean / self.pos_ref_vec.shape[0]
+
+    def update_word_lists(self, sentence_vectors):
+        # print('!!!')
+        # Combine the negative and positive word vectors into one list
+        lexicon_size = len(config.POS_REF)+len(config.NEG_REF)
+
+        labels, texts = zip(*sentence_vectors)
+
+        sen_embeddings = get_average_word_embeddings(
+            self.wv_model, texts)
+
+        # Add the sentence vectors to the combined word vectors
+        for sent_vec, label in zip(sen_embeddings, labels):
+
+            if label == 0:
+
+                self.neg_ref_vec = np.vstack([self.neg_ref_vec, sent_vec])
+            elif label == 1:
+                self.pos_ref_vec = np.vstack([self.pos_ref_vec, sent_vec])
+        # Check if the threshold is exceeded
+        if lexicon_size > self.lexicon_size:
+            # Determine the number of clusters for negative and positive sentiments
+            if len(self.neg_ref_vec.shape[0]) > self.lexicon_size/2:
+                n_clusters_negative = self.lexicon_size/2
+            if len(self.pos_ref_vec.shape[0]) > self.lexicon_size/2:
+                n_clusters_positive = self.lexicon_size/2
+
+            # Perform KMeans clustering for negative sentiment
+            kmeans_negative = KMeans(n_clusters=n_clusters_negative)
+            kmeans_negative.fit(self.neg_ref_vec)
+            self.neg_ref_vec = kmeans_negative.cluster_centers_
+
+            # Perform KMeans clustering for positive sentiment
+            kmeans_positive = KMeans(n_clusters=n_clusters_positive)
+            kmeans_positive.fit(self.pos_ref_vec)
+            self.pos_ref_vec = kmeans_positive.cluster_centers_
+            # get means
+            self.neg_ref_mean = self.neg_ref_vec.sum(axis=0)
+            self.neg_ref_mean = self.neg_ref_mean / self.neg_ref_vec.shape[0]
+            self.pos_ref_mean = self.pos_ref_vec.sum(axis=0)
+            self.pos_ref_mean = self.pos_ref_mean / self.pos_ref_vec.shape[0]
+            # Replace the original word lists with the centroids
+
+        return config.FINISHED
 
     # TODO: USE WHEN MULTIPROCESSING
     def load_updated_model(self):
@@ -115,25 +169,6 @@ class PLStream():
             return output
         return config.BATCHING
 
-    # def update_temporal_trend(self, y_preds):
-    #     """
-    #     Update temporal trend of sentiment analysis based on predictions.
-
-    #     Args:
-    #         y_preds (list): Predicted sentiments for current batch.
-    #     """
-    #     # Calculate positive and negative predictions so far.
-    #     for pred in y_preds:
-    #         if pred == 1:
-    #             self.pos_count += 1
-    #         else:
-    #             self.neg_count += 1
-
-    #     # Update temporal trend based on predictions.
-    #     total = self.neg_count + self.pos_count
-    #     self.neg_coef = self.neg_count / total
-    #     self.pos_coef = self.pos_count / total
-
     def eval_model(self, sent_tokens, labels):
         """
         Evaluate model on current batch
@@ -151,31 +186,59 @@ class PLStream():
             self.wv_model, sent_tokens)
 
         confidence, y_preds = [], []
-        y_ts_preds = []
+        y_ts_preds, y_l_preds, y_lt_preds = [], [], []
         for idx, embeddings in enumerate(doc_embeddings):
-            _, y_pred = self.predict(embeddings)
+            # conf, y_pred = self.predict(embeddings, sent_tokens[idx], temp='t')
+            # confidence.append(conf)
+            # y_preds.append(y_pred)
+
+            # _, y_pred = self.predict(embeddings, sent_tokens[idx])
+            # y_ts_preds.append(y_pred)
+
+            # conf, y_pred = self.predict_t(embeddings)
+            # y_l_preds.append(y_pred)
+
+            conf, y_pred = self.predict_t(embeddings, tokens=sent_tokens[idx], temp='t')
+            confidence.append(conf)
             y_preds.append(y_pred)
 
-            conf_ts, y_ts_pred = self.predict(
-                embeddings, sent_tokens[idx], temp='t')
-            confidence.append(conf_ts)
-            y_ts_preds.append(y_ts_pred)
-
-            if y_pred != y_ts_pred and y_pred == self.labels[idx]:
-                # print(self.labels[idx], sent_tokens[idx], conf, y_pred, conf_ts, y_ts_pred)
-                self.count += 1
-
-            if y_pred != y_ts_pred and y_ts_pred == self.labels[idx]:
-                self.count2 += 1
-
-            # if y_ts_pred == y_pred and y_ts_pred != self.labels[idx]:
-            #     print(self.labels[idx], y_ts_pred, y_pred, sent_tokens[idx], conf_ts, conf)
-
-        # self.update_temporal_trend(y_tt_preds)
-
-        self.baseline_acc_list.append(accuracy_score(labels, y_preds))
-        self.text_similarity_list.append(accuracy_score(labels, y_ts_preds))
+        # self.l_list.append(accuracy_score(labels, y_l_preds))
+        # self.lt_list.append(accuracy_score(labels, y_lt_preds))
+        # self.ts_list.append(accuracy_score(labels, y_ts_preds))
+        self.acc_list.append(accuracy_score(labels, y_preds))
         return confidence, y_preds
+
+    def predict_t(self, vector, tokens=None, temp=None):
+        """
+        Predict polarity of text based using PLStream.
+        Args:
+            vector (list): Tokenized words in a text.
+        Returns:
+            tuple: Confidence of predicted label and predicted label.
+        """
+        cos_sim_neg = cos_similarity(vector, self.neg_ref_mean)
+        cos_sim_pos = cos_similarity(vector, self.pos_ref_mean)
+
+        # 0.09 best so far
+        if temp == 't':
+            if abs(cos_sim_neg - cos_sim_pos) < self.confidence and tokens:
+                sent_n = [word for word in tokens if not word.startswith('n_')]
+                negation = [word for word in tokens if word.startswith('n_')]
+
+                text_sim_pos = [text_similarity(word, sent_n, 0.9)
+                                for word in config.POS_REF] + [text_similarity(word, negation, 0.8)
+                                                               for word in config.POS_REF]
+                text_sim_neg = [text_similarity(word, sent_n, 0.9)
+                                for word in config.NEG_REF] + [text_similarity(word, negation, 0.8)
+                                                               for word in config.NEG_REF]
+
+                cos_sim_pos += sum(text_sim_pos) / len(tokens)
+                cos_sim_neg += sum(text_sim_neg) / len(tokens)
+
+        if cos_sim_neg > cos_sim_pos:
+
+            return (cos_sim_neg + 1)/2, 0
+        return (cos_sim_pos + 1)/2, 1
 
     def predict(self, vector, tokens=None, temp=None):
         """
@@ -198,34 +261,21 @@ class PLStream():
         cos_sim_pos = sum(cos_sim_pos) / len(cos_sim_pos)
         cos_sim_neg = sum(cos_sim_neg) / len(cos_sim_neg)
 
-        if temp == 't' and abs(cos_sim_neg - cos_sim_pos) < 0.09:  # 0.09 best so far
-            if tokens:
+        # 0.09 best so far
+        if temp == 't':
+            if abs(cos_sim_neg - cos_sim_pos) < self.confidence and tokens:
                 sent_n = [word for word in tokens if not word.startswith('n_')]
                 negation = [word for word in tokens if word.startswith('n_')]
 
-                text_sim_pos = [text_similarity(word, sent_n)
+                text_sim_pos = [text_similarity(word, sent_n, 0.9)
                                 for word in config.POS_REF] + [text_similarity(word, negation, 0.8)
                                                                for word in config.POS_REF]
-                text_sim_neg = [text_similarity(word, sent_n)
+                text_sim_neg = [text_similarity(word, sent_n, 0.9)
                                 for word in config.NEG_REF] + [text_similarity(word, negation, 0.8)
                                                                for word in config.NEG_REF]
 
                 cos_sim_pos += sum(text_sim_pos) / len(tokens)
                 cos_sim_neg += sum(text_sim_neg) / len(tokens)
-
-        # # Predict polarity based on temporal trend and cosine similarity.
-        # if temp == 'tt':
-        #     if cos_sim_neg - cos_sim_pos > self.confidence:
-        #         return cos_sim_neg - cos_sim_pos, 0
-        #     if cos_sim_pos - cos_sim_neg > self.confidence:
-        #         return cos_sim_pos - cos_sim_neg, 1
-        #     if self.temporal_trend_detection:
-        #         if cos_sim_neg * self.neg_coef >= cos_sim_pos * self.pos_coef:
-        #             return cos_sim_neg - cos_sim_pos, 0
-        #         return cos_sim_pos - cos_sim_neg, 1
-        #     if cos_sim_neg > cos_sim_pos:
-        #         return cos_sim_neg - cos_sim_pos, 0
-        #     return cos_sim_pos - cos_sim_neg, 1
 
         if cos_sim_neg > cos_sim_pos:
             return (cos_sim_neg + 1)/2, 0
