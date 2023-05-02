@@ -12,7 +12,6 @@ import config
 from semi_supervised_models.utils import join_tokens, preprocess
 from semi_supervised_models.ann.model import Classifier as ANN
 from semi_supervised_models.han.model import HAN
-
 from utils import load_torch_model, get_average_word_embeddings, clean_for_wv
 
 
@@ -34,8 +33,9 @@ class Classifier:
         TIME_TO_UPDATE: Time interval in seconds to load updated word vector and/or NN model.
     """
     TIME_TO_UPDATE = 600
+    # TODO: 5000
 
-    def __init__(self, word_vector_algo, ssl_model, batch_size=5000, is_eval=False):
+    def __init__(self, word_vector_algo, ssl_model, batch_size=512, is_eval=False):
         """
         Initialize class with pretrained models.
 
@@ -72,7 +72,7 @@ class Classifier:
 
         # Set batch size and initialize lists for labels and texts.
         # TODO: REMOVE IF NOT NEEDED
-        self.batch_size = batch_size if ssl_model == 'ANN' else 256
+        self.batch_size = batch_size if ssl_model == 'ANN' else 512
 
         self.idx = []
         self.labels = []
@@ -112,7 +112,7 @@ class Classifier:
 
         return conf.tolist(), preds.tolist()
 
-    def classify(self, data):
+    def classify(self, data, batch_size=None):
         """
         Classify incoming stream data by batch.
 
@@ -129,6 +129,10 @@ class Classifier:
         self.labels.append(label)
         self.texts.append(text)
 
+        # TODO: REMOVE CONDITION WHEN FINALIZED WITH ANN / HANN
+        if batch_size and self.ssl_model == 'ANN':
+            self.batch_size = batch_size
+
         # Check if batch size is reached.
         if len(self.labels) >= self.batch_size:
 
@@ -141,8 +145,8 @@ class Classifier:
                 embeddings = get_average_word_embeddings(
                     self.wv_model, clean_for_wv(self.texts))
             else:
-                embeddings = preprocess(join_tokens(
-                    self.texts), self.wv_model.wv.key_to_index)
+                embeddings = np.array(preprocess(join_tokens(
+                    self.texts), self.wv_model.wv.key_to_index))
 
             # Get predictions and confidence scores.
             conf, preds = self.get_prediction(embeddings)

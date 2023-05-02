@@ -1,22 +1,26 @@
 # pylint: disable=import-error
 from gensim.models import Word2Vec, FastText
 
+# BEST SETTING SO FAR:
+# SSL_MODEL = HAN
+# WORD_VEC = Word2Vec
+# STEM = False
+
 # PyFlink
 PYFLINK = False
 
 # SentiStream
 SSL_MODEL = 'HAN'  # 'HAN', 'ANN'
-# Word2Vec, FastText ---------------WORD2VEC is BETTER IN PERFORMANCE
-WORD_VEC_ALGO = Word2Vec
-STEM = False  # TODO: REMOVE FROM HERE
+WORD_VEC_ALGO = Word2Vec  # Word2Vec, FastText
+STEM = False
 
 # Kafka
 KAFKA_TOPIC = 'sentiment-data'
-BOOTSTRAP_SERVER = 'localhost:9094'  # default 9092
+BOOTSTRAP_SERVER = 'localhost:9092'  # default 9092
 
 # Input files
-DATA = 'train.csv'
-TRAIN_DATA = 'ss_train.csv'
+DATA = 'new_train.csv'
+TRAIN_DATA = 'new_ss_train.csv'
 
 # Outputs
 BATCHING = 'BATCHING'

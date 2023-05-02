@@ -7,7 +7,6 @@ import config
 
 from semi_supervised_models.ann.trainer import Trainer as ANNTrainer
 from semi_supervised_models.han.trainer import Trainer as HANTrainer
-
 from utils import clean_for_wv, tokenize, train_word_vector_algo, get_average_word_embeddings
 
 
@@ -16,7 +15,7 @@ class TrainModel:
     Train model from scratch and then continously train model when data is available.
     """
 
-    def __init__(self, word_vector_algo, ssl_model, init, vector_size=20, window=5,
+    def __init__(self, word_vector_algo, ssl_model, init, data=None, vector_size=20, window=5,
                  min_count=5, pseudo_data_threshold=1000, acc_threshold=0.9, test_size=0.2):
         """
         Initialize semi-supervised model training
@@ -50,12 +49,7 @@ class TrainModel:
             self.wv_model = word_vector_algo(
                 vector_size=vector_size, window=window, min_count=min_count, workers=workers)
 
-            with open(config.TRAIN_DATA, 'r', encoding='utf-8') as file:
-                reader = csv.reader(file)
-
-                for row in reader:
-                    self.labels.append(int(row[0]))
-                    self.texts.append(tokenize(row[1]))
+            self.labels, self.texts = zip(*data)
 
             # Preprocess data for training word vectors.
             self.filtered_tokens = clean_for_wv(self.texts)
@@ -110,7 +104,8 @@ class TrainModel:
         """
         self.test_size = test_size
         self.labels, self.texts = zip(*data)
-        self.filtered_tokens = [clean_for_wv(text) for text in self.texts]
+
+        self.filtered_tokens = clean_for_wv(self.texts)
 
         # Dynamically update thresholds.
         if pseudo_data_threshold:
@@ -132,7 +127,7 @@ class TrainModel:
 
         # Train word vector model.
         train_word_vector_algo(
-            self.wv_model, self.filtered_tokens, config.SSL_WV, True)
+            self.wv_model, self.filtered_tokens, config.SSL_WV, True, epochs=20)
 
         # Train classifier.
         self.train_classifier(self.ssl_model, False,

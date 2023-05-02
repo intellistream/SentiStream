@@ -91,8 +91,8 @@ def get_max_lengths(docs):
             words_length.append(len(word_tokenize(sent)))
 
     # Calculate 80th percentile of maximum sentence and word length
-    return sorted(words_length)[int(0.8 * len(words_length))], \
-        sorted(sents_length)[int(0.8 * len(sents_length))]
+    return sorted(words_length)[int(0.95 * len(words_length))], \
+        sorted(sents_length)[int(0.95 * len(sents_length))]
 
 
 def preprocess(docs, word_dict, max_length_word=15, max_length_sentences=10):
@@ -149,3 +149,26 @@ def preprocess(docs, word_dict, max_length_word=15, max_length_sentences=10):
         temp.append(document_encode)
 
     return temp
+
+
+def downsampling(label, text):
+    """
+    Downsample majority class in binary classification to balance class.
+
+    Args:
+        label (list): List of labels.
+        text (list): List of documents.
+
+    Returns:
+        tuple: Downsampled labels and documents.
+    """
+    pos_idx = [idx for idx, x in enumerate(label) if x == 1]
+    neg_idx = [idx for idx, x in enumerate(label) if x == 0]
+
+    # no need to shuflle since it will be shuffled in train_test_split.
+    if len(pos_idx) < len(neg_idx):
+        downsampled_idx = pos_idx + neg_idx[:len(pos_idx)]
+    else:
+        downsampled_idx = neg_idx + pos_idx[:len(neg_idx)]
+
+    return [label[i] for i in downsampled_idx], [text[i] for i in downsampled_idx]
