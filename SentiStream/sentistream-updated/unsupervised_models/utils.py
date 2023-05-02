@@ -1,6 +1,7 @@
 # pylint: disable=import-error
 
 import numpy as np
+
 from numpy.linalg import norm
 
 from Levenshtein import ratio
@@ -47,11 +48,11 @@ def text_similarity(word1, word2, cutoff):
     temp = []
 
     for word in word2:
-        txt_sim = txt_cache.get((word1, word))
+        txt_sim = txt_cache.get((word1, word, cutoff))
 
         if txt_sim is None:
             txt_sim = ratio(word1, word, score_cutoff=cutoff)
-            txt_cache[(word1, word)] = txt_sim
+            txt_cache[(word1, word, cutoff)] = txt_sim
 
         if txt_sim != 0:
             temp.append(txt_sim)
