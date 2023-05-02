@@ -18,7 +18,7 @@ Extract
 tar -xzvf kafka_2.13-3.4.0.tgz && mv kafka_2.13-3.4.0 kafka
 ```
 
-### Install Pythin libraries
+### Install Python libraries
 
 Install libraries
 ```
@@ -54,37 +54,16 @@ python3 main.py
 
 ###### ----------------------
 
+## CHANGE W2V batch size for acc-time trade-off
 
-## ############################################# CHECK PREPROCESSING OUT FOR HAN
-### CHECK PSEUDO LABEERS<<<>>>,, CLASSIFIER..
+## WORD2VEC TRAIN ONLY ONCE --- CURRENTLY BOTH IN US AND SS
+################### CHECK IF REPLAY MEM IS NEEDED..
+#### SET DYNAMICBATCH SIZE FOR HAN...
+## TRY PLAYEU SCHEDULER,,, BCEWITHLOGITS
 
-### TRAIN FULLY THEN TEST --- AAN
-######### TRAINED ON 100000 AND TEST---- 87%% ON SEMI-SUPER
-######### TRAINED ON 5600 AND TESST ----- 83 % ON SEMI-SUPER
-######### TRAINED ON 5600 THEN CONTINUED TRAINIED ON ORIGINAL DATA - 1000 DATA EACH - 83% --- 5000 DATA EACH - 86% ------ 
+## DO WE NEED BATCH INF?
 
-### CHECK ANN THRESHOLD is it predict P & N correctly?
 ## MOVE TO CONFLUENT-KAFKA
-## CHECK LESS AACCURATE TEXTS AND FIND THE PROB
-### CALC VARIANCE OF EACH DTA POINT
-## CHECK PERFORMANCE OF SPACY VS NLTK FOR LEMMATIzation
-## CHECK WHY CLF NOT PREDICTS NEG 
-#### VECTORIZE EVAL FUNC
-## WHAT ABT MAX SENT, WORD LEN???
-## CHECK FOR LAST BATCH IN STREAM
-
-# TO REM
-
-### IS TEMPORAL TREAD DETECTION REQ??
-### PSEUDO_LABEL -> THRESHOLDDDDS
-
 
 # SHAREMDMEM ARRAY TO STORE ALL O/P BEFORE TRAIN-------------
 ### NUM WORKERS FOR WV - PLSTREAM, CLASSIFIER ---- find best for each batchsizw
-
-
-### THINGS TO NOTE;;;
-
-- plstream uses trained word vec from initial training
-- han uses dynamic expansion of embedding matrix for continual training
-- took avg of cosine sim
