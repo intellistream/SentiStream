@@ -1,15 +1,14 @@
 # pylint: disable=import-error
 
-import random
+import string
 import re
 import numpy as np
 import nltk
 import torch
-from nltk.stem import SnowballStemmer, WordNetLemmatizer
+
+from nltk.stem import WordNetLemmatizer
 
 import config
-
-import string
 
 nltk.download('punkt', quiet=True)
 nltk.download('wordnet', quiet=True)
@@ -52,13 +51,19 @@ STOP_WORDS = {'also', 'ltd', 'once', 'll', 'make', 'he', 'through', 'all', 'top'
               'using', 'becomes', 'enough', 'how', 'bottom', 've', 'regarding', 'm', 'they', 'part',
               'front', 'fill', 'get', 'nobody', 'detail'}
 
-stemmer = SnowballStemmer('english')
 lemmatizer = WordNetLemmatizer()
 
-
-url_rx = re.compile(r"http\S+|www\S+|\@\w+")
+url_rx = re.compile(r"http\S+|www\S+|@\w+|#\w+")
+html_rx = re.compile(r'<.*?>')
 multi_dot_rx = re.compile(r'\.{2,}')
-ws_rx = re.compile(r'\s+')
+emoji_rx = re.compile("["
+                      u"\U0001F600-\U0001F64F"
+                      u"\U0001F300-\U0001F5FF"
+                      u"\U0001F680-\U0001F6FF"
+                      u"\U0001F1E0-\U0001F1FF"
+                      u"\U00002702-\U000027B0"
+                      u"\U000024C2-\U0001F251"
+                      "]+", flags=re.UNICODE)
 
 alpha_table = str.maketrans({char: ' ' if char not in (
     '?', '!', '.') and not char.isalpha() else char for char in string.punctuation + string.digits})
@@ -89,7 +94,7 @@ def get_average_word_embeddings(model, docs):
     return doc_embeddings
 
 
-def load_torch_model(model, path):
+def load_torch_model(model, path, train=False):
     """
     Load PyTorch model to GPU for inference.
 
@@ -100,35 +105,15 @@ def load_torch_model(model, path):
     Returns:
         Torch.nn.Module: Loaded PyTorch model
     """
-    model.load_state_dict(torch.load(path))
+    checkpoint = torch.load(path)
+
+    model.load_state_dict(checkpoint['model_state_dict'])
+
+    if train:
+        return model, checkpoint['optimizer_state_dict'], checkpoint['scheduler_state_dict']
+
     model.eval()
-
     return model
-
-
-def downsampling(label, text):
-    """
-    Downsample majority class in binary classification to balance class.
-
-    Args:
-        label (list): List of labels.
-        text (list): List of documents.
-
-    Returns:
-        tuple: Downsampled labels and documents.
-    """
-    pos_idx = [idx for idx, x in enumerate(label) if x == 1]
-    neg_idx = [idx for idx, x in enumerate(label) if x == 0]
-
-    if len(pos_idx) < len(neg_idx):
-        # no need to shuflle majority since already shuffled in train_test_split
-        downsampled_idx = pos_idx + neg_idx[:len(pos_idx)]
-    else:
-        downsampled_idx = neg_idx + pos_idx[:len(neg_idx)]
-
-    random.shuffle(downsampled_idx)
-
-    return [label[i] for i in downsampled_idx], [text[i] for i in downsampled_idx]
 
 
 def train_word_vector_algo(model, texts, path, update=True, save=True, epochs=30):
@@ -161,17 +146,18 @@ def tokenize(text):
         list: List of cleaned tokens generated from text.
     """
     # Remove URLs, tags.
-    text = url_rx.sub('', text).lower()
+    text = url_rx.sub(' ', text).lower()
+    text = html_rx.sub(' ', text)
+    text = emoji_rx.sub(' ', text)
     text = text.replace('\\n', ' ').replace('\\t', ' ').replace('\\r', ' ')
     # Replace anything other than alphabets -- ?, !, . will be sentence stoppers -- needed for
     # sentence tokenization.
     text = multi_dot_rx.sub('.',  text)
     text = text.translate(alpha_table)
     text = text.replace('.', ' . ').replace('!', ' ! ').replace('?', ' ? ')
-
     tokens = text.split()
 
-    # # TODO: CHECK
+    # TODO: CHECK
     if config.STEM:
         tokens = [lemmatizer.lemmatize(token)
                   for token in tokens if token not in STOP_WORDS]
@@ -181,8 +167,8 @@ def tokenize(text):
 
     for i, token in enumerate(tokens[:-1]):
         if token in NEGATION_WORDS:
-            tokens[i:i+2] = ['n_' + tokens[i+1]] + \
-                [''] if i < len(tokens) - 1 else ['n_' + tokens[i+1]]
+            tokens[i:i+2] = ['negation_' + tokens[i+1]] + \
+                [''] if i < len(tokens) - 1 else ['negation_' + tokens[i+1]]
 
     return tokens
 

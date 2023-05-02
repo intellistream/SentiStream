@@ -42,9 +42,17 @@ STOP_WORDS = {'also', 'ltd', 'once', 'll', 'make', 'he', 'through', 'all', 'top'
               'using', 'becomes', 'enough', 'how', 'bottom', 've', 'regarding', 'm', 'they', 'part',
               'front', 'fill', 'get', 'nobody', 'detail'}
 
-url_rx = re.compile(r"http\S+|www\S+|\@\w+|#\w+")
+url_rx = re.compile(r"http\S+|www\S+|@\w+|#\w+")
+html_rx = re.compile(r'<.*?>')
 multi_dot_rx = re.compile(r'\.{2,}')
-ws_rx = re.compile(r'\s+')
+emoji_rx = re.compile("["
+                      u"\U0001F600-\U0001F64F"
+                      u"\U0001F300-\U0001F5FF"
+                      u"\U0001F680-\U0001F6FF"
+                      u"\U0001F1E0-\U0001F1FF"
+                      u"\U00002702-\U000027B0"
+                      u"\U000024C2-\U0001F251"
+                      "]+", flags=re.UNICODE)
 alpha_table = str.maketrans({char: ' ' if char not in (
     '?', '!', '.') and not char.isalpha() else char for char in string.punctuation + string.digits})
 tokenizer = BertTokenizer.from_pretrained(
@@ -104,6 +112,8 @@ def tokenize(text):
     # print(text)
     # Remove URLs, tags.
     text = url_rx.sub('', text).lower()
+    text = html_rx.sub(' ', text)
+    text = emoji_rx.sub(' ', text)
     text = text.replace('\\n', ' ').replace('\\t', ' ').replace('\\r', ' ')
     # Replace anything other than alphabets -- ?, !, . will be sentence stoppers -- needed for
     # sentence tokenization.
@@ -120,8 +130,8 @@ def tokenize(text):
 
     for i, token in enumerate(tokens[:-1]):
         if token in NEGATION_WORDS:
-            tokens[i:i+2] = ['n_' + tokens[i+1]] + \
-                [''] if i < len(tokens) - 1 else ['n_' + tokens[i+1]]
+            tokens[i:i+2] = ['negation_' + tokens[i+1]] + \
+                [''] if i < len(tokens) - 1 else ['negation_' + tokens[i+1]]
 
     return tokens
 
