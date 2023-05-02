@@ -11,9 +11,12 @@ from torch.utils.data import DataLoader
 import config
 
 from semi_supervised_models.dataset import SentimentDataset
-from semi_supervised_models.utils import calc_acc, join_tokens, preprocess, get_max_lengths
+from semi_supervised_models.utils import (
+    calc_acc, join_tokens, preprocess, get_max_lengths, downsampling)
 from semi_supervised_models.han.model import HAN
-from utils import load_torch_model, downsampling
+from utils import load_torch_model
+
+# TODO: Try running without flattening weights on multiprocessing (not flink)
 
 
 class Trainer:
@@ -22,8 +25,8 @@ class Trainer:
     """
 
     def __init__(self, docs, labels, wb_dict, embeddings, init, old_embeddings=None, test_size=0.2,
-                 batch_size=256, learning_rate=0.0002, word_hidden_size=32, sent_hidden_size=32,
-                 early_stopping_patience=5, downsample=True):
+                 batch_size=512, learning_rate=0.001, word_hidden_size=32, sent_hidden_size=32,
+                 early_stopping_patience=10, downsample=True):
         """
         Initialize class to train HAN.
 
@@ -47,13 +50,13 @@ class Trainer:
         """
         # Determine if GPU available for training.
         self.device = torch.device(
-            'cuda:0' if torch.cuda.is_available() else 'cpu')
+            'cuda:1' if torch.cuda.is_available() else 'cpu')
 
         # Optionally perform downsample to balance classes.
         if downsample:
             labels, docs = downsampling(labels, docs)
 
-        max_word_length, max_sent_length = 15, 15
+        max_word_length, max_sent_length = 16, 27
         self.early_stopping_patience = early_stopping_patience
 
         # Join all tokens into sentences to encode.
@@ -64,10 +67,11 @@ class Trainer:
         labels = torch.tensor(labels, dtype=torch.float32,
                               device=self.device).unsqueeze(1)
 
-        # # Get max sentence and word length for dataset.
+        # Get max sentence and word length for dataset.
         # if init:
-        #     max_word_length, max_sent_length = get_max_lengths( # 10 14
+        #     max_word_length, max_sent_length = get_max_lengths(  # 10 14
         #         docs)  # change to train only)
+        #     print(max_word_length, max_sent_length)
 
         # Encode documents to model input format.
         docs = preprocess(docs, wb_dict,
@@ -93,12 +97,9 @@ class Trainer:
                              max_word_length=max_word_length, word_hidden_size=word_hidden_size,
                              sent_hidden_size=sent_hidden_size)
         else:
-            self.model = load_torch_model(
-                HAN(np.array(old_embeddings)), config.SSL_CLF)
+            self.model, opt, scheduler = load_torch_model(
+                HAN(np.array(old_embeddings)), config.SSL_CLF, train=True)
 
-            # TODO: TEMP SOL ------
-            # Update Lookup layer with new embeddings -- NOTE: Lookup layer weights won't be
-            # updated since it's loaded from pretrained model, so it is safe to replace.
             embeddings = torch.from_numpy(np.concatenate(
                 [np.zeros((1, embeddings.shape[1])), embeddings], axis=0).astype(np.float32))
             self.model.word_attention_net.lookup = torch.nn.Embedding.from_pretrained(
@@ -107,21 +108,19 @@ class Trainer:
         self.model.to(self.device)
         self.criterion = torch.nn.BCELoss()
         self.optimizer = torch.optim.Adam(filter(lambda x: x.requires_grad, self.model.parameters(
-        )), lr=learning_rate)
+        )), lr=learning_rate)  # 0.001
 
         if not init:
-            self.optimizer.load_state_dict(torch.load('best_optimizer.pth'))
+            self.optimizer.load_state_dict(opt)
 
-        self.sheduler = torch.optim.lr_scheduler.StepLR(
-            self.optimizer, step_size=5, gamma=0.99)
+        self.scheduler = torch.optim.lr_scheduler.StepLR(
+            self.optimizer, step_size=10, gamma=0.99)
 
         if not init:
-            self.sheduler.load_state_dict(torch.load('best_scheduler.pth'))
+            self.scheduler.load_state_dict(scheduler)
 
         # Initialize best model to None (will be updated during training).
         self.best_model_checkpoint = None
-        self.optimizer_checkpoint = None
-        self.sheduler_checkpoint = None
 
     def fit(self, epochs):
         """
@@ -165,12 +164,10 @@ class Trainer:
             train_loss[epoch] /= len(self.train_loader)
             train_acc[epoch] /= len(self.train_loader)
 
-            self.sheduler.step()
+            self.scheduler.step()
 
             # Set model to evaluation mode and initialize validation loss and accuracy.
             self.model.eval()
-            # val_loss = 0
-            # val_acc = 0
 
             with torch.no_grad():
                 # Loop through the validation data.
@@ -202,9 +199,9 @@ class Trainer:
                 best_epoch_details = f"HAN epoch: {epoch+1},"\
                     f" train loss: {train_loss[epoch]:.4f}, train acc: {train_acc[epoch]:.4f},"\
                     f" val loss: {val_loss[epoch]:.4f}, val_acc: {val_acc[epoch]:.4f}"
-                self.best_model_checkpoint = self.model.state_dict()
-                self.optimizer_checkpoint = self.optimizer.state_dict()
-                self.sheduler_checkpoint = self.sheduler.state_dict()
+                self.best_model_checkpoint = {'model_state_dict': self.model.state_dict(),
+                                              'optimizer_state_dict': self.optimizer.state_dict(),
+                                              'scheduler_state_dict': self.scheduler.state_dict()}
 
             # Check if the current epoch is more than 5 epochs away from the best epoch, if it is,
             # then stop training.
@@ -227,8 +224,10 @@ class Trainer:
         # plt.legend()
 
         # # Save the fig.
+        # # plt.savefig(
+        # #     f'{val_loss[best_epoch]}-{best_epoch}-{train_loss[best_epoch]}.png')
         # plt.savefig(
-        #     f'{val_loss[best_epoch]}-{best_epoch}-{train_loss[best_epoch]}.png')
+        #     'test.png')
 
     def fit_and_save(self, filename, epochs=100):
         """
@@ -243,5 +242,3 @@ class Trainer:
 
         # Save best model.
         torch.save(self.best_model_checkpoint, filename)
-        torch.save(self.optimizer_checkpoint, 'best_optimizer.pth')
-        torch.save(self.sheduler_checkpoint, 'best_scheduler.pth')

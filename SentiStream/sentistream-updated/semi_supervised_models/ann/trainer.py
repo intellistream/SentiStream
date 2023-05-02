@@ -10,9 +10,9 @@ from torch.utils.data import DataLoader
 import config
 
 from semi_supervised_models.dataset import SentimentDataset
-from semi_supervised_models.utils import calc_acc
+from semi_supervised_models.utils import calc_acc, downsampling
 from semi_supervised_models.ann.model import Classifier
-from utils import load_torch_model, downsampling
+from utils import load_torch_model
 
 
 class Trainer:
@@ -21,7 +21,7 @@ class Trainer:
     """
 
     def __init__(self, vectors, labels, input_size, init, test_size=0.2, batch_size=256,
-                 hidden_size=32, learning_rate=3e-3, downsample=True):
+                 hidden_size=32, learning_rate=4e-3, downsample=True):
         """
         Initialize class to train classifier
 
@@ -47,8 +47,10 @@ class Trainer:
 
         # Optionally perform downsample to balance classes.
         if downsample:
-            labels, vectors = downsampling(labels, vectors)
-            vectors = np.asarray(vectors)
+            labels, vectors = downsampling(
+                labels, vectors)
+
+        vectors = np.array(vectors)
 
         # Convert data to PyTorch tensors move directly to device.
         vectors = torch.tensor(
@@ -74,26 +76,24 @@ class Trainer:
         if init:
             self.model = Classifier(input_size, hidden_size)
         else:
-            self.model = load_torch_model(Classifier(
-                input_size, hidden_size), config.SSL_CLF)
+            self.model, opt, scheduler = load_torch_model(Classifier(
+                input_size, hidden_size), config.SSL_CLF, train=True)
         self.model.to(self.device)
         self.criterion = torch.nn.BCELoss()
         self.optimizer = torch.optim.Adam(
             params=self.model.parameters(), lr=learning_rate)
 
         if not init:
-            self.optimizer.load_state_dict(torch.load('best_optimizer.pth'))
+            self.optimizer.load_state_dict(opt)
 
-        self.sheduler = torch.optim.lr_scheduler.StepLR(
-            self.optimizer, step_size=5, gamma=0.9)
+        self.scheduler = torch.optim.lr_scheduler.StepLR(
+            self.optimizer, step_size=10, gamma=0.9)
 
         if not init:
-            self.sheduler.load_state_dict(torch.load('best_scheduler.pth'))
+            self.scheduler.load_state_dict(scheduler)
 
         # Initialize best model to None (will be updated during training).
         self.best_model_checkpoint = None
-        self.optimizer_checkpoint = None
-        self.sheduler_checkpoint = None
 
     def fit(self, epochs):
         """
@@ -134,7 +134,7 @@ class Trainer:
             train_loss[epoch] /= len(self.train_loader)
             train_acc[epoch] /= len(self.train_loader)
 
-            self.sheduler.step()
+            self.scheduler.step()
 
             # Set model to evaluation mode and initialize validation loss and accuracy.
             self.model.eval()
@@ -166,13 +166,13 @@ class Trainer:
                 best_epoch_details = f"ANN epoch: {epoch+1}," \
                     f" train loss: {train_loss[epoch]:.4f}, train acc: {train_acc[epoch]:.4f}," \
                     f" val loss: {val_loss[epoch]:.4f}, val_acc: {val_acc[epoch]:.4f}"
-                self.best_model_checkpoint = self.model.state_dict()
-                self.optimizer_checkpoint = self.optimizer.state_dict()
-                self.sheduler_checkpoint = self.sheduler.state_dict()
+                self.best_model_checkpoint = {'model_state_dict': self.model.state_dict(),
+                                              'optimizer_state_dict': self.optimizer.state_dict(),
+                                              'scheduler_state_dict': self.scheduler.state_dict()}
 
             # Check if the current epoch is more than 5 epochs away from the best epoch, if it is,
             # then stop training.
-            if epoch - best_epoch > 5:
+            if epoch - best_epoch > 10:
                 print(best_epoch_details)
                 break
 
@@ -191,8 +191,10 @@ class Trainer:
         # plt.legend()
 
         # # Save the fig.
+        # # plt.savefig(
+        # #     f'{val_loss[best_epoch]}-{best_epoch}-{train_loss[best_epoch]}.png')
         # plt.savefig(
-        #     f'{val_loss[best_epoch]}-{best_epoch}-{train_loss[best_epoch]}.png')
+        #     'test.png')
 
     def fit_and_save(self, filename, epochs=100):
         """
@@ -205,7 +207,5 @@ class Trainer:
         # Train model.
         self.fit(epochs=epochs)
 
-        # Save best model.
+        # # Save best model.
         torch.save(self.best_model_checkpoint, filename)
-        torch.save(self.optimizer_checkpoint, 'best_optimizer.pth')
-        torch.save(self.sheduler_checkpoint, 'best_scheduler.pth')

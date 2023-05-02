@@ -61,6 +61,7 @@ class WordAttentionNet(nn.Module):
         """
         # Look up embeddings for input sequence.
         output = self.lookup(x)
+        output = nn.Dropout(0.1)(output)
 
         # Pass output through GRU layer.
         f_output, h_output = self.gru(output, hidden_state)
@@ -157,7 +158,7 @@ class HAN(nn.Module):
         device (torch.device): Device on which to run the model.
     """
 
-    def __init__(self, embeddings, batch_size=256, max_sent_length=15, max_word_length=15,
+    def __init__(self, embeddings, batch_size=512, max_sent_length=15, max_word_length=15,
                  word_hidden_size=32, sent_hidden_size=32):
         """
         Initialize HAN.
@@ -192,7 +193,7 @@ class HAN(nn.Module):
 
         # Set device to use for computations.
         self.device = torch.device(
-            "cuda:0" if torch.cuda.is_available() else "cpu")
+            "cuda:1" if torch.cuda.is_available() else "cpu")
 
         # Reset hidden state for word-level and sentence-level GRUs.
         self.reset_hidden_state()
