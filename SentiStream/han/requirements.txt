@@ -1,5 +1,0 @@
-wheel
-torch --index-url https://download.pytorch.org/whl/cu118
-nltk
-scikit-learn
-pandas
