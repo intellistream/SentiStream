@@ -1,30 +1,29 @@
-from utils import get_max_len, preprocess, acc
-
-from torch.utils.data import DataLoader
-from transformers import get_linear_schedule_with_warmup
-
-from transformers import BertForSequenceClassification
-
-from torch.utils.data import TensorDataset
-from sklearn.model_selection import train_test_split
-
+# pylint: disable=import-error
+# pylint: disable=no-name-in-module
 import torch
 import pandas as pd
 
-df = pd.read_csv('../train.csv', names=['label', 'review'])
-df = df.iloc[:5600, :]
-df['label'] -= 1
-# df = pd.read_csv('../new_ss_train.csv', names=['label', 'review'])
+
+from torch.utils.data import DataLoader
+from transformers import get_linear_schedule_with_warmup
+from transformers import BertForSequenceClassification
+from torch.utils.data import TensorDataset
+from sklearn.model_selection import train_test_split
+
+from utils import get_max_len, preprocess, acc
+
+df = pd.read_csv('../new_ss_train.csv', names=['label', 'review'])
 
 labels = df.label.values
 review = df.review.values
 
 BATCH_SIZE = 64
-EPOCHS = 20
+EPOCHS = 5
 device = torch.device("cuda")
 
 
-# max_len = get_max_len(review) # just checked if max len is less than 512.. but its large so truncated to 512.. so no need to run this always.
+# max_len = get_max_len(review) # just checked if max len is less than 512.. but its large so
+# truncated to 512.. so no need to run this always.
 input_ids, attention_masks = preprocess(review)
 
 input_ids = torch.cat(input_ids, dim=0)
@@ -41,7 +40,6 @@ test_dataloader = DataLoader(test_df, batch_size=BATCH_SIZE, shuffle=False)
 model = BertForSequenceClassification.from_pretrained(
     "bert-base-uncased", num_labels=2, output_attentions=False, output_hidden_states=False)
 model.cuda()
-
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=5e-5, eps=1e-8)
 
@@ -65,11 +63,11 @@ for epoch in range(0, EPOCHS):
 
         model.zero_grad()
 
-        loss, logits = model(input_ids,
-                             token_type_ids=None,
-                             attention_mask=input_mask,
-                             labels=labels,
-                             return_dict=False)
+        (loss, logits) = model(input_ids,
+                               token_type_ids=None,
+                               attention_mask=input_mask,
+                               labels=labels,
+                               return_dict=False)
 
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)

@@ -1,21 +1,25 @@
+# pylint: disable=import-error
+# pylint: disable=no-name-in-module
 import torch
 import pandas as pd
 import numpy as np
+
+from torch.nn.parallel import DataParallel
+
 from utils import preprocess
 
 model = torch.load('bert.pth')
+model = DataParallel(model)
 model.eval()
 
 device = torch.device("cuda")
 
-new_df = pd.read_csv('../train.csv', names=['label', 'review'])
-# df = df.iloc[5600:, :]
-new_df['label'] -= 1
+new_df = pd.read_csv('../new_train.csv', names=['label', 'review'])
 
 acc = []
 with torch.no_grad():
-    for i in range(0, len(new_df), 1000):
-        df = new_df.iloc[i: i+1000, :]
+    for i in range(0, len(new_df), 2000):
+        df = new_df.iloc[i: i+2000, :]
         labels = df.label.values
         review = df.review.values
 
@@ -28,9 +32,6 @@ with torch.no_grad():
 
         acc.append(np.sum(preds == labels) / len(preds))
         print(acc[-1])
-
-
-# print(np.sum(preds == labels) / len(labels))
 
 print(acc)
 
