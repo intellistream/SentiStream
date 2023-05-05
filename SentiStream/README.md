@@ -1,23 +1,69 @@
 # SentiStream
 
-temporary info
+## Prerequisites
 
-## Quick Start
+- Python (>=3.10)
+- Apache Kafka
+- Required Python libraries (see `requirements.txt`) 
 
-### 1. Install required environment for SentiStream
+### Install Kafka
 
+Download latest stable release
+```
+wget https://downloads.apache.org/kafka/3.4.0/kafka_2.13-3.4.0.tgz
+```
+
+Extract
+```
+tar -xzvf kafka_2.13-3.4.0.tgz && mv kafka_2.13-3.4.0 kafka
+```
+
+### Install Python libraries
+
+Install libraries
 ```
 pip install -r requirements.txt
 ```
 
-### 2. Start Redis-Server in a terminal
+`apache-flink` installs outdated `numpy` which have dependecy issue with other libs, upgrading won't affect flink performance.
 
 ```
-redis-server
+pip install --upgrade numpy
 ```
 
-### 3. Run PLStream
+## Usage
 
+
+Start Kafka server
 ```
-python modified_sentistream.py
+sh start_kafka.sh
 ```
+
+Create producer
+```
+python3 kafka_producer.py
+```
+
+Start SentiStream
+```
+python3 main.py
+```
+
+> NOTE: Change parameters from `config.py` to train with different word vector or classifier algorithms.
+
+
+###### ----------------------
+
+## CHANGE W2V batch size for acc-time trade-off
+
+## WORD2VEC TRAIN ONLY ONCE --- CURRENTLY BOTH IN US AND SS ---------------------
+################### CHECK IF REPLAY MEM IS NEEDED..
+#### SET DYNAMICBATCH SIZE FOR HAN...
+## TRY PLAYEU SCHEDULER,,, BCEWITHLOGITS
+
+## DO WE NEED BATCH INF?
+
+## MOVE TO CONFLUENT-KAFKA
+
+# SHAREMDMEM ARRAY TO STORE ALL O/P BEFORE TRAIN-------------
+### NUM WORKERS FOR WV - PLSTREAM, CLASSIFIER ---- find best for each batchsizw

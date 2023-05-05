@@ -21,7 +21,7 @@ class Trainer:
     """
 
     def __init__(self, vectors, labels, input_size, init, test_size=0.2, batch_size=256,
-                 hidden_size=32, learning_rate=4e-3, downsample=True):
+                 hidden_size=32, learning_rate=4e-3):
         """
         Initialize class to train classifier
 
@@ -35,8 +35,6 @@ class Trainer:
             batch_size (int, optional): Batch size for training. Defaults to 256.
             hidden_size (int, optional): Size of the hidden layer of neural network. Defaults to 32.
             learning_rate (float, optional): Learning rate for the optimizer. Defaults to 3e-3.
-            downsample (bool, optional): Flag indicating whether to downsample to balance classes.
-                                        Defaults to True.
         """
         # Determine if GPU available for training.
         # self.device = torch.device(
@@ -45,10 +43,8 @@ class Trainer:
         # TODO: Remove to(device) when finialized with CPU
         self.device = 'cpu'
 
-        # Optionally perform downsample to balance classes.
-        if downsample:
-            labels, vectors = downsampling(
-                labels, vectors)
+        # Downsample to balance classes.
+        labels, vectors = downsampling(labels, vectors)
 
         vectors = np.array(vectors)
 

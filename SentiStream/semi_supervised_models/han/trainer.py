@@ -25,8 +25,8 @@ class Trainer:
     """
 
     def __init__(self, docs, labels, wb_dict, embeddings, init, old_embeddings=None, test_size=0.2,
-                 batch_size=512, learning_rate=0.001, word_hidden_size=32, sent_hidden_size=32,
-                 early_stopping_patience=10, downsample=True):
+                 batch_size=512, learning_rate=0.003, word_hidden_size=32, sent_hidden_size=32,
+                 early_stopping_patience=5):
         """
         Initialize class to train HAN.
 
@@ -45,28 +45,23 @@ class Trainer:
                                     to 50.
             early_stopping_patience (int): Number of epochs to wait before early stopping. Defaults
                                              to 5.
-            downsample (bool): Flag indicating whether to downsample the data to balance classes.
-                                Defaults to True.
         """
         # Determine if GPU available for training.
         self.device = torch.device(
             'cuda:1' if torch.cuda.is_available() else 'cpu')
 
-        # Optionally perform downsample to balance classes.
-        if downsample:
-            labels, docs = downsampling(labels, docs)
-
-        max_word_length, max_sent_length = 16, 27
         self.early_stopping_patience = early_stopping_patience
+
+        # Downsample to balance classes.
+        labels, docs = downsampling(labels, docs)
 
         # Join all tokens into sentences to encode.
         docs = join_tokens(docs)
 
-        embeddings = np.asarray(embeddings)
-
         labels = torch.tensor(labels, dtype=torch.float32,
                               device=self.device).unsqueeze(1)
 
+        max_word_length, max_sent_length = 16, 27
         # Get max sentence and word length for dataset.
         # if init:
         #     max_word_length, max_sent_length = get_max_lengths(  # 10 14
@@ -74,8 +69,9 @@ class Trainer:
         #     print(max_word_length, max_sent_length)
 
         # Encode documents to model input format.
-        docs = preprocess(docs, wb_dict,
-                          max_word_length, max_sent_length)
+        docs = torch.from_numpy(
+            np.array(preprocess(docs, wb_dict,
+                                max_word_length, max_sent_length))).to(self.device)
 
         # Split data into training and validation sets.
         x_train, x_test, y_train, y_test = train_test_split(
@@ -86,16 +82,16 @@ class Trainer:
             x_train, y_train), SentimentDataset(x_test, y_test)
         self.train_loader = DataLoader(
             train_data, batch_size=batch_size, shuffle=True,
-            drop_last=True, num_workers=0)  # due to effect of numpy, 0 give much faster loading.
+            drop_last=True, num_workers=0)
         self.test_loader = DataLoader(
             test_data, batch_size=batch_size, shuffle=False,
             drop_last=False, num_workers=0)
 
         # Initialize model and optimizer.
         if init:
-            self.model = HAN(embeddings, batch_size=batch_size, max_sent_length=max_sent_length,
-                             max_word_length=max_word_length, word_hidden_size=word_hidden_size,
-                             sent_hidden_size=sent_hidden_size)
+            self.model = HAN(np.asarray(embeddings), batch_size=batch_size,
+                             max_sent_length=max_sent_length, max_word_length=max_word_length,
+                             word_hidden_size=word_hidden_size, sent_hidden_size=sent_hidden_size)
         else:
             self.model, opt, scheduler = load_torch_model(
                 HAN(np.array(old_embeddings)), config.SSL_CLF, train=True)
@@ -108,13 +104,13 @@ class Trainer:
         self.model.to(self.device)
         self.criterion = torch.nn.BCELoss()
         self.optimizer = torch.optim.Adam(filter(lambda x: x.requires_grad, self.model.parameters(
-        )), lr=learning_rate)  # 0.001
+        )), lr=learning_rate)
 
         if not init:
             self.optimizer.load_state_dict(opt)
 
         self.scheduler = torch.optim.lr_scheduler.StepLR(
-            self.optimizer, step_size=10, gamma=0.99)
+            self.optimizer, step_size=10, gamma=0.9)
 
         if not init:
             self.scheduler.load_state_dict(scheduler)
@@ -133,10 +129,10 @@ class Trainer:
         best_epoch = 0
         best_loss = 1e5
 
-        train_loss = [0] * epochs
-        train_acc = [0] * epochs
+        # train_loss = [0] * epochs
+        # train_acc = [0] * epochs
         val_loss = [0] * epochs
-        val_acc = [0] * epochs
+        # val_acc = [0] * epochs
 
         # Loop through number of epochs.
         for epoch in range(epochs):
@@ -146,8 +142,6 @@ class Trainer:
 
             # Loop through training data.
             for vecs, labels in self.train_loader:
-                vecs, labels = vecs.to(self.device), labels.to(self.device)
-
                 # Compute model output and loss, and update model parameters.
                 self.optimizer.zero_grad()
                 self.model.reset_hidden_state()
@@ -156,13 +150,13 @@ class Trainer:
                 loss.backward()
                 self.optimizer.step()
 
-                # Update training loss and accuracy.
-                train_loss[epoch] += loss.item()
-                train_acc[epoch] += calc_acc(pred, labels).item()
+                # # Update training loss and accuracy.
+                # train_loss[epoch] += loss.item()
+                # train_acc[epoch] += calc_acc(pred, labels).item()
 
-            # Compute average training loss and accuracy.
-            train_loss[epoch] /= len(self.train_loader)
-            train_acc[epoch] /= len(self.train_loader)
+            # # Compute average training loss and accuracy.
+            # train_loss[epoch] /= len(self.train_loader)
+            # train_acc[epoch] /= len(self.train_loader)
 
             self.scheduler.step()
 
@@ -172,20 +166,17 @@ class Trainer:
             with torch.no_grad():
                 # Loop through the validation data.
                 for vecs, labels in self.test_loader:
-                    num_sample = len(labels)
-                    vecs, labels = vecs.to(self.device), labels.to(self.device)
-
                     # Compute model output and loss.
-                    self.model.reset_hidden_state(num_sample)
+                    self.model.reset_hidden_state(len(labels))
                     pred = self.model(vecs)
 
                     # Update validation loss and accuracy.
                     val_loss[epoch] += loss.item()
-                    val_acc[epoch] += calc_acc(pred, labels).item()
+                    # val_acc[epoch] += calc_acc(pred, labels).item()
 
             # Compute average validation loss and accuracy.
             val_loss[epoch] /= len(self.test_loader)
-            val_acc[epoch] /= len(self.test_loader)
+            # val_acc[epoch] /= len(self.test_loader)
 
             # print(f"epoch: {epoch+1}, train loss: {train_loss[epoch]:.4f}, "
             #       f"train acc: {train_acc[epoch]:.4f}, val loss: {val_loss[epoch]:.4f},"
@@ -197,8 +188,7 @@ class Trainer:
                 best_loss = val_loss[epoch]
                 best_epoch = epoch
                 best_epoch_details = f"HAN epoch: {epoch+1},"\
-                    f" train loss: {train_loss[epoch]:.4f}, train acc: {train_acc[epoch]:.4f},"\
-                    f" val loss: {val_loss[epoch]:.4f}, val_acc: {val_acc[epoch]:.4f}"
+                    f" val loss: {val_loss[epoch]:.4f}"
                 self.best_model_checkpoint = {'model_state_dict': self.model.state_dict(),
                                               'optimizer_state_dict': self.optimizer.state_dict(),
                                               'scheduler_state_dict': self.scheduler.state_dict()}

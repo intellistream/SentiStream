@@ -3,7 +3,8 @@ import re
 import numpy as np
 import torch
 
-from nltk.tokenize import sent_tokenize, word_tokenize
+sent_rx = re.compile(r'[.!?]+')
+word_rx = re.compile(r'[\s]+')
 
 
 def calc_acc(y_pred, y_test):
@@ -82,13 +83,13 @@ def get_max_lengths(docs):
     # Iterate through each document
     for doc in docs:
         # Tokenize sentences
-        sents = sent_tokenize(doc)
+        sents = sent_rx.split(doc)
         sents_length.append(len(sents))
 
         # Iterate through each sentence
         for sent in sents:
             # Tokenize words
-            words_length.append(len(word_tokenize(sent)))
+            words_length.append(len(word_rx.split(sent)))
 
     # Calculate 80th percentile of maximum sentence and word length
     return sorted(words_length)[int(0.95 * len(words_length))], \
@@ -122,10 +123,10 @@ def preprocess(docs, word_dict, max_length_word=15, max_length_sentences=10):
         # Tokenize document into sentences and encode each sentence into list of word indices.
         document_encode = [
             [word_dict.get(word, -1)
-             for word in re.split(r'[.!?\s]+', sentences)
+             for word in word_rx.split(sentences)
              if len(word) > 1] for sentences
             in
-            sent_tokenize(doc)]
+            sent_rx.split(doc)]
 
         # Pad short sentences with -1s to make them same length as max_length_word.
         for sentence in document_encode:
@@ -141,7 +142,7 @@ def preprocess(docs, word_dict, max_length_word=15, max_length_sentences=10):
         document_encode = [sentences[:max_length_word] for sentences in document_encode][
             :max_length_sentences]
 
-        document_encode = np.stack(arrays=document_encode, axis=0)
+        document_encode = np.array(document_encode)
 
         # Increment all elements of matrix by 1 to make all values positive
         document_encode += 1

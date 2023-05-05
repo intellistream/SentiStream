@@ -1,13 +1,10 @@
 # pylint: disable=import-error
 # pylint: disable=no-name-in-module
-import multiprocessing
-import csv
-
 import config
 
 from semi_supervised_models.ann.trainer import Trainer as ANNTrainer
 from semi_supervised_models.han.trainer import Trainer as HANTrainer
-from utils import clean_for_wv, tokenize, train_word_vector_algo, get_average_word_embeddings
+from utils import clean_for_wv, train_word_vector_algo, get_average_word_embeddings
 
 
 class TrainModel:
@@ -16,7 +13,7 @@ class TrainModel:
     """
 
     def __init__(self, word_vector_algo, ssl_model, init, data=None, vector_size=20, window=5,
-                 min_count=5, pseudo_data_threshold=1000, acc_threshold=0.9, test_size=0.2):
+                 min_count=5, pseudo_data_threshold=1000, test_size=0.2):
         """
         Initialize semi-supervised model training
 
@@ -35,7 +32,6 @@ class TrainModel:
                                             Defaults to 0.9.
         """
         self.pseudo_data_threshold = pseudo_data_threshold
-        self.acc_threshold = acc_threshold
         self.word_vector_algo = word_vector_algo
         self.ssl_model = ssl_model
         self.test_size = test_size
@@ -45,9 +41,8 @@ class TrainModel:
 
         # Initialize word vector model and load training data.
         if init:
-            workers = int(0.5 * multiprocessing.cpu_count())
             self.wv_model = word_vector_algo(
-                vector_size=vector_size, window=window, min_count=min_count, workers=workers)
+                vector_size=vector_size, window=window, min_count=min_count, workers=8)
 
             self.labels, self.texts = zip(*data)
 
@@ -75,23 +70,21 @@ class TrainModel:
             clf = ANNTrainer(
                 get_average_word_embeddings(
                     self.wv_model, self.filtered_tokens),
-                self.labels, self.wv_model.vector_size, init,
-                downsample=True, test_size=self.test_size)
+                self.labels, self.wv_model.vector_size, init, test_size=self.test_size)
         else:
             clf = HANTrainer(self.texts, self.labels, self.wv_model.wv.key_to_index, [
                 self.wv_model.wv[key] for key in self.wv_model.wv.index_to_key], init,
-                old_embeddings=old_embeddings, downsample=True, test_size=self.test_size)
+                old_embeddings=old_embeddings, test_size=self.test_size)
 
         # Fit classifier and save model.
         clf.fit_and_save(config.SSL_CLF)
 
-    def update_model(self, data, acc, test_size, pseudo_data_threshold=None, acc_threshold=None):
+    def update_model(self, data, test_size, pseudo_data_threshold=None):
         """
         Update pretrained model using incremental learning technique.
 
         Args:
             data (list): Tuples containing label and processed text.
-            acc (float): Current accuracy of SSL model.
             test_size (float): Altered test size when doing incremental learning with small data.
             pseudo_data_threshold (float, optional): Threshold for number of pseudo data needed to
                                                     update model. Defaults to None.
@@ -110,13 +103,10 @@ class TrainModel:
         # Dynamically update thresholds.
         if pseudo_data_threshold:
             self.pseudo_data_threshold = pseudo_data_threshold
-        if acc_threshold:
-            self.acc_threshold = acc_threshold
 
         # If there is too low pseudo data or the accuracy is too high, do not update model.
-        if (len(data) < self.pseudo_data_threshold or acc > self.acc_threshold):
-            print(f'TRAINING SKIPPED - acc: {acc}, threshold: {self.acc_threshold}\n'
-                  f'pseudo_data_size: {len(data)}'
+        if (len(data) < self.pseudo_data_threshold):
+            print(f'TRAINING SKIPPED - pseudo_data_size: {len(data)}'
                   f' threshold: {self.pseudo_data_threshold}')
             return config.SKIPPED
 

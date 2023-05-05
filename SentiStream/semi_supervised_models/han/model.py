@@ -2,6 +2,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
 import numpy as np
 
 from semi_supervised_models.utils import mat_mul, element_wise_mul
@@ -30,10 +31,14 @@ class WordAttentionNet(nn.Module):
         """
         super().__init__()
 
+        # Set device to use for computations.
+        # device = torch.device(
+        #     "cuda:1" if torch.cuda.is_available() else "cpu")
+
         # Add row of zeros to the embeddings for padding and unknown words.
-        pad_unk_word = np.zeros((1, embeddings.shape[1]))
-        embeddings = torch.from_numpy(np.concatenate([pad_unk_word, embeddings], axis=0)
-                                      .astype(np.float32))
+        pad_unk_word = np.zeros((1, embeddings.shape[1]), dtype=np.float32)
+        embeddings = torch.from_numpy(
+            np.concatenate([pad_unk_word, embeddings], axis=0))
 
         # Initialize learnable parameters.
         self.word_bias = nn.Parameter(torch.zeros(1, 2 * hidden_size))

@@ -1,241 +1,186 @@
-from gensim.utils import simple_preprocess
-# from gensim.parsing.preprocessing import remove_stopwords
-import pandas as pd
-import os
-import random
+# pylint: disable=import-error
+
+import string
 import re
 import numpy as np
-from gensim.models import Word2Vec
-from nltk.tokenize import sent_tokenize, word_tokenize
+import nltk
 import torch
 
-STOP_WORDS = ['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', "you're", "you've",
-              "you'd", 'your', 'yours', 'yourself', 'yourselves', 'he', 'him', 'his', 'himself', 'she', "she's",
-              'her', 'hers', 'herself', 'it', "it's", 'its', 'itself', 'they', 'them', 'their', 'theirs',
-              'themselves', 'what', 'which', 'who', 'whom', 'this', 'that', "that'll", 'these', 'those', 'am',
-              'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'having', 'do', 'does',
-              'did', 'doing', 'a', 'an', 'the', 'and', 'but', 'if', 'or', 'because', 'as', 'until', 'while', 'of',
-              'at', 'by', 'for', 'with', 'about', 'against', 'between', 'into', 'through', 'during', 'before',
-              'after', 'above', 'below', 'to', 'from', 'up', 'down', 'in', 'out', 'on', 'off', 'over', 'under',
-              'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all', 'any',
-              'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'only', 'own', 'same', 'so', 'than',
-              'too', 'very', 's', 't', 'can', 'will', 'just', 'should', "should've", 'now', 'd', 'll', 'm', 'o',
-              're', 've', 'y', 'ma', 'st', 'nd', 'rd', 'th', "you'll", 'dr', 'mr', 'mrs']
+from nltk.stem import WordNetLemmatizer
+
+import config
+
+nltk.download('punkt', quiet=True)
+nltk.download('wordnet', quiet=True)
+
+NEGATION_WORDS = {'not', 'no', 'didn', 'didnt', 'wont',
+                  'dont', 'don', 'doesnt', 'doesn', 'shouldnt', 'shouldn'}
+
+STOP_WORDS = {'also', 'ltd', 'once', 'll', 'make', 'he', 'through', 'all', 'top', 'from', 'or', 's',
+              'hereby', 'so',  'yours', 'since', 'meanwhile', 're', 'over', 'mrs', 'thereafter',
+              'ca', 'move', 'mill', 'such', 'wherever', 'on', 'besides', 'few', 'does', 'yet',  'y',
+              'much', 'my', 'him', 'yourselves', 'as', 'ours', 'therefore', 'amongst', 'due', 'mr',
+              'here', 'may', 'onto', 'it', 'whose', 'himself', 'least', 'i', 'what', 'many', 'd',
+              'hereafter', 'anything', 'of', 'whoever', 'made', 'be', 'sometimes', 'put', 'found',
+              'than', 'although', 'anyway', 'seems', 'you', 'under', 'above', 'themselves', 'thus',
+              'a', 'con', 'when', 'why', 'back', 'until', 'first', 'theirs', 'describe', 'because',
+              'always', 'too', 'across', 't', 'anyhow', 'her', 'ourselves', 'latterly', 'six', 'an',
+              'somewhere', 'else', 'for', 'really', 'up', 'among', 'used', 'whenever', 'during',
+              'nowhere', 'nothing', 'if', 'afterwards', 'that', 'whereas', 'elsewhere', 'along',
+              'been', 'both', 'etc', 'ie', 'might', 'into', 'inc', 'with', 'formerly', 'there',
+              'will', 'own', 'seemed', 'though', 'was', 'whereupon', 'just', 'except', 'has',
+              'your', 'do', 'around', 'herein', 'anywhere', 'rd',  'now', 'sincere', 'this',  'me',
+              'throughout',  'unless', 'against', 'out', 'most', 'various', 'others', 'them', 'th',
+              'eleven', 'am', 'indeed', 'name', 'his', 'often', 'yourself', 'only', 'kg', 'take',
+              'everything', 'cry', 'and',  'quite', 'itself', 'in', 'to', 'well', 'namely', 'thru',
+              'see', 'would', 'which', 'beforehand', 'myself', 'having', 'however', 'go', 'did',
+              'below', 'those', 'st', 'computer', 'several', 'whether', 'have', 'between', 'any',
+              'becoming', 'thereby', 'while', 'were', 'whole', 'latter', 'but', 'km', 'amount',
+              'either', 'herself', 'whereafter', 'never', 'system', 'un', 'find', 'please', 'o',
+              'hereupon', 'thin', 'give', 'third', 'every', 'doing', 'our', 'towards', 'another',
+              'before', 'within', 'mine', 'almost', 'mostly', 'down', 'de', 'seeming', 'moreover',
+              'some', 'us', 'former', 'call', 'should', 'she', 'even', 'beyond', 'became', 'other',
+              'show', 'eg', 'about', 'side', 'its', 'these', 'rather', 'alone', 'nd', 'after',
+              'already', 'keep', 'more', 'behind', 'thick', 'together', 'upon', 'interest', 'dr',
+              'otherwise', 'full', 'can', 'next', 'last', 'bill', 'their', 'hers', 'hence', 'by',
+              'become', 'something', 'who', 'further', 'someone', 'must', 'say', 'each', 'very',
+              'whom', 'again', 'then', 'we', 'same', 'via', 'where', 'per', 'are', 'the', 'still',
+              'toward', 'anyone', 'therein', 'being', 'off', 'perhaps', 'is', 'had', 'co', 'at',
+              'done', 'everywhere', 'less', 'wherein', 'could', 'ma', 'sometime', 'seem', 'somehow',
+              'beside', 'whatever', 'whereby', 'ever', 'everyone', 'nevertheless', 'serious',
+              'using', 'becomes', 'enough', 'how', 'bottom', 've', 'regarding', 'm', 'they', 'part',
+              'front', 'fill', 'get', 'nobody', 'detail'}
+
+lemmatizer = WordNetLemmatizer()
+
+url_rx = re.compile(r"http\S+|www\S+|@\w+|#\w+")
+html_rx = re.compile(r'<.*?>')
+multi_dot_rx = re.compile(r'\.{2,}')
+emoji_rx = re.compile("["
+                      u"\U0001F600-\U0001F64F"
+                      u"\U0001F300-\U0001F5FF"
+                      u"\U0001F680-\U0001F6FF"
+                      u"\U0001F1E0-\U0001F1FF"
+                      u"\U00002702-\U000027B0"
+                      u"\U000024C2-\U0001F251"
+                      "]+", flags=re.UNICODE)
+
+alpha_table = str.maketrans({char: ' ' if char not in (
+    '?', '!', '.') and not char.isalpha() else char for char in string.punctuation + string.digits})
 
 
-def tokenize(line):
-    # TODO: Change Min, Max LEN ###############################################################################################################
-    return simple_preprocess(line, deacc=True)
-    # remove punctuations and lowercase words also tokenise them
+def get_average_word_embeddings(model, docs):
+    """
+    Calcualte average word embeddings for list of docs using word vector model.
 
-def process(line):
-    # clean_text = clean(line)
-    # tokenized_text = tokenise(clean_text)
+    Args:
+        model (class): Word vector model
+        docs (array-like): List of docs of tokens.
 
-    tokenized_text = tokenize(line)
-    tokens = clean(tokenized_text)
+    Returns:
+        ndarray: Average word embeddings for the input documents.
+    """
+    filtered_tokens = [
+        [token for token in doc if token in model.wv.key_to_index]
+        for doc in docs]
+
+    doc_embeddings = np.zeros(
+        (len(filtered_tokens), model.vector_size), dtype=np.float32)
+
+    for idx, tokens in enumerate(filtered_tokens):
+        if tokens:
+            doc_embeddings[idx] = np.mean(model.wv[tokens], axis=0)
+
+    return doc_embeddings
+
+
+def load_torch_model(model, path, train=False):
+    """
+    Load PyTorch model to GPU for inference.
+
+    Args:
+        model (nn.Module): Model class to load state dict.
+        path (str): Model path.
+
+    Returns:
+        Torch.nn.Module: Loaded PyTorch model
+    """
+    checkpoint = torch.load(path)
+
+    model.load_state_dict(checkpoint['model_state_dict'])
+
+    if train:
+        return model, checkpoint['optimizer_state_dict'], checkpoint['scheduler_state_dict']
+
+    model.eval()
+    return model
+
+
+def train_word_vector_algo(model, texts, path, update=True, save=True, epochs=30):
+    """
+    Train word vector algorithm and save it locally.
+
+    Args:
+        model (class): Intialized instance of word vector model. (Either Word2Vec or FastText).
+        texts (list): List of tokens from documents.
+        path (str): Path to save trained model.
+        update (bool, optional): Flag indicating whether to update pretrained model.
+                                Defaults to True.
+    """
+    model.build_vocab(texts, update=update)
+    model.train(texts,
+                total_examples=model.corpus_count,
+                epochs=epochs)
+    if save:
+        model.save(path)
+
+
+def tokenize(text):
+    """
+    Clean and tokenize text for processing.
+
+    Args:
+        text (str): Text/Review to be tokenized.
+
+    Returns:
+        list: List of cleaned tokens generated from text.
+    """
+    # Remove URLs, tags.
+    text = url_rx.sub(' ', text).lower()
+    text = html_rx.sub(' ', text)
+    text = emoji_rx.sub(' ', text)
+    text = text.replace('\\n', ' ').replace('\\t', ' ').replace('\\r', ' ')
+    # Replace anything other than alphabets -- ?, !, . will be sentence stoppers -- needed for
+    # sentence tokenization.
+    text = multi_dot_rx.sub('.',  text)
+    text = text.translate(alpha_table)
+    text = text.replace('.', ' . ').replace('!', ' ! ').replace('?', ' ? ')
+    tokens = text.split()
+
+    # TODO: CHECK
+    if config.STEM:
+        tokens = [lemmatizer.lemmatize(token)
+                  for token in tokens if token not in STOP_WORDS]
+    else:
+        tokens = [token
+                  for token in tokens if token not in STOP_WORDS]
+
+    for i, token in enumerate(tokens[:-1]):
+        if token in NEGATION_WORDS:
+            tokens[i:i+2] = ['negation_' + tokens[i+1]] + \
+                [''] if i < len(tokens) - 1 else ['negation_' + tokens[i+1]]
 
     return tokens
 
-def process_batch(sentences):
-    result = []
 
-    for sent in sentences:
-        result.append(clean(tokenize(sent)))
-    
-    return result
+def clean_for_wv(doc):
+    """
+    Clean unneccesary/meaningless tokens from generated tokens.
 
-
-def clean(line):
-    # return remove_stopwords(line)
-    return [word for word in line if word not in STOP_WORDS]
-
-
-def load_data(pseudo_data_folder):
-    """Load ground truth and pseudo data to memory
-
-    Parameters:
-        pseudo_data_folder (str): name of psedo data folder
-        data_file (str): name of train/test data
+    Args:
+        doc (list): List of tokens from documents.
 
     Returns:
-        (tuple): tupe of length of pseudo data and combined dataframe to test
+        list: List of filtered tokens for documents.
     """
-
-    path_list = []
-    for subdir_name in os.scandir(pseudo_data_folder):
-        for file_name in os.scandir(subdir_name):
-            if file_name.is_file():
-                path_list.append(file_name.path)
-
-    pseudo_df = pd.concat(map(lambda path: pd.read_csv(
-        path, delimiter='\t', header=None), path_list), ignore_index=True)
-    pseudo_df.columns = ['label', 'review']
-    
-    return pseudo_df
-
-
-def pre_process(tweet, func=process):
-    """
-
-    :param tweet:expects tweet in the format of a label,string: 1,"i love rice"
-    :param func: funct(text) returns tokenized text in the form of a list. e.g: ['eat','rice']
-    :return: label,[tokens]
-    """
-    return tweet[0], process_text_and_generate_tokens(tweet[1], func)
-
-
-def process_text_and_generate_tokens(text, func=process):
-    """
-    :param func: funct(text) returns tokenized text in the form of a list. e.g: ['eat','rice']
-    :param text: expects text in the format of a string:"i eat rice"
-    :return: [tokens]
-    """
-
-    return func(text)
-
-
-def default_vector_mean(model, tokenized_text):
-    """Calculate average word embedding
-
-    Parameters:
-        model (T): word vector model
-        tokenized_text (list): list of tokenized words
-
-    Returns:
-        ndarray: average word vector
-    """
-    word_vector = np.zeros(model.vector_size)
-    count = 0
-    for token in tokenized_text:
-        try:
-            word_vector += model.wv[token]
-            count += 1
-        except:
-            pass
-
-    if count > 0:
-        word_vector /= count
-
-    return word_vector
-
-
-def generate_vector_mean(model, tokenized_text, func=default_vector_mean):
-    """
-    :param model: pretrained model
-    :param tokenized_text: list e.g. "['eat','rice']"
-    :param func: custom function to generate vector mean with
-    :return: vector mean in the form of list e.g. [0.1,0.2,0.4]
-    """
-    return func(model, tokenized_text)
-
-
-def default_model_pretrain(path_to_model='word2vec20tokenised.model'):
-    return Word2Vec.load(path_to_model)
-
-def load_torch_model(model_path):
-    """Load trained torch model on to cpu (compatible with both models trained on cpu & gpu)
-
-    Parameters:
-        model_path (str): path of torch model
-
-    Returns:
-        any: load all tensors to cpu
-    """
-    model = torch.load(model_path)
-    model.cuda()
-    model.eval()
-
-    return model
-
-def downsampling(label, text):
-    pos_idx = [idx for idx, x in enumerate(label) if x == 1]
-    neg_idx = [idx for idx, x in enumerate(label) if x == 0]
-
-    if len(pos_idx) < len(neg_idx):
-        downsampled_idx = pos_idx + neg_idx[:len(pos_idx)] # no need to shuflle majority since already shuffled in train_test_split
-    else:
-        downsampled_idx = neg_idx + pos_idx[:len(neg_idx)]
-
-    random.shuffle(downsampled_idx)
-
-    return [label[i] for i in downsampled_idx], [text[i] for i in downsampled_idx]
-
-def train_word2vec(model, sentences, path):
-    # TODO: CHECK ON UPDATING MODEL VS RETRAINING FOR MIN_COUNT PRB
-    model.build_vocab(sentences, update=True)
-    model.train(sentences,
-                total_examples=model.corpus_count,
-                epochs=model.epochs)
-    model.save(path)
-
-def clean_text_w2v(text):
-    text = re.sub(r"http\S+|www\S+|\@\w+", '', text).lower()
-    text = re.sub(r"[\n\t\r]", " ", text)
-    text = re.sub(r'[^\w\s.?!]', '', text)  # ?, !, . will be sentence stoppers
-    text = re.sub('\.+', '.', text)
-    text = re.sub('\s+', ' ', text)
-
-    tokens = word_tokenize(text)
-
-        # tokens = [stemmer.stem(token) for token in tokens]
-
-    return [token for token in tokens if token not in STOP_WORDS]
-
-
-def clean_text_han(doc):
-    temp = []
-
-    for tokens in doc:
-             temp.append((' '.join(tokens)).strip())
-
-    return temp
-
-def preprocess_han(docs, word_dict, max_length_word=15, max_length_sentences=10):
-    padded_words = [-1] * max_length_word
-
-    temp = []
-
-    for doc in docs:
-
-        # UNK = -1 , PAD = -1  ### HAVE SEPARATE ENCODINGSSS
-
-        document_encode = [
-            [word_dict.get(word, -1) for word in word_tokenize(sentences)] for sentences
-            in
-            sent_tokenize(doc)]
-
-        for sentence in document_encode:
-            if len(sentence) < max_length_word:
-                sentence += padded_words[len(sentence):]
-
-        if len(document_encode) < max_length_sentences:
-            document_encode += [padded_words] * \
-                (max_length_sentences - len(document_encode))
-
-        document_encode = [sentences[:max_length_word] for sentences in document_encode][
-            :max_length_sentences]
-
-        document_encode = np.stack(arrays=document_encode, axis=0)
-        document_encode += 1  # make all pos
-
-        temp.append(document_encode)
-
-    return temp
-
-def mat_mul(input, weight, bias=None):
-    output = torch.matmul(input, weight)
-    if bias is not None:
-        output += bias
-    output = torch.tanh(output)
-    return output.squeeze()
-
-
-def ele_wise_mul(input1, input2):
-    output = input1 * input2.unsqueeze(2)
-    return output.sum(dim=0, keepdim=True)
-
-def calc_acc(y_label, y_pred):
-    _, preds = torch.max(y_pred, 1)
-    correct = torch.sum(preds == y_label)
-    return correct.float() / preds.size(0)
+    return [[token for token in tokens if len(token) > 1] for tokens in doc]

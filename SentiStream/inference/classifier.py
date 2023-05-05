@@ -32,10 +32,7 @@ class Classifier:
     Constants:
         TIME_TO_UPDATE: Time interval in seconds to load updated word vector and/or NN model.
     """
-    TIME_TO_UPDATE = 600
-    # TODO: 5000
-
-    def __init__(self, word_vector_algo, ssl_model, batch_size=512, is_eval=False):
+    def __init__(self, word_vector_algo, ssl_model, batch_size=10000, is_eval=False):
         """
         Initialize class with pretrained models.
 
@@ -60,7 +57,7 @@ class Classifier:
         self.wv_model = word_vector_algo.load(config.SSL_WV)
         self.clf_model = load_torch_model(
             ANN(self.wv_model.vector_size) if ssl_model == 'ANN' else HAN(np.array([
-                self.wv_model.wv[key] for key in self.wv_model.wv.index_to_key])),
+                self.wv_model.wv[key] for key in self.wv_model.wv.index_to_key]), batch_size=batch_size),
             config.SSL_CLF).to(self.device)
         self.ssl_model = ssl_model
 
@@ -71,8 +68,7 @@ class Classifier:
         self.is_eval = is_eval
 
         # Set batch size and initialize lists for labels and texts.
-        # TODO: REMOVE IF NOT NEEDED
-        self.batch_size = batch_size if ssl_model == 'ANN' else 512
+        self.batch_size = batch_size
 
         self.idx = []
         self.labels = []
@@ -88,7 +84,7 @@ class Classifier:
         self.wv_model = self.word_vector_algo.load(config.SSL_WV)
         self.clf_model = load_torch_model(
             ANN(self.wv_model.vector_size) if self.ssl_model == 'ANN' else HAN(np.array([
-                self.wv_model.wv[key] for key in self.wv_model.wv.index_to_key])),
+                self.wv_model.wv[key] for key in self.wv_model.wv.index_to_key]), batch_size=self.batch_size),
             config.SSL_CLF).to(self.device)
 
     def get_prediction(self, data):
@@ -112,7 +108,7 @@ class Classifier:
 
         return conf.tolist(), preds.tolist()
 
-    def classify(self, data, batch_size=None):
+    def classify(self, data):
         """
         Classify incoming stream data by batch.
 
@@ -128,10 +124,6 @@ class Classifier:
         self.idx.append(idx)
         self.labels.append(label)
         self.texts.append(text)
-
-        # TODO: REMOVE CONDITION WHEN FINALIZED WITH ANN / HANN
-        if batch_size and self.ssl_model == 'ANN':
-            self.batch_size = batch_size
 
         # Check if batch size is reached.
         if len(self.labels) >= self.batch_size:
