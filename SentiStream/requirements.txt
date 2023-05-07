@@ -4,6 +4,7 @@ nltk
 numpy
 pandas
 redis
+transformers
 kafka-python
 python-Levenshtein
 matplotlib
