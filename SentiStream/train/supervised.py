@@ -13,7 +13,7 @@ class TrainModel:
     """
 
     def __init__(self, word_vector_algo, ssl_model, init, data=None, vector_size=20, window=5,
-                 min_count=5, pseudo_data_threshold=1000, test_size=0.2):
+                 min_count=3, test_size=0.2):
         """
         Initialize semi-supervised model training
 
@@ -26,12 +26,7 @@ class TrainModel:
             window (int, optional): Context window size for training word vectors. Defaults to 5.
             min_count (int, optional): Min frequency of a word to be included in vocab. Defaults
                                         to 5.
-            pseudo_data_threshold (float, optional): Threshold for number of pseudo data needed to
-                                                    update model. Defaults to 0.0.
-            acc_threshold (float, optional): Threshold for max accuracy to not update model.
-                                            Defaults to 0.9.
         """
-        self.pseudo_data_threshold = pseudo_data_threshold
         self.word_vector_algo = word_vector_algo
         self.ssl_model = ssl_model
         self.test_size = test_size
@@ -79,35 +74,27 @@ class TrainModel:
         # Fit classifier and save model.
         clf.fit_and_save(config.SSL_CLF)
 
-    def update_model(self, data, test_size, pseudo_data_threshold=None):
+    def update_model(self, data, pseudo_data_threshold=None):
         """
         Update pretrained model using incremental learning technique.
 
         Args:
             data (list): Tuples containing label and processed text.
-            test_size (float): Altered test size when doing incremental learning with small data.
             pseudo_data_threshold (float, optional): Threshold for number of pseudo data needed to
                                                     update model. Defaults to None.
-            acc_threshold (_type_, optional): Threshold for max accuracy to not update model.
-                                            Defaults to None.
 
         Returns:
             str: 'FINISHED' if model is successfully updated, 'SKIPPED' if current batch doesn't 
                 meet requirements to be trained.
         """
-        self.test_size = test_size
         self.labels, self.texts = zip(*data)
 
         self.filtered_tokens = clean_for_wv(self.texts)
 
-        # Dynamically update thresholds.
-        if pseudo_data_threshold:
-            self.pseudo_data_threshold = pseudo_data_threshold
-
-        # If there is too low pseudo data or the accuracy is too high, do not update model.
-        if (len(data) < self.pseudo_data_threshold):
+        # If there is too low pseudo data, do not update model.
+        if len(data) < pseudo_data_threshold:
             print(f'TRAINING SKIPPED - pseudo_data_size: {len(data)}'
-                  f' threshold: {self.pseudo_data_threshold}')
+                  f' threshold: {pseudo_data_threshold}')
             return config.SKIPPED
 
         self.wv_model = self.word_vector_algo.load(config.SSL_WV)

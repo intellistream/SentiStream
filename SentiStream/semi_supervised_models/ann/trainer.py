@@ -34,7 +34,7 @@ class Trainer:
                                         Defaults to 0.2.
             batch_size (int, optional): Batch size for training. Defaults to 256.
             hidden_size (int, optional): Size of the hidden layer of neural network. Defaults to 32.
-            learning_rate (float, optional): Learning rate for the optimizer. Defaults to 3e-3.
+            learning_rate (float, optional): Learning rate for the optimizer. Defaults to 4e-3.
         """
         # Determine if GPU available for training.
         # self.device = torch.device(
@@ -102,10 +102,10 @@ class Trainer:
         best_epoch = 0
         best_loss = 1e5
 
-        train_loss = [0] * epochs
-        train_acc = [0] * epochs
+        # train_loss = [0] * epochs
+        # train_acc = [0] * epochs
         val_loss = [0] * epochs
-        val_acc = [0] * epochs
+        # val_acc = [0] * epochs
 
         # Loop through number of epochs.
         for epoch in range(epochs):
@@ -122,13 +122,13 @@ class Trainer:
                 loss.backward()
                 self.optimizer.step()
 
-                # Update training loss and accuracy.
-                train_loss[epoch] += loss.item()
-                train_acc[epoch] += calc_acc(outputs, labels).item()
+            #     # Update training loss and accuracy.
+            #     train_loss[epoch] += loss.item()
+            #     train_acc[epoch] += calc_acc(outputs, labels).item()
 
-            # Compute average training loss and accuracy.
-            train_loss[epoch] /= len(self.train_loader)
-            train_acc[epoch] /= len(self.train_loader)
+            # # Compute average training loss and accuracy.
+            # train_loss[epoch] /= len(self.train_loader)
+            # train_acc[epoch] /= len(self.train_loader)
 
             self.scheduler.step()
 
@@ -144,11 +144,11 @@ class Trainer:
 
                     # Update validation loss and accuracy.
                     val_loss[epoch] += loss.item()
-                    val_acc[epoch] += calc_acc(outputs, labels).item()
+                    # val_acc[epoch] += calc_acc(outputs, labels).item()
 
             # Compute average validation loss and accuracy.
             val_loss[epoch] /= len(self.test_loader)
-            val_acc[epoch] /= len(self.test_loader)
+            # val_acc[epoch] /= len(self.test_loader)
 
             # print(f"epoch: {epoch+1}, train loss: {train_loss[epoch]:.4f}, "
             #       f"train acc: {train_acc[epoch]:.4f}, val loss: {val_loss[epoch]:.4f}, "
@@ -159,9 +159,9 @@ class Trainer:
             if best_loss - val_loss[epoch] > 0.001:
                 best_epoch = epoch
                 best_loss = val_loss[epoch]
-                best_epoch_details = f"ANN epoch: {epoch+1}," \
-                    f" train loss: {train_loss[epoch]:.4f}, train acc: {train_acc[epoch]:.4f}," \
-                    f" val loss: {val_loss[epoch]:.4f}, val_acc: {val_acc[epoch]:.4f}"
+                # best_epoch_details = f"ANN epoch: {epoch+1}," \
+                #     f" train loss: {train_loss[epoch]:.4f}, train acc: {train_acc[epoch]:.4f}," \
+                #     f" val loss: {val_loss[epoch]:.4f}, val_acc: {val_acc[epoch]:.4f}"
                 self.best_model_checkpoint = {'model_state_dict': self.model.state_dict(),
                                               'optimizer_state_dict': self.optimizer.state_dict(),
                                               'scheduler_state_dict': self.scheduler.state_dict()}
@@ -169,7 +169,7 @@ class Trainer:
             # Check if the current epoch is more than 5 epochs away from the best epoch, if it is,
             # then stop training.
             if epoch - best_epoch > 10:
-                print(best_epoch_details)
+                # print(best_epoch_details)
                 break
 
         # # Plot training and validation losses.

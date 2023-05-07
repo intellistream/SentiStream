@@ -11,7 +11,6 @@ class Classifier(nn.Module):
         relu1 (nn.ReLU): ReLU activation function applied to output of first/input layer.
         fc2 (nn.Linear): Hidden fully connected layer of ANN.
         sigmoid (nn.Sigmoid): Sigmoid activation function applied to output/hidden layer.
-
     """
 
     def __init__(self, input_size, hidden_size=32, output_size=1):

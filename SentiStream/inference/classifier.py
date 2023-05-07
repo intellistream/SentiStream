@@ -1,7 +1,5 @@
 # pylint: disable=import-error
 # pylint: disable=no-name-in-module
-
-import time
 import numpy as np
 import torch
 
@@ -27,12 +25,9 @@ class Classifier:
         batch_size (int): Batch size to use for processing data.
         labels (list): Labels for each text in the current batch.
         texts (list): Cleaned and tokenized texts in the current batch.
-        start_time (float): Start time of classification.
-
-    Constants:
-        TIME_TO_UPDATE: Time interval in seconds to load updated word vector and/or NN model.
     """
-    def __init__(self, word_vector_algo, ssl_model, batch_size=10000, is_eval=False):
+
+    def __init__(self, word_vector_algo, ssl_model, batch_size=10000):
         """
         Initialize class with pretrained models.
 
@@ -40,11 +35,8 @@ class Classifier:
             word_vector_algo (class): Type of word vector algorithm to use (either 'Word2Vec' or
                                     'FastText').
             ssl_model (str): Type of SSL model to use (either 'ANN' or 'HAN').
-            batch_size (_type_, optional): Batch size to use for processing data. Defaults to None.
-            is_eval (bool, optional): Flag indicating whether to use model for prediction or
-                                    evaluation. Defaults to False.
+            batch_size (_type_, optional): Batch size to use for processing data. Defaults to 10000.
         """
-
         # Determine if GPU available for inference.
         # self.device = torch.device(
         #     'cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -52,20 +44,10 @@ class Classifier:
         self.device = 'cpu' if ssl_model == 'ANN' else 'cuda:1'
 
         self.word_vector_algo = word_vector_algo
-
-        # Load models.
-        self.wv_model = word_vector_algo.load(config.SSL_WV)
-        self.clf_model = load_torch_model(
-            ANN(self.wv_model.vector_size) if ssl_model == 'ANN' else HAN(np.array([
-                self.wv_model.wv[key] for key in self.wv_model.wv.index_to_key]), batch_size=batch_size),
-            config.SSL_CLF).to(self.device)
         self.ssl_model = ssl_model
 
         self.acc_list = []
-
-        # Set classifier mode. If evaluation, model predicts labels for stream data else model used
-        # to test accuracy on pseudo labels
-        self.is_eval = is_eval
+        self.wv_model, self.clf_model = None, None
 
         # Set batch size and initialize lists for labels and texts.
         self.batch_size = batch_size
@@ -74,9 +56,6 @@ class Classifier:
         self.labels = []
         self.texts = []
 
-        # Set start time of classifier.
-        self.start_time = time.time()
-
     def load_updated_model(self):
         """
         Load updated model from local.
@@ -84,8 +63,8 @@ class Classifier:
         self.wv_model = self.word_vector_algo.load(config.SSL_WV)
         self.clf_model = load_torch_model(
             ANN(self.wv_model.vector_size) if self.ssl_model == 'ANN' else HAN(np.array([
-                self.wv_model.wv[key] for key in self.wv_model.wv.index_to_key]), batch_size=self.batch_size),
-            config.SSL_CLF).to(self.device)
+                self.wv_model.wv[key] for key in self.wv_model.wv.index_to_key]),
+                batch_size=self.batch_size), config.SSL_CLF).to(self.device)
 
     def get_prediction(self, data):
         """
@@ -97,7 +76,6 @@ class Classifier:
         Returns:
             tuple: Predictions and it's confidence scores for current batch.
         """
-
         with torch.no_grad():
             # Get predicted probabilities.
             preds = self.clf_model(torch.from_numpy(data).to(self.device))
@@ -127,9 +105,6 @@ class Classifier:
 
         # Check if batch size is reached.
         if len(self.labels) >= self.batch_size:
-
-            # TODO: CHECK THIS ONCE MULTITHREADING IS DONE --- HAVE A TIME INTERVAL -- NOT FOR
-            # EVERY OCCURENCE
             self.load_updated_model()
 
             # Get document embeddings.
@@ -144,13 +119,11 @@ class Classifier:
             conf, preds = self.get_prediction(embeddings)
 
             # Calculate model's accuracy.
-            output = accuracy_score(self.labels, preds)
-            self.acc_list.append(output)
+            self.acc_list.append(accuracy_score(self.labels, preds))
 
-            if not self.is_eval:
-                # Generate output data.
-                output = [[i, 'ss', c, p, t]
-                          for i, c, p, t in zip(self.idx, conf, preds, self.texts)]
+            # Generate output data.
+            output = [[i, 'ss', c, p, t]
+                      for i, c, p, t in zip(self.idx, conf, preds, self.texts)]
 
             # Clear the lists for the next batch.
             self.idx = []
@@ -158,4 +131,3 @@ class Classifier:
             self.texts = []
 
             return output
-        return config.BATCHING

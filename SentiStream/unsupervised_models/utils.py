@@ -1,16 +1,15 @@
 # pylint: disable=import-error
+from collections import defaultdict
 
 import numpy as np
 
 from numpy.linalg import norm
-
 from Levenshtein import ratio
-
 
 np.seterr(all='ignore')
 
-txt_cache = {}
-vec_cache = {}
+txt_cache = defaultdict(lambda: None)
+vec_cache = defaultdict(lambda: None)
 
 
 def cos_similarity(vec1, vec2):
@@ -24,7 +23,7 @@ def cos_similarity(vec1, vec2):
     Returns:
         float: Cosine similarity between 2 vectors.
     """
-    vec2_norm = vec_cache.get(tuple(vec2))
+    vec2_norm = vec_cache[tuple(vec2)]
 
     if vec2_norm is None:
         vec2_norm = norm(vec2)
@@ -48,11 +47,11 @@ def text_similarity(word1, word2, cutoff):
     temp = []
 
     for word in word2:
-        txt_sim = txt_cache.get((word1, word, cutoff))
+        txt_sim = txt_cache[(word1, word)]
 
         if txt_sim is None:
             txt_sim = ratio(word1, word, score_cutoff=cutoff)
-            txt_cache[(word1, word, cutoff)] = txt_sim
+            txt_cache[(word1, word)] = txt_sim
 
         if txt_sim != 0:
             temp.append(txt_sim)

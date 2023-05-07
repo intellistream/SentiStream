@@ -1,6 +1,5 @@
 # pylint: disable=import-error
 # pylint: disable=no-name-in-module
-
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
@@ -16,8 +15,6 @@ from semi_supervised_models.utils import (
 from semi_supervised_models.han.model import HAN
 from utils import load_torch_model
 
-# TODO: Try running without flattening weights on multiprocessing (not flink)
-
 
 class Trainer:
     """
@@ -25,7 +22,7 @@ class Trainer:
     """
 
     def __init__(self, docs, labels, wb_dict, embeddings, init, old_embeddings=None, test_size=0.2,
-                 batch_size=512, learning_rate=0.003, word_hidden_size=32, sent_hidden_size=32,
+                 batch_size=512, learning_rate=0.002, word_hidden_size=32, sent_hidden_size=32,
                  early_stopping_patience=5):
         """
         Initialize class to train HAN.
@@ -38,11 +35,11 @@ class Trainer:
             init (bool): Flag indicating whether to initialize a new model or load from saved
                         weights.
             test_size (float): Fraction of the data to be used for validation. Defaults to 0.2.
-            batch_size (int): Batch size for training. Defaults to 128.
+            batch_size (int): Batch size for training. Defaults to 512.
             learning_rate (float): Learning rate for training. Defaults to 1e-3.
-            word_hidden_size (int): Hidden state size for word-level attention layer.Defaults to 50.
+            word_hidden_size (int): Hidden state size for word-level attention layer.Defaults to 32.
             sent_hidden_size (int): Hidden state size for sentence-level attention layer. Defaults
-                                    to 50.
+                                    to 32.
             early_stopping_patience (int): Number of epochs to wait before early stopping. Defaults
                                              to 5.
         """
@@ -58,13 +55,15 @@ class Trainer:
         # Join all tokens into sentences to encode.
         docs = join_tokens(docs)
 
+        embeddings = np.asarray(embeddings)
+
         labels = torch.tensor(labels, dtype=torch.float32,
                               device=self.device).unsqueeze(1)
 
-        max_word_length, max_sent_length = 16, 27
+        max_word_length, max_sent_length = 17, 28
         # Get max sentence and word length for dataset.
         # if init:
-        #     max_word_length, max_sent_length = get_max_lengths(  # 10 14
+        #     max_word_length, max_sent_length = get_max_lengths(
         #         docs)  # change to train only)
         #     print(max_word_length, max_sent_length)
 
@@ -89,7 +88,7 @@ class Trainer:
 
         # Initialize model and optimizer.
         if init:
-            self.model = HAN(np.asarray(embeddings), batch_size=batch_size,
+            self.model = HAN(embeddings, batch_size=batch_size,
                              max_sent_length=max_sent_length, max_word_length=max_word_length,
                              word_hidden_size=word_hidden_size, sent_hidden_size=sent_hidden_size)
         else:
@@ -115,7 +114,6 @@ class Trainer:
         if not init:
             self.scheduler.load_state_dict(scheduler)
 
-        # Initialize best model to None (will be updated during training).
         self.best_model_checkpoint = None
 
     def fit(self, epochs):
@@ -150,9 +148,9 @@ class Trainer:
                 loss.backward()
                 self.optimizer.step()
 
-                # # Update training loss and accuracy.
-                # train_loss[epoch] += loss.item()
-                # train_acc[epoch] += calc_acc(pred, labels).item()
+            #     # Update training loss and accuracy.
+            #     train_loss[epoch] += loss.item()
+            #     train_acc[epoch] += calc_acc(pred, labels).item()
 
             # # Compute average training loss and accuracy.
             # train_loss[epoch] /= len(self.train_loader)
@@ -187,8 +185,8 @@ class Trainer:
             if val_loss[epoch] < best_loss:
                 best_loss = val_loss[epoch]
                 best_epoch = epoch
-                best_epoch_details = f"HAN epoch: {epoch+1},"\
-                    f" val loss: {val_loss[epoch]:.4f}"
+                # best_epoch_details = f"HAN epoch: {epoch+1},"\
+                #     f" val loss: {val_loss[epoch]:.4f}"
                 self.best_model_checkpoint = {'model_state_dict': self.model.state_dict(),
                                               'optimizer_state_dict': self.optimizer.state_dict(),
                                               'scheduler_state_dict': self.scheduler.state_dict()}
@@ -196,7 +194,7 @@ class Trainer:
             # Check if the current epoch is more than 5 epochs away from the best epoch, if it is,
             # then stop training.
             if epoch - best_epoch > self.early_stopping_patience:
-                print(best_epoch_details)
+                # print(best_epoch_details)
                 break
 
         # # Plot training and validation losses.
@@ -219,13 +217,13 @@ class Trainer:
         # plt.savefig(
         #     'test.png')
 
-    def fit_and_save(self, filename, epochs=100):
+    def fit_and_save(self, filename, epochs=50):
         """
         Train model and save best model.
 
         Args:
             filename (str): Filename to save model.
-            epochs (int, optional): Number of epochs to train model. Defaults to 5=100.
+            epochs (int, optional): Number of epochs to train model. Defaults to 50.
         """
         # Train model.
         self.fit(epochs=epochs)

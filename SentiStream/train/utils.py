@@ -1,5 +1,4 @@
 # pylint: disable=import-error
-
 from sklearn.metrics import accuracy_score
 
 

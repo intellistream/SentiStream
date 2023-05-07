@@ -2,7 +2,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
 import numpy as np
 
 from semi_supervised_models.utils import mat_mul, element_wise_mul
@@ -30,10 +29,6 @@ class WordAttentionNet(nn.Module):
                                         Defaults to 32.
         """
         super().__init__()
-
-        # Set device to use for computations.
-        # device = torch.device(
-        #     "cuda:1" if torch.cuda.is_available() else "cpu")
 
         # Add row of zeros to the embeddings for padding and unknown words.
         pad_unk_word = np.zeros((1, embeddings.shape[1]), dtype=np.float32)
@@ -70,7 +65,7 @@ class WordAttentionNet(nn.Module):
 
         # Pass output through GRU layer.
         f_output, h_output = self.gru(output, hidden_state)
-        self.gru.flatten_parameters()
+        # self.gru.flatten_parameters()
 
         # Compute word-level attention and apply it to output of GRU layer.
         output = mat_mul(f_output, self.word_weight, self.word_bias)
@@ -100,9 +95,9 @@ class SentenceAttentionNet(nn.Module):
 
         Args:
             sent_hidden_size (int, optional): Number of features in hidden state of sentence-level 
-                                            GRU. Defaults to 50.
+                                            GRU. Defaults to 32.
             word_hidden_size (int, optional): Number of features in hidden state of word-level GRU.
-                                            Defaults to 50.
+                                            Defaults to 32.
         """
         super().__init__()
 
@@ -134,7 +129,7 @@ class SentenceAttentionNet(nn.Module):
         """
         # Pass input through GRU layer.
         f_output, h_output = self.gru(x, hidden_state)
-        self.gru.flatten_parameters()
+        # self.gru.flatten_parameters()
 
         # Compute sentence-level attention and apply it to output of GRU layer.
         output = mat_mul(f_output, self.sent_weight, self.sent_bias)
@@ -169,12 +164,12 @@ class HAN(nn.Module):
         Initialize HAN.
 
         Args:
-            word_hidden_size (int): Hidden state size for word-level attention layer.Defaults to 50.
+            word_hidden_size (int): Hidden state size for word-level attention layer.Defaults to 32.
             sent_hidden_size (int): Hidden state size for sentence-level attention layer. Defaults
-                                    to 50.
-            batch_size (int): Batch size. Defaults to 128.
+                                    to 32.
+            batch_size (int): Batch size. Defaults to 512.
             embeddings (torch.Tensor): Pre-trained embeddings.
-            max_sent_length (int): Maximum sentence length. Defaults to 10.
+            max_sent_length (int): Maximum sentence length. Defaults to 15.
             max_word_length (int): Maximum word length. Defaults to 15.
         """
         super().__init__()
@@ -251,7 +246,6 @@ class HAN(nn.Module):
         # cause unwanted computations
         output, self.sent_hidden_state = self.sentence_attention_net(
             output, self.sent_hidden_state)
-
         output = self.sigmoid(output)
 
         return output
