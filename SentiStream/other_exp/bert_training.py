@@ -12,7 +12,7 @@ from sklearn.model_selection import train_test_split
 
 from utils import get_max_len, preprocess, acc
 
-df = pd.read_csv('../new_ss_train.csv', names=['label', 'review'])
+df = pd.read_csv('../new_ss_train_1_percent.csv', names=['label', 'review'])
 
 labels = df.label.values
 review = df.review.values
@@ -20,7 +20,6 @@ review = df.review.values
 BATCH_SIZE = 64
 EPOCHS = 5
 device = torch.device("cuda")
-
 
 # max_len = get_max_len(review) # just checked if max len is less than 512.. but its large so
 # truncated to 512.. so no need to run this always.
