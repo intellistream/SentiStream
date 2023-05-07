@@ -50,20 +50,3 @@ python3 main.py
 ```
 
 > NOTE: Change parameters from `config.py` to train with different word vector or classifier algorithms.
-
-
-###### ----------------------
-
-## CHANGE W2V batch size for acc-time trade-off
-
-## WORD2VEC TRAIN ONLY ONCE --- CURRENTLY BOTH IN US AND SS ---------------------
-################### CHECK IF REPLAY MEM IS NEEDED..
-#### SET DYNAMICBATCH SIZE FOR HAN...
-## TRY PLAYEU SCHEDULER,,, BCEWITHLOGITS
-
-## DO WE NEED BATCH INF?
-
-## MOVE TO CONFLUENT-KAFKA
-
-# SHAREMDMEM ARRAY TO STORE ALL O/P BEFORE TRAIN-------------
-### NUM WORKERS FOR WV - PLSTREAM, CLASSIFIER ---- find best for each batchsizw
