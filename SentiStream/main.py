@@ -3,7 +3,6 @@
 from time import time
 
 import csv
-import pandas as pd
 
 from kafka import KafkaConsumer
 from pyflink.datastream import CheckpointingMode, StreamExecutionEnvironment
@@ -16,57 +15,58 @@ from train.pseudo_labeler import SentimentPseudoLabeler, PseudoLabelerCoMap
 from unsupervised_models.plstream import PLStream
 from utils import tokenize
 
-# ---------------- Initial training of classifier ----------------
-with open(config.TRAIN_DATA, 'r', encoding='utf-8') as file:
-    reader = csv.reader(file)
-    for row in reader:
-        train_data = [[int(row[0]), tokenize(row[1])] for row in reader]
-start = time()
-TrainModel(word_vector_algo=config.WORD_VEC_ALGO,
-           ssl_model=config.SSL_MODEL, init=True, vector_size=20, data=train_data)
 
-# # ---------------- Stream Processing ----------------
-plstream = PLStream(word_vector_algo=config.WORD_VEC_ALGO)
-classifier = Classifier(
-    word_vector_algo=config.WORD_VEC_ALGO, ssl_model=config.SSL_MODEL)
-pseduo_labeler = SentimentPseudoLabeler()
-model_trainer = TrainModel(word_vector_algo=config.WORD_VEC_ALGO,
-                           ssl_model=config.SSL_MODEL, init=False)
+def init_train(batch_size=512, lr=0.002, test_size=0.2):
+    with open(config.TRAIN_DATA, 'r', encoding='utf-8') as file:
+        reader = csv.reader(file)
+        for row in reader:
+            train_data = [[int(row[0]), tokenize(row[1])] for row in reader]
+    TrainModel(word_vector_algo=config.WORD_VEC_ALGO, ssl_model=config.SSL_MODEL, init=True,
+               vector_size=20, data=train_data, batch_size=batch_size, lr=lr, test_size=test_size)
 
-if config.PYFLINK:
-    df = pd.read_csv(config.DATA, names=[
-        'label', 'review'], nrows=1000)
-    df['label'] -= 1
 
-    # env = StreamExecutionEnvironment.get_execution_environment()
-    # env.set_parallelism(1)
-    # env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
+def stream_process():
+    plstream = PLStream(word_vector_algo=config.WORD_VEC_ALGO)
+    classifier = Classifier(
+        word_vector_algo=config.WORD_VEC_ALGO, ssl_model=config.SSL_MODEL)
+    pseduo_labeler = SentimentPseudoLabeler()
+    model_trainer = TrainModel(word_vector_algo=config.WORD_VEC_ALGO,
+                               ssl_model=config.SSL_MODEL, init=False)
 
-    # data_stream = [(idx, label, text)
-    #                for idx, (label, text) in enumerate(df.values)]
+    # if config.PYFLINK:
+    #     df = pd.read_csv(config.DATA, names=[
+    #         'label', 'review'], nrows=1000)
+    #     df['label'] -= 1
 
-    # ds = env.from_collection(collection=data_stream)
+    #     # env = StreamExecutionEnvironment.get_execution_environment()
+    #     # env.set_parallelism(1)
+    #     # env.get_checkpoint_config().set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
 
-    # ds = ds.map(lambda x: (x[0], x[1], tokenize(x[2])))
+    #     # data_stream = [(idx, label, text)
+    #     #                for idx, (label, text) in enumerate(df.values)]
 
-    # ds_us = ds.map(plstream.process_data).filter(
-    #     lambda x: x != config.BATCHING).flat_map(lambda x: x)
-    # ds_ss = ds.map(classifier.classify).filter(
-    #     lambda x: x != config.BATCHING).flat_map(lambda x: x)
+    #     # ds = env.from_collection(collection=data_stream)
 
-    # ds = ds_us.connect(ds_ss).map(PseudoLabelerCoMap(pseduo_labeler)).flat_map(
-    #     lambda x: x).filter(lambda x: x not in [config.BATCHING, config.LOW_CONF])
+    #     # ds = ds.map(lambda x: (x[0], x[1], tokenize(x[2])))
 
-    # ds.map(inference.classify).filter(
-    #     lambda x: x != config.BATCHING)
+    #     # ds_us = ds.map(plstream.process_data).filter(
+    #     #     lambda x: x != config.BATCHING).flat_map(lambda x: x)
+    #     # ds_ss = ds.map(classifier.classify).filter(
+    #     #     lambda x: x != config.BATCHING).flat_map(lambda x: x)
 
-    # # ds.map(model_trainer.update_model)
+    #     # ds = ds_us.connect(ds_ss).map(PseudoLabelerCoMap(pseduo_labeler)).flat_map(
+    #     #     lambda x: x).filter(lambda x: x not in [config.BATCHING, config.LOW_CONF])
 
-    # ds.print()
+    #     # ds.map(inference.classify).filter(
+    #     #     lambda x: x != config.BATCHING)
 
-    # result = env.execute()
+    #     # # ds.map(model_trainer.update_model)
 
-else:
+    #     # ds.print()
+
+    #     # result = env.execute()
+
+    # else:
 
     # # Create Kafka consumer.
     # consumer = KafkaConsumer(
@@ -89,14 +89,13 @@ else:
     ss_predictions = []
 
     pseudo_data = []
-    acc_list = []
 
     start = time()
     for idx, message in enumerate(consumer):
         # TODO: DELETE WHEN USING KAFKA---
         # if idx < 80000:
         #     continue
-        # if idx > 100000:
+        # if idx > 20000:
         #     break
 
         # idx -= 80000
@@ -118,7 +117,6 @@ else:
         if ss_predictions or us_predictions:
             temp = pseduo_labeler.generate_pseudo_label(
                 us_predictions, ss_predictions)
-            acc_list.append(pseduo_labeler.get_model_acc())
             us_predictions, ss_predictions = [], []
 
             if temp:
@@ -129,8 +127,8 @@ else:
 
             if msg == config.FINISHED:
                 #     # start = time()
-                #     # plstream.update_word_lists(
-                #     #     pseudo_data)
+                # plstream.update_word_lists(
+                #     pseudo_data)
                 #     # print('CLUSTER: ', time() - start)
 
                 #     # start = time()
@@ -138,38 +136,47 @@ else:
                     pseudo_data, temp='t')
                 #     # print('SIMPLE: ', time() - start)
                 pseudo_data = []
+    return (time() - start, plstream.acc_list, plstream.f1_list, classifier.acc_list,
+            classifier.f1_list, pseduo_labeler.acc_list, pseduo_labeler.f1_list)
 
-stop = time()
-if not config.PYFLINK:
-    print('\n-- UNSUPERVISED MODEL ACCURACY --')
-    print('--with simple update--')
-    print(plstream.acc_list)
-    print('AVG ACC SO FAR: ', sum(plstream.acc_list) /
-          len(plstream.acc_list))
 
-    # print('--without--')
-    # print(plstream.ts_list)
-    # print('AVG ACC SO FAR: ', sum(plstream.ts_list) /
-    #       len(plstream.ts_list))
+if __name__ == '__main__':
+    pass
+    # batch 128, lr 0.002, te 0.2 - 1%
+    # bat 64 0.003 0.3
+    # init_train(batch_size=16, lr=0.002, test_size=0.5)  # 1%
+    # init_train(batch_size=128, lr=0.001, test_size=0.2)  # 0.5%
+    # init_train(batch_size=32, lr=0.005, test_size=0.3)  # 0.1%
 
-    # print('--with clustering --')
-    # print(plstream.l_list)
-    # print('AVG ACC SO FAR: ', sum(plstream.l_list) /
-    #       len(plstream.l_list))
+    # time_elapsed, us_acc, us_f1, ss_acc, ss_f1, senti_acc, senti_f1 = stream_process()
 
-    # print('--0.4--')
-    # print(plstream.lt_list)
-    # print('AVG ACC SO FAR: ', sum(plstream.lt_list) /
-    #       len(plstream.lt_list))
+    # print('\n-- UNSUPERVISED MODEL ACCURACY --')
+    # print('--with simple update--')
+    # print(us_acc)
+    # print('AVG ACC SO FAR: ', sum(us_acc) /
+    #       len(us_acc))
 
-    print('\n-- SEMI-SUPERVISED MODEL ACCURACY --')
-    print(classifier.acc_list)
-    print('AVG ACC SO FAR: ', sum(classifier.acc_list)/len(classifier.acc_list))
+    # # print('--without--')
+    # # print(plstream.ts_list)
+    # # print('AVG ACC SO FAR: ', sum(plstream.ts_list) /
+    # #       len(plstream.ts_list))
 
-    acc_list = [x for x in acc_list if x]
-    print('\n-- SENTISTREAM ACCURACY --')
-    print(acc_list)
-    print('AVG ACC SO FAR: ', sum(
-        acc_list)/len(acc_list))
+    # # print('--with clustering --')
+    # # print(plstream.l_list)
+    # # print('AVG ACC SO FAR: ', sum(plstream.l_list) /
+    # #       len(plstream.l_list))
 
-print('Elapsed Time: ', stop - start)
+    # # print('--0.4--')
+    # # print(plstream.lt_list)
+    # # print('AVG ACC SO FAR: ', sum(plstream.lt_list) /
+    # #       len(plstream.lt_list))
+
+    # print('\n-- SEMI-SUPERVISED MODEL ACCURACY --')
+    # print(ss_acc)
+    # print('AVG ACC SO FAR: ', sum(ss_acc)/len(ss_acc))
+
+    # print('\n-- SENTISTREAM ACCURACY --')
+    # print(senti_acc)
+    # print('AVG ACC SO FAR: ', sum(senti_acc)/len(senti_acc))
+
+    # print('Elapsed Time: ', time_elapsed)
