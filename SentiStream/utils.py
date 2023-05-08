@@ -172,3 +172,26 @@ def clean_for_wv(doc):
         list: List of filtered tokens for documents.
     """
     return [[token for token in tokens if len(token) > 1] for tokens in doc]
+
+
+def downsampling(label, text):
+    """
+    Downsample majority class in binary classification to balance class.
+
+    Args:
+        label (list): List of labels.
+        text (list): List of documents.
+
+    Returns:
+        tuple: Downsampled labels and documents.
+    """
+    pos_idx = [idx for idx, x in enumerate(label) if x == 1]
+    neg_idx = [idx for idx, x in enumerate(label) if x == 0]
+
+    # no need to shuflle since it will be shuffled in train_test_split.
+    if len(pos_idx) < len(neg_idx):
+        downsampled_idx = pos_idx + neg_idx[:len(pos_idx)]
+    else:
+        downsampled_idx = neg_idx + pos_idx[:len(neg_idx)]
+
+    return [label[i] for i in downsampled_idx], [text[i] for i in downsampled_idx]
