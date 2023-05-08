@@ -10,8 +10,7 @@ from torch.utils.data import DataLoader
 import config
 
 from semi_supervised_models.dataset import SentimentDataset
-from semi_supervised_models.utils import (
-    calc_acc, join_tokens, preprocess, get_max_lengths, downsampling)
+from semi_supervised_models.utils import calc_acc, join_tokens, preprocess, get_max_lengths
 from semi_supervised_models.han.model import HAN
 from utils import load_torch_model
 
@@ -49,9 +48,6 @@ class Trainer:
 
         self.early_stopping_patience = early_stopping_patience
 
-        # Downsample to balance classes.
-        labels, docs = downsampling(labels, docs)
-
         # Join all tokens into sentences to encode.
         docs = join_tokens(docs)
 
@@ -61,7 +57,7 @@ class Trainer:
                               device=self.device).unsqueeze(1)
 
         max_word_length, max_sent_length = 17, 28
-        # Get max sentence and word length for dataset.
+        # # Get max sentence and word length for dataset.
         # if init:
         #     max_word_length, max_sent_length = get_max_lengths(
         #         docs)  # change to train only)

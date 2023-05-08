@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 import config
 
 from semi_supervised_models.dataset import SentimentDataset
-from semi_supervised_models.utils import calc_acc, downsampling
+from semi_supervised_models.utils import calc_acc
 from semi_supervised_models.ann.model import Classifier
 from utils import load_torch_model
 
@@ -42,9 +42,6 @@ class Trainer:
         # CPU is faster than GPU for ANN -- might be simple model.
         # TODO: Remove to(device) when finialized with CPU
         self.device = 'cpu'
-
-        # Downsample to balance classes.
-        labels, vectors = downsampling(labels, vectors)
 
         vectors = np.array(vectors)
 
