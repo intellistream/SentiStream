@@ -4,7 +4,7 @@ import config
 
 from semi_supervised_models.ann.trainer import Trainer as ANNTrainer
 from semi_supervised_models.han.trainer import Trainer as HANTrainer
-from utils import clean_for_wv, train_word_vector_algo, get_average_word_embeddings
+from utils import clean_for_wv, train_word_vector_algo, get_average_word_embeddings, downsampling
 
 
 class TrainModel:
@@ -13,7 +13,7 @@ class TrainModel:
     """
 
     def __init__(self, word_vector_algo, ssl_model, init, data=None, vector_size=20, window=5,
-                 min_count=3, test_size=0.2):
+                 min_count=3, test_size=0.2, batch_size=512, lr=0.002):
         """
         Initialize semi-supervised model training
 
@@ -31,6 +31,9 @@ class TrainModel:
         self.ssl_model = ssl_model
         self.test_size = test_size
 
+        self.batch_size = batch_size
+        self.lr = lr
+
         self.labels = []
         self.texts = []
 
@@ -47,6 +50,9 @@ class TrainModel:
             # Train word vector model.
             train_word_vector_algo(
                 self.wv_model, self.filtered_tokens, config.SSL_WV, update=not init)
+            
+            # Downsample to balance classes.
+            self.labels, self.texts = downsampling(self.labels, self.texts)
 
             # Train classifier.
             self.train_classifier(ssl_model, init)
@@ -69,7 +75,8 @@ class TrainModel:
         else:
             clf = HANTrainer(self.texts, self.labels, self.wv_model.wv.key_to_index, [
                 self.wv_model.wv[key] for key in self.wv_model.wv.index_to_key], init,
-                old_embeddings=old_embeddings, test_size=self.test_size)
+                old_embeddings=old_embeddings, test_size=self.test_size, batch_size=self.batch_size,
+                learning_rate=self.lr)
 
         # Fit classifier and save model.
         clf.fit_and_save(config.SSL_CLF)
@@ -89,13 +96,16 @@ class TrainModel:
         """
         self.labels, self.texts = zip(*data)
 
-        self.filtered_tokens = clean_for_wv(self.texts)
+        # Downsample to balance classes.
+        self.labels, self.texts = downsampling(self.labels, self.texts)
 
         # If there is too low pseudo data, do not update model.
-        if len(data) < pseudo_data_threshold:
-            print(f'TRAINING SKIPPED - pseudo_data_size: {len(data)}'
-                  f' threshold: {pseudo_data_threshold}')
+        if len(self.labels) < pseudo_data_threshold:
+            # print(f'TRAINING SKIPPED - pseudo_data_size: {len(data)}'
+            #       f' threshold: {pseudo_data_threshold}')
             return config.SKIPPED
+
+        self.filtered_tokens = clean_for_wv(self.texts)
 
         self.wv_model = self.word_vector_algo.load(config.SSL_WV)
 
