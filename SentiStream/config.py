@@ -19,8 +19,8 @@ KAFKA_TOPIC = 'sentiment-data'
 BOOTSTRAP_SERVER = 'localhost:9092'  # default 9092
 
 # Input files
-DATA = 'new_train_1_percent.csv'
-TRAIN_DATA = 'new_ss_train_1_percent.csv'
+DATA = 'data/sst_0_1_percent.csv'
+TRAIN_DATA = 'data/sst_train_0_1_percent.csv'
 
 # Outputs
 BATCHING = 'BATCHING'
