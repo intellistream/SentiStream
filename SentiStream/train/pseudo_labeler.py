@@ -4,7 +4,7 @@ from collections import defaultdict
 from itertools import zip_longest
 from pyflink.datastream.functions import CoMapFunction
 
-from train.utils import polarity, calculate_acc
+from train.utils import polarity, calculate_perf_metrics
 
 
 class SentimentPseudoLabeler:
@@ -41,6 +41,8 @@ class SentimentPseudoLabeler:
         Initialize class to generate pseudo labels.
         """
         self.to_calc_acc = []
+        self.acc_list = []
+        self.f1_list = []
         self.collector = defaultdict(dict)
         self.us = 0
         self.ss = 0
@@ -65,7 +67,7 @@ class SentimentPseudoLabeler:
         us_conf *= SentimentPseudoLabeler.ADAPTIVE_UNSUPERVISED_PREDICTION_WEIGHT
         ss_conf *= SentimentPseudoLabeler.ADAPTIVE_SEMI_SUPERVISED_PREDICTION_WEIGHT
 
-        if ss[0] > 0.5 and us[0] > 0.5:  # 0.7
+        if ss[0] > 0.1 and us[0] > 0.1:  # 0.7
             conf = us_conf * 0.75 + ss_conf * 0.75
             pred = 1 if conf > 0 else 0
 
@@ -80,19 +82,6 @@ class SentimentPseudoLabeler:
         self.to_calc_acc.append([[us[2]], [pred]])
 
         return conf
-
-    def get_model_acc(self):
-        """
-        Calculate model's final predictions' accuracy.
-
-        Returns:
-            float: Accuracy of final output.
-        """
-        if self.to_calc_acc:
-            acc = calculate_acc(self.to_calc_acc)
-            self.to_calc_acc = []
-            return acc
-        return None
 
     def generate_pseudo_label(self, first_stream, second_stream):
         """
@@ -146,10 +135,17 @@ class SentimentPseudoLabeler:
 
         max_us_ss = max(self.us, self.ss)
 
-        SentimentPseudoLabeler.ADAPTIVE_UNSUPERVISED_PREDICTION_WEIGHT = self.us / max_us_ss
-        SentimentPseudoLabeler.ADAPTIVE_SEMI_SUPERVISED_PREDICTION_WEIGHT = self.ss / max_us_ss
+        if max_us_ss:
+            SentimentPseudoLabeler.ADAPTIVE_UNSUPERVISED_PREDICTION_WEIGHT = self.us / max_us_ss
+            SentimentPseudoLabeler.ADAPTIVE_SEMI_SUPERVISED_PREDICTION_WEIGHT = self.ss / max_us_ss
 
-        self.us, self.ss = 0, 0
+        if self.to_calc_acc:
+            acc, f1 = calculate_perf_metrics(self.to_calc_acc)
+            self.acc_list.append(acc)
+            self.f1_list.append(f1)
+
+        self.us, self.ss, self.to_calc_acc = 0, 0, []
+
         return output
 
     def get_pseudo_label(self, conf_list, key_list):

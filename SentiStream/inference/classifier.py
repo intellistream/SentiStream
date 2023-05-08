@@ -3,7 +3,7 @@
 import numpy as np
 import torch
 
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, f1_score
 
 import config
 
@@ -47,6 +47,7 @@ class Classifier:
         self.ssl_model = ssl_model
 
         self.acc_list = []
+        self.f1_list = []
         self.wv_model, self.clf_model = None, None
 
         # Set batch size and initialize lists for labels and texts.
@@ -120,6 +121,7 @@ class Classifier:
 
             # Calculate model's accuracy.
             self.acc_list.append(accuracy_score(self.labels, preds))
+            self.f1_list.append(f1_score(self.labels, preds))
 
             # Generate output data.
             output = [[i, 'ss', c, p, t]
