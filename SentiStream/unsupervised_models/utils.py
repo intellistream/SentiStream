@@ -32,28 +32,30 @@ def cos_similarity(vec1, vec2):
     return np.dot(vec1, vec2) / (norm(vec1) * vec2_norm)
 
 
-def text_similarity(word1, word2, cutoff):
+def text_similarity(word1, ref_words, cutoff):
     """
     Compute text similiarity between 2 words using Levenshtein's distance.
 
     Args:
-        word1 (str): Polar reference word.
-        word2 (list): List of words in a document
+        word1 (str): Word from document.
+        word2 (list): Set of reference words
         cutoff (float, optional): Threshold to consider similairty in calculation..
 
     Returns:
-        float: Text similarity between document and reference word.
+        float: Text similarity between word and reference words.
     """
-    temp = []
+    result = txt_cache[(word1, tuple(ref_words))]
 
-    for word in word2:
-        txt_sim = txt_cache[(word1, word)]
-
-        if txt_sim is None:
+    if result is None:
+        temp = []
+        for word in ref_words:
             txt_sim = ratio(word1, word, score_cutoff=cutoff)
-            txt_cache[(word1, word)] = txt_sim
 
-        if txt_sim != 0:
-            temp.append(txt_sim)
+            if txt_sim != 0:
+                temp.append(txt_sim)
 
-    return sum(temp)/len(temp) if temp else 0
+        result = sum(temp)/len(temp) if temp else 0
+
+        txt_cache[(word1, tuple(ref_words))] = result
+
+    return result
