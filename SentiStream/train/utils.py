@@ -1,5 +1,5 @@
 # pylint: disable=import-error
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, f1_score
 
 
 def polarity(label):
@@ -15,7 +15,7 @@ def polarity(label):
     return 1 if label == 1 else -1
 
 
-def calculate_acc(data):
+def calculate_perf_metrics(data):
     """
     Calculate accuracy score of model.
 
@@ -26,4 +26,4 @@ def calculate_acc(data):
         float: Accuracy score of model's predictions.
     """
     y_true, y_pred = zip(*data)
-    return accuracy_score(y_true, y_pred)
+    return accuracy_score(y_true, y_pred), f1_score(y_true, y_pred)
