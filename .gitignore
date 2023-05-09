@@ -130,10 +130,10 @@ dmypy.json
 
 # outputs
 *.png
-output/
+outputs/
 
 # dataset
-*.csv
+data
 
 # connectors
 kafka/
