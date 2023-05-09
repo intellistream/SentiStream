@@ -159,42 +159,31 @@ class PLStream():
             pos_cos_similarities = [cos_similarity(
                 self.wv_model.wv[word], self.pos_ref_mean_temp)
                 for word in self.wv_model.wv.key_to_index]
+            
+            # print(len(self.wv_model.wv.key_to_index))
 
             for i, word in enumerate(words):
                 if word not in self.neg_ref and neg_cos_similarities[i] > 0.9:
                     self.neg_ref.add(word)
+                    # print('neg', [
+                    #       word for word in self.neg_ref if word in self.wv_model.wv.key_to_index], word)
                 if word not in self.pos_ref and pos_cos_similarities[i] > 0.9:
                     self.pos_ref.add(word)
+                    # print('pos', [
+                    #       word for word in self.pos_ref if word in self.wv_model.wv.key_to_index], word)
 
             # Update average word embedding for pos and neg ref words.
             self.create_lexicon_temp()
         else:
             # self.create_lexicon()
-            words = set(
-                word for text in texts for word in text if word in self.wv_model.wv.key_to_index)
 
-            # Update reference table with words which have high cosine similarity with
-            # words on ref table.
-            neg_cos_similarities = [cos_similarity(
-                self.wv_model.wv[word], self.neg_ref_mean_temp)
-                for word in self.wv_model.wv.key_to_index]
-            pos_cos_similarities = [cos_similarity(
-                self.wv_model.wv[word], self.pos_ref_mean_temp)
-                for word in self.wv_model.wv.key_to_index]
-
-            for i, word in enumerate(words):
-                if word not in self.neg_ref and neg_cos_similarities[i] > 0.9:
-                    np.append(self.neg_ref_vec, self.wv_model.wv[word])
-                if word not in self.pos_ref and pos_cos_similarities[i] > 0.9:
-                    np.append(self.pos_ref_vec, self.wv_model.wv[word])
-
-            # for text, label in zip(texts, labels):
-            #     for word in text:
-            #         if word in self.wv_model.wv.key_to_index:
-            #             if label == 0:
-            #                 np.append(self.neg_ref_vec, self.wv_model.wv[word])
-            #             else:
-            #                 np.append(self.pos_ref_vec, self.wv_model.wv[word])
+            for text, label in zip(texts, labels):
+                for word in text:
+                    if word in self.wv_model.wv.key_to_index:
+                        if label == 0:
+                            np.append(self.neg_ref_vec, self.wv_model.wv[word])
+                        else:
+                            np.append(self.pos_ref_vec, self.wv_model.wv[word])
 
             # Check if the threshold is exceeded
             # if self.neg_ref_vec.shape[0] + self.pos_ref_vec.shape[0] > self.lexicon_size:
@@ -307,7 +296,7 @@ class PLStream():
         self.f1_list.append(f1_score(labels, y_preds))
         return confidence, y_preds
 
-    def predict_t(self, vector, tokens=None, temp=None, tt=None):
+    def predict_t(self, vector, tokens=None, temp=None, tt=None, t=None):
         """
         Predict polarity of text based using PLStream.
         Args:
@@ -340,8 +329,8 @@ class PLStream():
                                 for word in sent_n] + [text_similarity(word, self.pos_ref, 0.8)
                                                        for word in negation]
 
-                cos_sim_pos += sum(text_sim_pos) / len(tokens)
-                cos_sim_neg += sum(text_sim_neg) / len(tokens)
+                cos_sim_pos += 4 * sum(text_sim_pos) / len(tokens)
+                cos_sim_neg += 4 * sum(text_sim_neg) / len(tokens)
 
         if cos_sim_neg > cos_sim_pos:
             return 1 / (1 + math.exp(-self.k * cos_sim_neg)), 0

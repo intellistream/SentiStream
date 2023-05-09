@@ -19,8 +19,8 @@ KAFKA_TOPIC = 'sentiment-data'
 BOOTSTRAP_SERVER = 'localhost:9092'  # default 9092
 
 # Input files
-DATA = 'data/sst_0_1_percent.csv'
-TRAIN_DATA = 'data/sst_train_0_1_percent.csv'
+DATA = 'data/data_0_1_percent.csv'
+TRAIN_DATA = 'data/data_train_0_1_percent.csv'
 
 # Outputs
 BATCHING = 'BATCHING'
@@ -31,6 +31,3 @@ SKIPPED = 'SKIPPED_TRAINING'
 # Model filenames
 SSL_WV = 'ssl-wv.model'
 SSL_CLF = 'ssl-clf.pth'
-
-# 1%
-# HAN - BATCH 512, LR - 0.002
