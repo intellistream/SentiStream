@@ -6,6 +6,12 @@
 - Apache Kafka
 - Required Python libraries (see `requirements.txt`) 
 
+## Datasets
+
+- Yelp
+- IMDb
+- SST-2
+
 ### Install Kafka
 
 Download latest stable release
@@ -31,22 +37,19 @@ pip install -r requirements.txt
 pip install --upgrade numpy
 ```
 
-## Usage
+### For Evaluation
 
+1. Generate dataset for evaluation
+```
+python3 data.py
+```
 
-Start Kafka server
+2. Start Kafka server
 ```
 sh start_kafka.sh
 ```
 
-Create producer
+3. Run test
 ```
-python3 kafka_producer.py
+python3 test.py
 ```
-
-Start SentiStream
-```
-python3 main.py
-```
-
-> NOTE: Change parameters from `config.py` to train with different word vector or classifier algorithms.
