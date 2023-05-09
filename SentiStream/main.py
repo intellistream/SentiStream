@@ -1,6 +1,6 @@
 # pylint: disable=import-error
 # pylint: disable=no-name-in-module
-from time import time
+from time import time, time_ns
 
 import csv
 
@@ -17,6 +17,14 @@ from utils import tokenize
 
 
 def init_train(batch_size=512, lr=0.002, test_size=0.2):
+    """
+    Initial training of word vector and torch models.
+
+    Args:
+        batch_size (int, optional): Batch size for torch model. Defaults to 512.
+        lr (float, optional): Learning rate for torch model. Defaults to 0.002.
+        test_size (float, optional): Test size for torch model. Defaults to 0.2.
+    """
     with open(config.TRAIN_DATA, 'r', encoding='utf-8') as file:
         reader = csv.reader(file)
         for row in reader:
@@ -26,6 +34,13 @@ def init_train(batch_size=512, lr=0.002, test_size=0.2):
 
 
 def stream_process():
+    """
+    Perform sentiment analysis on stream data.
+
+    Returns:
+        tuple: Tuple of thoughput of the system and accuracy and f1 scores of modules and 
+        whole system.
+    """
     plstream = PLStream(word_vector_algo=config.WORD_VEC_ALGO)
     classifier = Classifier(
         word_vector_algo=config.WORD_VEC_ALGO, ssl_model=config.SSL_MODEL)
@@ -68,40 +83,29 @@ def stream_process():
 
     # else:
 
-    # # Create Kafka consumer.
-    # consumer = KafkaConsumer(
-    #     config.KAFKA_TOPIC,
-    #     bootstrap_servers=config.BOOTSTRAP_SERVER,
-    #     auto_offset_reset='earliest',
-    #     enable_auto_commit=True,
-    #     value_deserializer=lambda x: x.decode('utf-8')
-    # )
-
-    consumer = []
-
-    with open(config.DATA, 'r', encoding='utf-8') as file:
-        reader = csv.reader(file)
-
-        for row in reader:
-            consumer.append(f'{row[0]}|||{str(row[1])}')
+    # Create Kafka consumer.
+    consumer = KafkaConsumer(
+        config.KAFKA_TOPIC,
+        bootstrap_servers=config.BOOTSTRAP_SERVER,
+        auto_offset_reset='earliest',
+        enable_auto_commit=True,
+        value_deserializer=lambda x: x.decode('utf-8'),
+        consumer_timeout_ms=1000  # NOTE: Decrease 1 sec from total time
+    )
 
     us_predictions = []
     ss_predictions = []
 
+    latency = []
+
     pseudo_data = []
 
     start = time()
+
     for idx, message in enumerate(consumer):
-        # TODO: DELETE WHEN USING KAFKA---
-        # if idx < 80000:
-        #     continue
-        # if idx > 20000:
-        #     break
+        arrival_time = time_ns()
 
-        # idx -= 80000
-
-        # label, text = message.value.split('|||', 1)
-        label, text = message.split('|||', 1)
+        label, text = message.value.split('|||', 1)
         label = int(label)
 
         text = tokenize(text)
@@ -136,8 +140,17 @@ def stream_process():
                     pseudo_data, temp='t')
                 #     # print('SIMPLE: ', time() - start)
                 pseudo_data = []
-    return (time() - start, plstream.acc_list, plstream.f1_list, classifier.acc_list,
-            classifier.f1_list, pseduo_labeler.acc_list, pseduo_labeler.f1_list)
+
+        latency.append(time_ns() - arrival_time)
+    consumer.close()
+
+    print(plstream.acc_list)
+    # # print(plstream.l_list)
+    print(classifier.acc_list)
+    print(pseduo_labeler.acc_list)
+    return (time() - start - 1, sum(latency)/len(latency)/1000000, plstream.acc_list,
+            plstream.f1_list, classifier.acc_list, classifier.f1_list, pseduo_labeler.acc_list,
+            pseduo_labeler.f1_list)
 
 
 if __name__ == '__main__':
@@ -149,34 +162,3 @@ if __name__ == '__main__':
     # init_train(batch_size=32, lr=0.005, test_size=0.3)  # 0.1%
 
     # time_elapsed, us_acc, us_f1, ss_acc, ss_f1, senti_acc, senti_f1 = stream_process()
-
-    # print('\n-- UNSUPERVISED MODEL ACCURACY --')
-    # print('--with simple update--')
-    # print(us_acc)
-    # print('AVG ACC SO FAR: ', sum(us_acc) /
-    #       len(us_acc))
-
-    # # print('--without--')
-    # # print(plstream.ts_list)
-    # # print('AVG ACC SO FAR: ', sum(plstream.ts_list) /
-    # #       len(plstream.ts_list))
-
-    # # print('--with clustering --')
-    # # print(plstream.l_list)
-    # # print('AVG ACC SO FAR: ', sum(plstream.l_list) /
-    # #       len(plstream.l_list))
-
-    # # print('--0.4--')
-    # # print(plstream.lt_list)
-    # # print('AVG ACC SO FAR: ', sum(plstream.lt_list) /
-    # #       len(plstream.lt_list))
-
-    # print('\n-- SEMI-SUPERVISED MODEL ACCURACY --')
-    # print(ss_acc)
-    # print('AVG ACC SO FAR: ', sum(ss_acc)/len(ss_acc))
-
-    # print('\n-- SENTISTREAM ACCURACY --')
-    # print(senti_acc)
-    # print('AVG ACC SO FAR: ', sum(senti_acc)/len(senti_acc))
-
-    # print('Elapsed Time: ', time_elapsed)
