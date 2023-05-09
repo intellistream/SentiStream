@@ -9,44 +9,58 @@ from kafka.errors import TopicAlreadyExistsError
 
 import config
 
-NUM_PARTITIONS = 1
+NUM_PARTITIONS = 2
 REPLICATION_FACTOR = 1
 
-# Initialize KafkaAdminClient with bootstrap servers.
-admin_client = KafkaAdminClient(bootstrap_servers=config.BOOTSTRAP_SERVER)
 
-# Delete topic if already created.
-if config.KAFKA_TOPIC in admin_client.list_topics():
-    admin_client.delete_topics([config.KAFKA_TOPIC])
+def create_stream():
+    """
+    Create Kafka stream from csv files.
 
-# Create new topic with desired number of partitions and replication factor.
-new_topic = NewTopic(name=config.KAFKA_TOPIC, num_partitions=NUM_PARTITIONS,
-                     replication_factor=REPLICATION_FACTOR)
+    Returns:
+            int: No of datapoints in dataset.
+    """
+    # Initialize KafkaAdminClient with bootstrap servers.
+    admin_client = KafkaAdminClient(bootstrap_servers=config.BOOTSTRAP_SERVER)
 
-# Create the topic.
-while True:
-    try:
-        admin_client.create_topics(new_topics=[new_topic])
-        break
-    except TopicAlreadyExistsError:
-        pass
+    # Delete topic if already created.
+    if config.KAFKA_TOPIC in admin_client.list_topics():
+        admin_client.delete_topics([config.KAFKA_TOPIC])
 
-print(f"{config.KAFKA_TOPIC} topic has been created.")
+    # Create new topic with desired number of partitions and replication factor.
+    new_topic = NewTopic(name=config.KAFKA_TOPIC, num_partitions=NUM_PARTITIONS,
+                         replication_factor=REPLICATION_FACTOR)
+
+    # Create the topic.
+    while True:
+        try:
+            admin_client.create_topics(new_topics=[new_topic])
+            break
+        except TopicAlreadyExistsError:
+            pass
+
+    print(f"{config.KAFKA_TOPIC} topic has been created.")
+
+    # Create Kafka producer.
+    producer = KafkaProducer(
+        bootstrap_servers=config.BOOTSTRAP_SERVER,
+        value_serializer=lambda x: x.encode('utf-8')
+    )
+
+    count = 1
+
+    # Read CSV file and create data stream.
+    with open(config.DATA, 'r', encoding='utf-8') as file:
+        reader = csv.reader(file)
+
+        # use triple pipe to separate label and text as it is unlikely to occur in text.
+        for row in reader:
+            count += 1
+            producer.send(config.KAFKA_TOPIC,
+                          value=f'{row[0]}|||{str(row[1])}')
+
+    return count
 
 
-# Create Kafka producer.
-producer = KafkaProducer(
-    bootstrap_servers=config.BOOTSTRAP_SERVER,
-    value_serializer=lambda x: x.encode('utf-8')
-)
-
-# Read CSV file and create data stream.
-with open(config.DATA, 'r', encoding='utf-8') as file:
-    reader = csv.reader(file)
-
-    ss_train = []
-
-    # use triple pipe to separate label and text as it is unlikely to occur in text.
-    for row in reader:
-        producer.send(config.KAFKA_TOPIC,
-                      value=f'{int(row[0]) - 1}|||{str(row[1])}')
+if __name__ == '__main__':
+    create_stream()

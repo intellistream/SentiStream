@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # Delete running servers.
-kafka/bin/kafka-server-stop.sh &
+sudo kafka/bin/kafka-server-stop.sh &
 sleep 10
-kafka/bin/zookeeper-server-stop.sh &
+sudo kafka/bin/zookeeper-server-stop.sh &
 sleep 10
 
 # Start Zookeeper and wait for it to load.
