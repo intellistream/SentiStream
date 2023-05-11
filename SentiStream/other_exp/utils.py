@@ -1,3 +1,4 @@
+# pylint: disable=import-error
 from transformers import BertTokenizer
 import torch
 import re
@@ -45,14 +46,7 @@ STOP_WORDS = {'also', 'ltd', 'once', 'll', 'make', 'he', 'through', 'all', 'top'
 url_rx = re.compile(r"http\S+|www\S+|@\w+|#\w+")
 html_rx = re.compile(r'<.*?>')
 multi_dot_rx = re.compile(r'\.{2,}')
-emoji_rx = re.compile("["
-                      u"\U0001F600-\U0001F64F"
-                      u"\U0001F300-\U0001F5FF"
-                      u"\U0001F680-\U0001F6FF"
-                      u"\U0001F1E0-\U0001F1FF"
-                      u"\U00002702-\U000027B0"
-                      u"\U000024C2-\U0001F251"
-                      "]+", flags=re.UNICODE)
+
 alpha_table = str.maketrans({char: ' ' if char not in (
     '?', '!', '.') and not char.isalpha() else char for char in string.punctuation + string.digits})
 tokenizer = BertTokenizer.from_pretrained(
@@ -97,53 +91,3 @@ def preprocess(review):
 def acc(preds, labels):
     preds = torch.argmax(preds, axis=1)
     return torch.sum(preds == labels) / len(labels)
-
-
-def tokenize(text):
-    """
-    Clean and tokenize text for processing.
-
-    Args:
-        text (str): Text/Review to be tokenized.
-
-    Returns:
-        list: List of cleaned tokens generated from text.
-    """
-    # print(text)
-    # Remove URLs, tags.
-    text = url_rx.sub('', text).lower()
-    text = html_rx.sub(' ', text)
-    text = emoji_rx.sub(' ', text)
-    text = text.replace('\\n', ' ').replace('\\t', ' ').replace('\\r', ' ')
-    # Replace anything other than alphabets -- ?, !, . will be sentence stoppers -- needed for
-    # sentence tokenization.
-    text = multi_dot_rx.sub('.',  text)
-    text = text.translate(alpha_table)
-    text = text.replace('.', ' . ').replace('!', ' ! ').replace('?', ' ? ')
-    tokens = text.split()
-
-    # TODO: CHECK
-    tokens = [token
-              for token in tokens if token not in STOP_WORDS]
-
-    # print(tokens)
-
-    for i, token in enumerate(tokens[:-1]):
-        if token in NEGATION_WORDS:
-            tokens[i:i+2] = ['negation_' + tokens[i+1]] + \
-                [''] if i < len(tokens) - 1 else ['negation_' + tokens[i+1]]
-
-    return tokens
-
-
-def clean_for_wv(doc):
-    """
-    Clean unneccesary/meaningless tokens from generated tokens.
-
-    Args:
-        doc (list): List of tokens from documents.
-
-    Returns:
-        list: List of filtered tokens for documents.
-    """
-    return [[token for token in tokens if len(token) > 1] for tokens in doc]
