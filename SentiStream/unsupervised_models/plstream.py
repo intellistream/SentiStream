@@ -4,7 +4,7 @@ import math
 import numpy as np
 
 from sklearn.metrics import accuracy_score, f1_score
-from sklearn.cluster import KMeans
+# from sklearn.cluster import KMeans
 
 import config
 
@@ -44,9 +44,6 @@ class PLStream():
 
         self.acc_list = []
         self.f1_list = []
-        self.ts_list = []
-        self.l_list = []
-        self.lt_list = []
 
         # Load pre-trained word vector model.
         self.wv_model = word_vector_algo.load(config.SSL_WV)
@@ -54,8 +51,6 @@ class PLStream():
         self.idx = []
         self.labels = []
         self.texts = []
-
-        self.lexicon_size = 10
 
         self.k = 3
 
@@ -71,16 +66,8 @@ class PLStream():
         self.neg_ref = {'bad', 'worst', 'stupid', 'disappointing', 'terrible', 'rubbish', 'boring',
                         'awful', 'unwatchable', 'awkward', 'bullshit', 'fraud', 'abuse', 'outrange',
                         'disgust'}
-        # if config.STEM:
-        #     self.pos_ref = {'love', 'best', 'beautiful', 'great', 'cool', 'awesome', 'wonderful',
-        #             'brilliant', 'excellent', 'fantastic', 'super', 'fun', 'masterpiece',
-        #                             'rejoice', 'admire', 'amuse', 'bliss', 'yumm', 'glamour'}
-        #     self.neg_ref = {'bad', 'worst', 'stupid', 'disappointing', 'terrible', 'rubbish',
-        #             'boring', 'awful', 'unwatchable', 'awkward', 'bullshi', 'fraud',
-        #             'abuse', 'outrange', 'disgust'}
 
-        # self.create_lexicon()
-        self.create_lexicon_temp()
+        self.create_lexicon()
 
     def create_lexicon(self):
         """
@@ -95,58 +82,26 @@ class PLStream():
                                      if word in self.wv_model.wv.key_to_index])
 
         # Calculate average word embeddings.
-        if self.neg_ref_vec.shape[0]:
-            self.neg_ref_mean = np.mean(self.neg_ref_vec, axis=0)
-        else:
-            self.neg_ref_mean = np.zeros(
-                self.wv_model.vector_size, dtype=np.float32)
+        self.neg_ref_mean = np.mean(self.neg_ref_vec, axis=0) \
+            if self.neg_ref_vec.shape[0] else np.zeros(self.wv_model.vector_size, dtype=np.float32)
+        self.pos_ref_mean = np.mean(self.pos_ref_vec, axis=0) \
+            if self.pos_ref_vec.shape[0] else np.zeros(self.wv_model.vector_size, dtype=np.float32)
 
-        if self.pos_ref_vec.shape[0]:
-            self.pos_ref_mean = np.mean(self.pos_ref_vec, axis=0)
-        else:
-            self.pos_ref_mean = np.zeros(
-                self.wv_model.vector_size, dtype=np.float32)
-
-    def create_lexicon_temp(self):
-        """
-        Generate average word embedding for positive and negative reference words.
-        """
-        # Generate word embeddings for reference words.
-        self.neg_ref_vec_temp = np.array([self.wv_model.wv[word]
-                                          for word in self.neg_ref
-                                          if word in self.wv_model.wv.key_to_index])
-        self.pos_ref_vec_temp = np.array([self.wv_model.wv[word]
-                                          for word in self.pos_ref
-                                          if word in self.wv_model.wv.key_to_index])
-
-        # Calculate average word embeddings.
-        if self.neg_ref_vec_temp.shape[0]:
-            self.neg_ref_mean_temp = np.mean(self.neg_ref_vec_temp, axis=0)
-        else:
-            self.neg_ref_mean_temp = np.zeros(
-                self.wv_model.vector_size, dtype=np.float32)
-
-        if self.pos_ref_vec_temp.shape[0]:
-            self.pos_ref_mean_temp = np.mean(self.pos_ref_vec_temp, axis=0)
-        else:
-            self.pos_ref_mean_temp = np.zeros(
-                self.wv_model.vector_size, dtype=np.float32)
-
-    def update_word_lists(self, sentence_vectors, temp=None):
+    def update_word_lists(self, sent_vec, update):
         """
         Update positive and negative reference tables from polar words extracted from high
         confident pseudo labels.
 
         Args:
-            sentence_vectors (list): List of tokens from documents.
+            sent_vec (list): List of tokens from documents.
 
         Returns:
             str: 'MODEL_TRAINED' if reference table is updated.
         """
 
-        labels, texts = zip(*sentence_vectors)
+        if update:
+            _, texts = zip(*sent_vec)
 
-        if temp == 't':
             # Get all unique words from pseudo labels.
             words = set(
                 word for text in texts for word in text if word in self.wv_model.wv.key_to_index)
@@ -154,62 +109,57 @@ class PLStream():
             # Update reference table with words which have high cosine similarity with
             # words on ref table.
             neg_cos_similarities = [cos_similarity(
-                self.wv_model.wv[word], self.neg_ref_mean_temp)
+                self.wv_model.wv[word], self.neg_ref_mean)
                 for word in self.wv_model.wv.key_to_index]
             pos_cos_similarities = [cos_similarity(
-                self.wv_model.wv[word], self.pos_ref_mean_temp)
+                self.wv_model.wv[word], self.pos_ref_mean)
                 for word in self.wv_model.wv.key_to_index]
-            
-            # print(len(self.wv_model.wv.key_to_index))
 
             for i, word in enumerate(words):
                 if word not in self.neg_ref and neg_cos_similarities[i] > 0.9:
                     self.neg_ref.add(word)
-                    # print('neg', [
-                    #       word for word in self.neg_ref if word in self.wv_model.wv.key_to_index], word)
                 if word not in self.pos_ref and pos_cos_similarities[i] > 0.9:
                     self.pos_ref.add(word)
-                    # print('pos', [
-                    #       word for word in self.pos_ref if word in self.wv_model.wv.key_to_index], word)
 
-            # Update average word embedding for pos and neg ref words.
-            self.create_lexicon_temp()
-        else:
-            # self.create_lexicon()
+        # Update average word embedding for pos and neg ref words.
+        self.create_lexicon()
 
-            for text, label in zip(texts, labels):
-                for word in text:
-                    if word in self.wv_model.wv.key_to_index:
-                        if label == 0:
-                            np.append(self.neg_ref_vec, self.wv_model.wv[word])
-                        else:
-                            np.append(self.pos_ref_vec, self.wv_model.wv[word])
+        # else:
+        #     # self.create_lexicon()
 
-            # Check if the threshold is exceeded
-            # if self.neg_ref_vec.shape[0] + self.pos_ref_vec.shape[0] > self.lexicon_size:
-            if True:
-                # Determine the number of clusters for negative and positive sentiments
-                n_clusters_negative = self.lexicon_size//2 if self.neg_ref_vec.shape[
-                    0] > self.lexicon_size/2 else self.neg_ref_vec.shape[0]
-                n_clusters_positive = self.lexicon_size//2 if self.pos_ref_vec.shape[
-                    0] > self.lexicon_size/2 else self.pos_ref_vec.shape[0]
+        #     for text, label in zip(texts, labels):
+        #         for word in text:
+        #             if word in self.wv_model.wv.key_to_index:
+        #                 if label == 0:
+        #                     np.append(self.neg_ref_vec, self.wv_model.wv[word])
+        #                 else:
+        #                     np.append(self.pos_ref_vec, self.wv_model.wv[word])
 
-                # Perform KMeans clustering for negative sentiment
-                kmeans_negative = KMeans(
-                    n_clusters=n_clusters_negative, n_init='auto', init='k-means++',
-                    algorithm='elkan')
-                kmeans_negative.fit(self.neg_ref_vec)
-                self.neg_ref_vec = kmeans_negative.cluster_centers_
+        #     # Check if the threshold is exceeded
+        #     # if self.neg_ref_vec.shape[0] + self.pos_ref_vec.shape[0] > self.lexicon_size:
+        #     if True:
+        #         # Determine the number of clusters for negative and positive sentiments
+        #         n_clusters_negative = self.lexicon_size//2 if self.neg_ref_vec.shape[
+        #             0] > self.lexicon_size/2 else self.neg_ref_vec.shape[0]
+        #         n_clusters_positive = self.lexicon_size//2 if self.pos_ref_vec.shape[
+        #             0] > self.lexicon_size/2 else self.pos_ref_vec.shape[0]
 
-                # Perform KMeans clustering for positive sentiment
-                kmeans_positive = KMeans(
-                    n_clusters=n_clusters_positive, n_init='auto', init='k-means++',
-                    algorithm='elkan')
-                kmeans_positive.fit(self.pos_ref_vec)
-                self.pos_ref_vec = kmeans_positive.cluster_centers_
+        #         # Perform KMeans clustering for negative sentiment
+        #         kmeans_negative = KMeans(
+        #             n_clusters=n_clusters_negative, n_init='auto', init='k-means++',
+        #             algorithm='elkan')
+        #         kmeans_negative.fit(self.neg_ref_vec)
+        #         self.neg_ref_vec = kmeans_negative.cluster_centers_
 
-                self.neg_ref_mean = np.mean(self.neg_ref_vec, axis=0)
-                self.pos_ref_mean = np.mean(self.pos_ref_vec, axis=0)
+        #         # Perform KMeans clustering for positive sentiment
+        #         kmeans_positive = KMeans(
+        #             n_clusters=n_clusters_positive, n_init='auto', init='k-means++',
+        #             algorithm='elkan')
+        #         kmeans_positive.fit(self.pos_ref_vec)
+        #         self.pos_ref_vec = kmeans_positive.cluster_centers_
+
+        #         self.neg_ref_mean = np.mean(self.neg_ref_vec, axis=0)
+        #         self.pos_ref_mean = np.mean(self.pos_ref_vec, axis=0)
 
     def process_data(self, data):
         """
@@ -235,7 +185,7 @@ class PLStream():
             self.texts = clean_for_wv(self.texts)
 
             train_word_vector_algo(
-                self.wv_model, self.texts, config.SSL_WV, update=True, save=False, epochs=15)
+                self.wv_model, self.texts, config.SSL_WV, update=True, save=False, epochs=20)
 
             # Get predictions and confidence scores.
             conf, preds = self.eval_model(self.texts, self.labels)
@@ -250,7 +200,6 @@ class PLStream():
             self.texts = []
 
             return output
-        # return config.BATCHING
 
     def eval_model(self, sent_tokens, labels):
         """
@@ -269,112 +218,46 @@ class PLStream():
             self.wv_model, sent_tokens)
 
         confidence, y_preds = [], []
-        y_ts_preds, y_l_preds, y_lt_preds = [], [], []
         for idx, embeddings in enumerate(doc_embeddings):
-            # conf, y_pred = self.predict_t(embeddings, tokens=sent_tokens[idx], temp='t', tt=0)
-            # y_lt_preds.append(y_pred)
-
-            # if y_pred != labels[idx]:
-            #     print(y_pred, labels[idx], sent_tokens[idx])
-
-            # conf, y_pred = self.predict_t(embeddings, tokens=sent_tokens[idx])
-            # y_ts_preds.append(y_pred)
-
-            # conf, y_pred = self.predict_t(
-            #     embeddings, tokens=sent_tokens[idx], temp='t')
-            # y_l_preds.append(y_pred)
-
-            conf, y_pred = self.predict_t(
-                embeddings, tokens=sent_tokens[idx], temp='t', tt='t')
+            conf, y_pred = self.predict(embeddings, tokens=sent_tokens[idx])
             confidence.append(conf)
             y_preds.append(y_pred)
 
-        # self.l_list.append(accuracy_score(labels, y_l_preds))
-        # self.lt_list.append(accuracy_score(labels, y_lt_preds))
-        # self.ts_list.append(accuracy_score(labels, y_ts_preds))
         self.acc_list.append(accuracy_score(labels, y_preds))
         self.f1_list.append(f1_score(labels, y_preds))
         return confidence, y_preds
 
-    def predict_t(self, vector, tokens=None, temp=None, tt=None, t=None):
+    def predict(self, vector, tokens=None):
         """
-        Predict polarity of text based using PLStream.
+        Predict polarity of text based on lexicon based classification.
         Args:
             vector (list): Tokenized words in a text.
         Returns:
             tuple: Confidence of predicted label and predicted label.
         """
-        if tt == 't':
-            cos_sim_neg = cos_similarity(vector, self.neg_ref_mean_temp)
-            cos_sim_pos = cos_similarity(vector, self.pos_ref_mean_temp)
-        else:
-            cos_sim_neg = cos_similarity(vector, self.neg_ref_mean)
-            cos_sim_pos = cos_similarity(vector, self.pos_ref_mean)
+        cos_sim_neg = cos_similarity(vector, self.neg_ref_mean)
+        cos_sim_pos = cos_similarity(vector, self.pos_ref_mean)
 
-        # 0.09 best so far
-        if temp == 't':
-            if abs(cos_sim_neg - cos_sim_pos) < self.confidence and tokens:
-                sent_n = []
-                negation = []
-                for word in tokens:
-                    if not word.startswith('negation_'):
-                        sent_n.append(word)
-                    else:
-                        negation.append(word[9:])
+        # 0.1 best so far
+        if abs(cos_sim_neg - cos_sim_pos) < self.confidence and tokens:
+            sent_n = []
+            negation = []
+            for word in tokens:
+                if not word.startswith('negation_'):
+                    sent_n.append(word)
+                else:
+                    negation.append(word[9:])
 
-                text_sim_pos = [text_similarity(word, self.pos_ref, 0.8)
-                                for word in sent_n] + [text_similarity(word, self.neg_ref, 0.8)
-                                                       for word in negation]
-                text_sim_neg = [text_similarity(word, self.neg_ref, 0.8)
-                                for word in sent_n] + [text_similarity(word, self.pos_ref, 0.8)
-                                                       for word in negation]
+            text_sim_pos = [text_similarity(word, self.pos_ref, 0.8)
+                            for word in sent_n] + [text_similarity(word, self.neg_ref, 0.8)
+                                                   for word in negation]
+            text_sim_neg = [text_similarity(word, self.neg_ref, 0.8)
+                            for word in sent_n] + [text_similarity(word, self.pos_ref, 0.8)
+                                                   for word in negation]
 
-                cos_sim_pos += 4 * sum(text_sim_pos) / len(tokens)
-                cos_sim_neg += 4 * sum(text_sim_neg) / len(tokens)
+            cos_sim_pos += 4 * sum(text_sim_pos) / len(tokens)
+            cos_sim_neg += 4 * sum(text_sim_neg) / len(tokens)
 
         if cos_sim_neg > cos_sim_pos:
             return 1 / (1 + math.exp(-self.k * cos_sim_neg)), 0
         return 1 / (1 + math.exp(-self.k * cos_sim_pos)), 1
-
-    # def predict(self, vector, tokens=None, temp=None):
-    #     """
-    #     Predict polarity of text based using PLStream.
-
-    #     Args:
-    #         vector (list): Tokenized words in a text.
-
-    #     Returns:
-    #         tuple: Confidence of predicted label and predicted label.
-    #     """
-
-    #     cos_sim_pos = [cos_similarity(
-    #         vector, self.wv_model.wv[word])
-    #         for word in self.pos_ref if word in self.wv_model.wv.key_to_index]
-    #     cos_sim_neg = [cos_similarity(
-    #         vector, self.wv_model.wv[word])
-    #         for word in self.neg_ref if word in self.wv_model.wv.key_to_index]
-
-    #     cos_sim_pos = sum(cos_sim_pos) / len(cos_sim_pos)
-    #     cos_sim_neg = sum(cos_sim_neg) / len(cos_sim_neg)
-
-    #     # 0.09 best so far
-    #     if temp == 't':
-    #         if abs(cos_sim_neg - cos_sim_pos) < self.confidence and tokens:
-    #             sent_n = [
-    #                 word for word in tokens if not word.startswith('negation_')]
-    #             negation = [word[9:]
-    #                         for word in tokens if word.startswith('negation_')]
-
-    #             text_sim_pos = [text_similarity(word, sent_n, 0.9)
-    #                             for word in self.pos_ref] + [text_similarity(word, negation, 0.8)
-    #                                                          for word in self.neg_ref]
-    #             text_sim_neg = [text_similarity(word, sent_n, 0.9)
-    #                             for word in self.neg_ref] + [text_similarity(word, negation, 0.8)
-    #                                                          for word in self.pos_ref]
-
-    #             cos_sim_pos += sum(text_sim_pos) / len(tokens)
-    #             cos_sim_neg += sum(text_sim_neg) / len(tokens)
-
-    #     if cos_sim_neg > cos_sim_pos:
-    #         return (cos_sim_neg + 1)/2, 0
-    #     return (cos_sim_pos + 1)/2, 1

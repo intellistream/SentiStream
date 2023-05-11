@@ -35,11 +35,10 @@ def create_stream():
     while True:
         try:
             admin_client.create_topics(new_topics=[new_topic])
+            admin_client.close()
             break
         except TopicAlreadyExistsError:
             pass
-
-    print(f"{config.KAFKA_TOPIC} topic has been created.")
 
     # Create Kafka producer.
     producer = KafkaProducer(

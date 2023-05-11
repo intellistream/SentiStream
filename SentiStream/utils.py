@@ -107,7 +107,7 @@ def load_torch_model(model, path, train=False):
     return model
 
 
-def train_word_vector_algo(model, texts, path, update=True, save=True, epochs=30):
+def train_word_vector_algo(model, texts, path, update=True, save=True, epochs=30, min_count=5):
     """
     Train word vector algorithm and save it locally.
 
@@ -118,7 +118,7 @@ def train_word_vector_algo(model, texts, path, update=True, save=True, epochs=30
         update (bool, optional): Flag indicating whether to update pretrained model.
                                 Defaults to True.
     """
-    model.build_vocab(texts, update=update)
+    model.build_vocab(texts, update=update, min_count=min_count)
     model.train(texts,
                 total_examples=model.corpus_count,
                 epochs=epochs)
@@ -147,10 +147,6 @@ def tokenize(text):
     text = text.replace('.', ' . ').replace('!', ' ! ').replace('?', ' ? ')
     tokens = text.split()
 
-    # if config.STEM:
-    #     tokens = [lemmatizer.lemmatize(token)
-    #               for token in tokens if token not in STOP_WORDS]
-    # else:
     tokens = [token
               for token in tokens if token not in STOP_WORDS]
 

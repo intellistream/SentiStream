@@ -6,13 +6,9 @@ from gensim.models import Word2Vec, FastText
 # WORD_VEC = Word2Vec
 # STEM = False
 
-# PyFlink
-PYFLINK = False
-
 # SentiStream
 SSL_MODEL = 'HAN'  # 'HAN', 'ANN'
 WORD_VEC_ALGO = Word2Vec  # Word2Vec, FastText
-STEM = False
 
 # Kafka
 KAFKA_TOPIC = 'sentiment-data'

@@ -13,7 +13,7 @@ class TrainModel:
     """
 
     def __init__(self, word_vector_algo, ssl_model, init, data=None, vector_size=20, window=5,
-                 min_count=3, test_size=0.2, batch_size=512, lr=0.002):
+                 min_count=5, test_size=0.2, batch_size=512, lr=0.002):
         """
         Initialize semi-supervised model training
 
@@ -49,8 +49,8 @@ class TrainModel:
 
             # Train word vector model.
             train_word_vector_algo(
-                self.wv_model, self.filtered_tokens, config.SSL_WV, update=not init)
-            
+                self.wv_model, self.filtered_tokens, config.SSL_WV, update=not init, min_count=min_count)
+
             # Downsample to balance classes.
             self.labels, self.texts = downsampling(self.labels, self.texts)
 
@@ -101,7 +101,7 @@ class TrainModel:
 
         # If there is too low pseudo data, do not update model.
         if len(self.labels) < pseudo_data_threshold:
-            # print(f'TRAINING SKIPPED - pseudo_data_size: {len(data)}'
+            # print(f'TRAINING SKIPPED - pseudo_data_size: {len(self.labels)}'
             #       f' threshold: {pseudo_data_threshold}')
             return config.SKIPPED
 
