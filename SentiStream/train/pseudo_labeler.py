@@ -27,7 +27,7 @@ class SentimentPseudoLabeler:
         FIXED_POS_THRESHOLD: Lower threshold for positive labeled pseduo label's confidence.
         FIXED_NEG_THRESHOLD: Lower threshold for negative labeled pseduo label's confidence.
     """
-    ADAPTIVE_UNSUPERVISED_PREDICTION_WEIGHT = 0.5
+    ADAPTIVE_UNSUPERVISED_PREDICTION_WEIGHT = 1
     ADAPTIVE_SEMI_SUPERVISED_PREDICTION_WEIGHT = 0.5
 
     ADAPTIVE_POS_LE_GAP = 0.05
@@ -44,6 +44,7 @@ class SentimentPseudoLabeler:
         self.acc_list = []
         self.f1_list = []
         self.collector = defaultdict(dict)
+
         self.us = 0
         self.ss = 0
 
@@ -67,7 +68,7 @@ class SentimentPseudoLabeler:
         us_conf *= SentimentPseudoLabeler.ADAPTIVE_UNSUPERVISED_PREDICTION_WEIGHT
         ss_conf *= SentimentPseudoLabeler.ADAPTIVE_SEMI_SUPERVISED_PREDICTION_WEIGHT
 
-        if ss[0] > 0.1 and us[0] > 0.1:  # 0.7
+        if ss[0] > 0.5 and us[0] > 0.5:
             conf = us_conf * 0.75 + ss_conf * 0.75
             pred = 1 if conf > 0 else 0
 
@@ -188,43 +189,3 @@ class SentimentPseudoLabeler:
             del self.collector[key]
 
         return pseudo_labels
-
-
-class PseudoLabelerCoMap(CoMapFunction):
-    """
-    CoMapFunction that uses labeler function to generate pseudo labels for stream data.
-    """
-
-    def __init__(self, labeler):
-        """
-        Initialize class with labeler function
-
-        Args:
-            labeler (SentimentPseudoLabeler): Instance of SentimentPseudoLabeler class to 
-                                            generate labels.
-        """
-        self.labeler = labeler
-
-    def map1(self, value):
-        """
-        Generate pseudo label to on of merged datastream.
-
-        Args:
-            value (tuple): Contain's pretrained model's output.
-
-        Returns:
-            list: pseudo label and text.
-        """
-        return self.labeler.generate_pseudo_label(value, None)
-
-    def map2(self, value):
-        """
-        Generate pseudo label to on of merged datastream.
-
-        Args:
-            value (tuple): Contain's pretrained model's output.
-
-        Returns:
-            list: pseudo label and text.
-        """
-        return self.labeler.generate_pseudo_label(value, None)

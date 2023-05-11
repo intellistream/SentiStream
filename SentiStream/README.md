@@ -31,8 +31,6 @@ Install libraries
 pip install -r requirements.txt
 ```
 
-`apache-flink` installs outdated `numpy` which have dependecy issue with other libs, upgrading won't affect flink performance.
-
 ```
 pip install --upgrade numpy
 ```
