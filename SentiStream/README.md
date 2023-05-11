@@ -51,3 +51,5 @@ sh start_kafka.sh
 ```
 python3 test.py
 ```
+
+> To test Bert, run `bert_test.py` 
