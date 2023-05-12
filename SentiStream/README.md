@@ -31,10 +31,6 @@ Install libraries
 pip install -r requirements.txt
 ```
 
-```
-pip install --upgrade numpy
-```
-
 ### For Evaluation
 
 1. Generate dataset for evaluation
@@ -47,9 +43,11 @@ python3 data.py
 sh start_kafka.sh
 ```
 
-3. Run test
+3. Run test - with chosen tests
 ```
 python3 test.py
 ```
 
-> To test Bert, run `bert_test.py` 
+ *NOTE: For SentiStream, models trained on training data is available on `trained_models` for each dataset* 
+
+> To test BERT, Self learning, run `other_tests.py` 
