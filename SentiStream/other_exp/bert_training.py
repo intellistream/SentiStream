@@ -57,7 +57,7 @@ def train(batch_size=64, epochs=3, lr=5e-6, name='bert'):
     for epoch in range(0, epochs):
         model.train()
 
-        for step, batch in enumerate(train_dataloader):
+        for batch in train_dataloader:
             input_ids = batch[0].to(device)
             input_mask = batch[1].to(device)
             labels = batch[2].to(device)

@@ -56,9 +56,11 @@ def test_sentistream(percent, batch_size, lr, test_size, min_count=5, use_pretra
         init_train(batch_size=batch_size, lr=lr,
                    test_size=test_size, min_count=min_count)
 
-    time, latency, us_acc, us_f1, ss_acc, ss_f1, senti_acc, senti_f1 = stream_process(
+    time, senti_latency, us_latency, ss_latency, us_acc, us_f1, ss_acc, ss_f1, senti_acc, senti_f1 = stream_process(
         lower_thresh, update_thresh, update_lex)
-    print('Avg Latency: ', latency, 'ms')
+    print('SentiStream Latency: ', senti_latency, 'ms')
+    print('US Latency: ', us_latency, 'ms')
+    print('SS Latency: ', ss_latency, 'ms')
     print('Elapsed time: ', time, 's')
     print(count / time, 'tuples per sec')
 
@@ -78,36 +80,52 @@ def test_sentistream(percent, batch_size, lr, test_size, min_count=5, use_pretra
             writer.writerow(row)
 
 
-# 0.5 %
+# # 0.5 %
+# # combined
+# print('\n--Combined Dataset--\n')
+# test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2, min_count=5,
+#                  use_pretrained=True, name='data', lower_thresh=0.8, update_thresh=20000)
+
+# # yelp
+# print('\n--Yelp Dataset--\n')
+# test_sentistream(percent='0_5', batch_size=64, lr=0.01, test_size=0.2, min_count=3,
+#                  use_pretrained=True, name='yelp', lower_thresh=0.8, update_thresh=20000)
+
+# # imdb
+# print('\n--IMDb Dataset--\n')
+# test_sentistream(percent='0_5', batch_size=32, lr=0.003, test_size=0.2, min_count=3,
+#                  use_pretrained=True, name='imdb', lower_thresh=0.5, update_thresh=10000)
+
+# # sst-2
+# print('\n--SST-2 Dataset--\n')
+# test_sentistream(percent='0_5', batch_size=32, lr=0.02, test_size=0.2,
+#                  min_count=2, use_pretrained=True, name='sst', lower_thresh=0.8,
+#                  update_thresh=10000, update_lex=False)
+
+
+# 1 %
 # combined
-print('\n--Combined Dataset--\n')
-test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2, min_count=5,
-                 use_pretrained=True, name='data', lower_thresh=0.7, update_thresh=20000)
+# test_sentistream(percent='1', batch_size=256, lr=0.005, test_size=0.2, min_count=5,
+#                  use_pretrained=True, name='data', lower_thresh=0.7, update_thresh=20000)
 
-# yelp
-print('\n--Yelp Dataset--\n')
-test_sentistream(percent='0_5', batch_size=64, lr=0.01, test_size=0.2, min_count=3,
-                 use_pretrained=True, name='yelp', lower_thresh=0.8, update_thresh=20000)
+# # yelp
+# test_sentistream(percent='1', batch_size=128, lr=0.004, test_size=0.2, min_count=5,
+#                  use_pretrained=True, name='yelp', lower_thresh=0.8, update_thresh=20000)
 
-# imdb
-print('\n--IMDb Dataset--\n')
-test_sentistream(percent='0_5', batch_size=32, lr=0.003, test_size=0.2, min_count=3,
-                 use_pretrained=True, name='imdb', lower_thresh=0.5, update_thresh=10000)
+# # imdb
+# test_sentistream(percent='1', batch_size=64, lr=0.003, test_size=0.2, min_count=3,
+#                  use_pretrained=True, name='imdb', lower_thresh=0.6, update_thresh=10000)
 
-# sst-2
-print('\n--SST-2 Dataset--\n')
-test_sentistream(percent='0_5', batch_size=32, lr=0.02, test_size=0.2,
-                 min_count=2, use_pretrained=True, name='sst', lower_thresh=0.8,
-                 update_thresh=10000, update_lex=False)
+# # sst
+# test_sentistream(percent='1', batch_size=64, lr=0.02, test_size=0.2,
+#                  min_count=3, use_pretrained=True, name='sst', lower_thresh=0.8,
+#                  update_thresh=10000, update_lex=False)
 
 # ---------------------------------------------------------------------------------------------- #
 
 # OTHERS
 
 # # COMBINED DATA
-# # Model trained on 1% data
-# test_sentistream(percent='1', batch_size=256, lr=0.005, test_size=0.2, min_count=5,
-#                  use_pretrained=True, name='data', lower_thresh=0.7, update_thresh=20000)
 
 # # Model trained on 0.1% data
 # test_sentistream(percent='0_1', batch_size=16, lr=0.005, test_size=0.3, min_count=5,
@@ -115,32 +133,18 @@ test_sentistream(percent='0_5', batch_size=32, lr=0.02, test_size=0.2,
 
 
 # YELP
-# Model trained on 1% data
-# test_sentistream(percent='1', batch_size=128, lr=0.004, test_size=0.2, min_count=5,
-#                  use_pretrained=True, name='yelp', lower_thresh=0.8, update_thresh=20000)
-
 # # Model trained on 0.1% data
 # test_sentistream(percent='0_1', batch_size=16, lr=0.02, test_size=0.3, min_count=5,
 #                  use_pretrained=True, name='yelp', lower_thresh=0.6, update_thresh=20000)
 
 
 # # IMDB
-# # Model trained on 1% data
-# test_sentistream(percent='1', batch_size=64, lr=0.003, test_size=0.2, min_count=3,
-#                  use_pretrained=True, name='imdb', lower_thresh=0.6, update_thresh=10000)
-
-# # Model trained on 0.5% data
-
-
 # # Model trained on 0.1% data
 # test_sentistream(percent='0_1', batch_size=16, lr=0.005, test_size=0.3, min_count=2,
 #                  use_pretrained=True, name='imdb', lower_thresh=0.7, update_thresh=10000)
 
 
 # SST
-# Model trained on 1% data
-# test_sentistream(percent='1', batch_size=64, lr=0.01, test_size=0.2, min_count=2,
-#                  use_pretrained=True, name='sst', lower_thresh=0.9, update_thresh=10000)
 
 # # Model trained on 0.1% data
 # test_sentistream(percent='0_1', batch_size=16, lr=0.003, test_size=0.5, min_count=3,

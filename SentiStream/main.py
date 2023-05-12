@@ -26,8 +26,7 @@ def init_train(batch_size=512, lr=0.002, test_size=0.2, min_count=5):
     """
     with open(config.TRAIN_DATA, 'r', encoding='utf-8') as file:
         reader = csv.reader(file)
-        for row in reader:
-            train_data = [[int(row[0]), tokenize(row[1])] for row in reader]
+        train_data = [[int(row[0]), tokenize(row[1])] for row in reader]
     TrainModel(word_vector_algo=config.WORD_VEC_ALGO,
                ssl_model=config.SSL_MODEL, init=True, vector_size=20,
                data=train_data, batch_size=batch_size, lr=lr,
@@ -66,7 +65,9 @@ def stream_process(lower_thresh, update_thresh, update):
     us_predictions = []
     ss_predictions = []
 
-    latency = []
+    senti_latency = []
+    us_latency = []
+    ss_latency = []
     pseudo_data = []
 
     start = time()
@@ -81,7 +82,10 @@ def stream_process(lower_thresh, update_thresh, update):
         text = tokenize(text)
 
         us_output = plstream.process_data((idx, label, text))
+        us_latency.append(time_ns() - arrival_time)
+
         ss_output = classifier.classify((idx, label, text))
+        ss_latency.append(time_ns() - arrival_time - us_latency[-1])
 
         if us_output:
             us_predictions += us_output
@@ -103,16 +107,11 @@ def stream_process(lower_thresh, update_thresh, update):
             if msg == config.FINISHED:
                 pseudo_data = []
 
-        latency.append(time_ns() - arrival_time)
+        senti_latency.append(time_ns() - arrival_time)
     consumer.close()
 
-    print(plstream.acc_list)
-    print(classifier.acc_list)
-    print(pseduo_labeler.acc_list)
-    return (time() - start - 1, sum(latency)/(len(latency) * 1000000), plstream.acc_list,
-            plstream.f1_list, classifier.acc_list, classifier.f1_list, pseduo_labeler.acc_list,
-            pseduo_labeler.f1_list)
-
-
-if __name__ == '__main__':
-    pass
+    return (time() - start - 1, sum(senti_latency)/(len(senti_latency) * 1000000),
+            sum(us_latency) / (len(us_latency) * 1000000),
+            sum(ss_latency) / (len(ss_latency) * 1000000), plstream.acc_list,
+            plstream.f1_list, classifier.acc_list, classifier.f1_list,
+            pseduo_labeler.acc_list, pseduo_labeler.f1_list)

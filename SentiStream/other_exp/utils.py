@@ -46,6 +46,7 @@ STOP_WORDS = {'also', 'ltd', 'once', 'll', 'make', 'he', 'through', 'all', 'top'
 url_rx = re.compile(r"http\S+|www\S+|@\w+|#\w+")
 html_rx = re.compile(r'<.*?>')
 multi_dot_rx = re.compile(r'\.{2,}')
+esc_rx = re.compile(r'\\[ntr]')
 
 alpha_table = str.maketrans({char: ' ' if char not in (
     '?', '!', '.') and not char.isalpha() else char for char in string.punctuation + string.digits})
@@ -91,3 +92,22 @@ def preprocess(review):
 def acc(preds, labels):
     preds = torch.argmax(preds, axis=1)
     return torch.sum(preds == labels) / len(labels)
+
+
+def tokenize(text):
+    text = url_rx.sub(' ', text).lower()
+    text = html_rx.sub(' ', text)
+    text = esc_rx.sub(' ', text)
+    text = multi_dot_rx.sub('.',  text)
+    text = text.translate(alpha_table)
+    text = text.replace('.', ' . ').replace('!', ' ! ').replace('?', ' ? ')
+    tokens = text.split()
+
+    tokens = [token
+              for token in tokens if token not in STOP_WORDS]
+
+    for i, token in enumerate(tokens[:-1]):
+        if token in NEGATION_WORDS:
+            tokens[i:i+2] = ['negation_' + tokens[i+1], '']
+
+    return [token for token in tokens if len(token) > 1]

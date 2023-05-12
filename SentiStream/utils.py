@@ -3,13 +3,7 @@
 import string
 import re
 import numpy as np
-import nltk
 import torch
-
-from nltk.stem import WordNetLemmatizer
-
-nltk.download('punkt', quiet=True)
-nltk.download('wordnet', quiet=True)
 
 NEGATION_WORDS = {'not', 'no', 'didn', 'didnt', 'wont',
                   'dont', 'don', 'doesnt', 'doesn', 'shouldnt', 'shouldn'}
@@ -48,8 +42,6 @@ STOP_WORDS = {'also', 'ltd', 'once', 'll', 'make', 'he', 'through', 'all', 'top'
               'beside', 'whatever', 'whereby', 'ever', 'everyone', 'nevertheless', 'serious',
               'using', 'becomes', 'enough', 'how', 'bottom', 've', 'regarding', 'm', 'they', 'part',
               'front', 'fill', 'get', 'nobody', 'detail'}
-
-lemmatizer = WordNetLemmatizer()
 
 url_rx = re.compile(r"http\S+|www\S+|@\w+|#\w+")
 html_rx = re.compile(r'<.*?>')
