@@ -24,7 +24,12 @@ class PLStream():
         wv_model (class): The word vector model.
         labels (list): Labels of data
         texts (list): Texts/Reviews of data
+
+    Constants:
+        SIMILARITY_THRESHOLD: Threshold for cosine similarity that new words need to exceed to be 
+        added to lexicon.
     """
+    SIMILARITY_THRESHOLD = 0.9
 
     def __init__(self, word_vector_algo, batch_size=10000, confidence=0.1):
         """
@@ -116,9 +121,11 @@ class PLStream():
                 for word in self.wv_model.wv.key_to_index]
 
             for i, word in enumerate(words):
-                if word not in self.neg_ref and neg_cos_similarities[i] > 0.9:
+                if word not in self.neg_ref and \
+                        neg_cos_similarities[i] > PLStream.SIMILARITY_THRESHOLD:
                     self.neg_ref.add(word)
-                if word not in self.pos_ref and pos_cos_similarities[i] > 0.9:
+                if word not in self.pos_ref and \
+                        pos_cos_similarities[i] > PLStream.SIMILARITY_THRESHOLD:
                     self.pos_ref.add(word)
 
         # Update average word embedding for pos and neg ref words.

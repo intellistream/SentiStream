@@ -31,7 +31,8 @@ def load_pretrained_models(percent, dataset):
 
 
 def test_sentistream(percent, batch_size, lr, test_size, min_count=5, use_pretrained=True,
-                     name='data', lower_thresh=0.8, update_thresh=20000, update_lex=True):
+                     name='data', lower_thresh=0.8, update_thresh=20000, update_lex=True,
+                     dyn_lex=True, sim_thresh=0.9, dyn_thresh=True):
     """
     Evaluate performance metrics of SentiStream.
 
@@ -57,7 +58,7 @@ def test_sentistream(percent, batch_size, lr, test_size, min_count=5, use_pretra
                    test_size=test_size, min_count=min_count)
 
     time, senti_latency, us_latency, ss_latency, us_acc, us_f1, ss_acc, ss_f1, senti_acc, senti_f1 = stream_process(
-        lower_thresh, update_thresh, update_lex)
+        lower_thresh, update_thresh, update_lex, sim_thresh, dyn_lex, dyn_thresh)
     print('SentiStream Latency: ', senti_latency, 'ms')
     print('US Latency: ', us_latency, 'ms')
     print('SS Latency: ', ss_latency, 'ms')
@@ -78,6 +79,9 @@ def test_sentistream(percent, batch_size, lr, test_size, min_count=5, use_pretra
 
         for row in zip(*[us_acc, us_f1, ss_acc, ss_f1, senti_acc, senti_f1]):
             writer.writerow(row)
+
+
+# ----------------------------------------------------------------------------------------------- #
 
 
 # # 0.5 %
@@ -103,8 +107,11 @@ def test_sentistream(percent, batch_size, lr, test_size, min_count=5, use_pretra
 #                  update_thresh=10000, update_lex=False)
 
 
+# ----------------------------------------------------------------------------------------------- #
+
+
 # 1 %
-# combined
+# # combined
 # test_sentistream(percent='1', batch_size=256, lr=0.005, test_size=0.2, min_count=5,
 #                  use_pretrained=True, name='data', lower_thresh=0.7, update_thresh=20000)
 
@@ -121,31 +128,42 @@ def test_sentistream(percent, batch_size, lr, test_size, min_count=5, use_pretra
 #                  min_count=3, use_pretrained=True, name='sst', lower_thresh=0.8,
 #                  update_thresh=10000, update_lex=False)
 
-# ---------------------------------------------------------------------------------------------- #
+# ----------------------------------------------------------------------------------------------- #
 
-# OTHERS
+# components test
+# #  baseline
+# test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2,
+#                  min_count=5, use_pretrained=True, name='data', lower_thresh=0.8,
+#                  update_thresh=20000, dyn_lex=False, dyn_thresh=False)
 
-# # COMBINED DATA
+# # dyn lex update
+# # # 0.7
+# test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2,
+#                  min_count=5, use_pretrained=True, name='data', lower_thresh=0.8,
+#                  update_thresh=20000, dyn_lex=True, dyn_thresh=False, sim_thresh=0.7)
 
-# # Model trained on 0.1% data
-# test_sentistream(percent='0_1', batch_size=16, lr=0.005, test_size=0.3, min_count=5,
-#                  use_pretrained=True, name='data', lower_thresh=0.7, update_thresh=20000)
+# # # 0.8
+# test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2,
+#                  min_count=5, use_pretrained=True, name='data', lower_thresh=0.8,
+#                  update_thresh=20000, dyn_lex=True, dyn_thresh=False, sim_thresh=0.8)
 
+# # # 0.9
+# test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2,
+#                  min_count=5, use_pretrained=True, name='data', lower_thresh=0.8,
+#                  update_thresh=20000, dyn_lex=True, dyn_thresh=False, sim_thresh=0.9)
 
-# YELP
-# # Model trained on 0.1% data
-# test_sentistream(percent='0_1', batch_size=16, lr=0.02, test_size=0.3, min_count=5,
-#                  use_pretrained=True, name='yelp', lower_thresh=0.6, update_thresh=20000)
+# # dyn threshold
+# # # 0.7
+# test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2,
+#                  min_count=5, use_pretrained=True, name='data', lower_thresh=0.7,
+#                  update_thresh=20000, dyn_lex=False, dyn_thresh=True)
 
+# # # 0.8
+# test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2,
+#                  min_count=5, use_pretrained=True, name='data', lower_thresh=0.8,
+#                  update_thresh=20000, dyn_lex=False, dyn_thresh=True)
 
-# # IMDB
-# # Model trained on 0.1% data
-# test_sentistream(percent='0_1', batch_size=16, lr=0.005, test_size=0.3, min_count=2,
-#                  use_pretrained=True, name='imdb', lower_thresh=0.7, update_thresh=10000)
-
-
-# SST
-
-# # Model trained on 0.1% data
-# test_sentistream(percent='0_1', batch_size=16, lr=0.003, test_size=0.5, min_count=3,
-#                  use_pretrained=True, name='sst', lower_thresh=0.5, update_thresh=10000)
+# # # 0.9
+# test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2,
+#                  min_count=5, use_pretrained=True, name='data', lower_thresh=0.9,
+#                  update_thresh=20000, dyn_lex=False, dyn_thresh=True)

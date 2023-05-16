@@ -33,7 +33,7 @@ def init_train(batch_size=512, lr=0.002, test_size=0.2, min_count=5):
                test_size=test_size, min_count=min_count)
 
 
-def stream_process(lower_thresh, update_thresh, update):
+def stream_process(lower_thresh, update_thresh, update, sim_thresh, dyn_lex, dyn_thresh):
     """
     Perform sentiment analysis on stream data.
 
@@ -43,6 +43,12 @@ def stream_process(lower_thresh, update_thresh, update):
     """
     SentimentPseudoLabeler.FIXED_NEG_THRESHOLD = lower_thresh
     SentimentPseudoLabeler.FIXED_POS_THRESHOLD = lower_thresh
+
+    if not dyn_thresh:
+        SentimentPseudoLabeler.ADAPTIVE_NEG_LE_GAP = 0
+        SentimentPseudoLabeler.ADAPTIVE_POS_LE_GAP = 0
+
+    PLStream.SIMILARITY_THRESHOLD = sim_thresh
 
     plstream = PLStream(
         word_vector_algo=config.WORD_VEC_ALGO)
@@ -102,7 +108,8 @@ def stream_process(lower_thresh, update_thresh, update):
 
         if idx % update_thresh == 0 and pseudo_data:
             msg = model_trainer.update_model(pseudo_data, 712)
-            plstream.update_word_lists(pseudo_data, update=update)
+            if dyn_lex:
+                plstream.update_word_lists(pseudo_data, update=update)
 
             if msg == config.FINISHED:
                 pseudo_data = []
