@@ -31,20 +31,15 @@ def generate_df(df, dataset):
     df.iloc[p_0_5:, :].to_csv(f'data/{dataset}_0_5_percent.csv',
                               header=False, index=False)
 
-    # 0.1%
-    df.iloc[:p_0_1, :].to_csv(
-        f'data/{dataset}_train_0_1_percent.csv', header=False, index=False)
-    df.iloc[p_0_1:, :].to_csv(f'data/{dataset}_0_1_percent.csv',
-                              header=False, index=False)
-
 
 yelp_df = pd.read_csv('yelp.csv', header=None)
+yelp_df.insert(0, 'id', 0)
 imdb_df = pd.read_csv('imdb.csv', header=None)
+imdb_df.insert(0, 'id', 1)
 sst_df = pd.read_csv('sst.csv', header=None)
-merged_df = pd.concat([yelp_df, imdb_df, sst_df])
+sst_df.insert(0, 'id', 2)
 
+merged_df = pd.concat([yelp_df, imdb_df, sst_df])
+merged_df.iloc[-1, 0] = -1
 
 generate_df(merged_df, 'data')
-generate_df(yelp_df, 'yelp')
-generate_df(imdb_df, 'imdb')
-generate_df(sst_df, 'sst')

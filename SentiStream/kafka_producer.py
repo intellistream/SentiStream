@@ -56,7 +56,7 @@ def create_stream():
         for row in reader:
             count += 1
             producer.send(config.KAFKA_TOPIC,
-                          value=f'{row[0]}|||{str(row[1])}')
+                          value=f'{row[0]}|||{row[1]}|||{str(row[2])}')
 
     return count
 
