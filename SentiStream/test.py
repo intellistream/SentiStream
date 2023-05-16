@@ -5,6 +5,7 @@ import os
 import torch
 
 from gensim.models import Word2Vec
+from sklearn.metrics import accuracy_score, f1_score
 
 import config
 
@@ -57,7 +58,7 @@ def test_sentistream(percent, batch_size, lr, test_size, min_count=5, use_pretra
         init_train(batch_size=batch_size, lr=lr,
                    test_size=test_size, min_count=min_count)
 
-    time, senti_latency, us_latency, ss_latency, us_acc, us_f1, ss_acc, ss_f1, senti_acc, senti_f1 = stream_process(
+    time, senti_latency, us_latency, ss_latency, us_eval, ss_eval, senti_eval = stream_process(
         lower_thresh, update_thresh, update_lex, sim_thresh, dyn_lex, dyn_thresh)
     print('SentiStream Latency: ', senti_latency, 'ms')
     print('US Latency: ', us_latency, 'ms')
@@ -65,68 +66,75 @@ def test_sentistream(percent, batch_size, lr, test_size, min_count=5, use_pretra
     print('Elapsed time: ', time, 's')
     print(count / time, 'tuples per sec')
 
-    print('Avg US_ACC: ', sum(us_acc)/len(us_acc))
-    print('Avg US_F1: ', sum(us_f1)/len(us_f1))
-    print('Avg SS_ACC: ', sum(ss_acc)/len(ss_acc))
-    print('Avg SS_F1: ', sum(ss_f1)/len(ss_f1))
-    print('Avg Senti_ACC: ', sum(senti_acc)/len(senti_acc))
-    print('Avg Senti_F1: ', sum(senti_f1)/len(senti_f1))
+    yelp_us, yelp_ss, yelp_senti = [], [], []
+    imdb_us, imdb_ss, imdb_senti = [], [], []
+    sst_us, sst_ss, sst_senti = [], [], []
+    yelp_label, imdb_label, sst_label = [], [], []
 
-    with open(f'outputs/output_{name}_{percent}.csv', 'w', newline='', encoding='utf-8') as file:
-        writer = csv.writer(file)
-        writer.writerow(['us_acc', 'us_f1', 'ss_acc',
-                        'ss_f1', 'senti_acc', 'senti_f1'])
+    for us, ss, senti in zip(us_eval, ss_eval, senti_eval):
+        if us[0] == '0':
+            yelp_us.append(us[1])
+            yelp_ss.append(ss[1])
+            yelp_senti.append(senti[1])
+            yelp_label.append(us[2])
+        elif us[0] == '1':
+            imdb_us.append(us[1])
+            imdb_ss.append(ss[1])
+            imdb_senti.append(senti[1])
+            imdb_label.append(us[2])
+        else:
+            sst_us.append(us[1])
+            sst_ss.append(ss[1])
+            sst_senti.append(senti[1])
+            sst_label.append(us[2])
 
-        for row in zip(*[us_acc, us_f1, ss_acc, ss_f1, senti_acc, senti_f1]):
-            writer.writerow(row)
+    print('--YELP--')
+    print(
+        f'US ACC: {accuracy_score(yelp_us, yelp_label)}, F1: {f1_score(yelp_us, yelp_label)}')
+    print(
+        f'SS ACC: {accuracy_score(yelp_ss, yelp_label)}, F1: {f1_score(yelp_ss, yelp_label)}')
+    print(
+        f'Senti ACC: {accuracy_score(yelp_senti, yelp_label)}, F1: {f1_score(yelp_senti, yelp_label)}')
+
+    print('--IMDB--')
+    print(
+        f'US ACC: {accuracy_score(imdb_us, imdb_label)}, F1: {f1_score(imdb_us, imdb_label)}')
+    print(
+        f'SS ACC: {accuracy_score(imdb_ss, imdb_label)}, F1: {f1_score(imdb_ss, imdb_label)}')
+    print(
+        f'Senti ACC: {accuracy_score(imdb_senti, imdb_label)}, F1: {f1_score(imdb_senti, imdb_label)}')
+
+    print('--SST--')
+    print(
+        f'US ACC: {accuracy_score(sst_us, sst_label)}, F1: {f1_score(sst_us, sst_label)}')
+    print(
+        f'SS ACC: {accuracy_score(sst_ss, sst_label)}, F1: {f1_score(sst_ss, sst_label)}')
+    print(
+        f'Senti ACC: {accuracy_score(sst_senti, sst_label)}, F1: {f1_score(sst_senti, sst_label)}')
+
+    print('--ALL--')
+    print(
+        f'US ACC: {accuracy_score(yelp_us+imdb_us+sst_us, yelp_label+imdb_label+sst_label)}, F1: {f1_score(yelp_us+imdb_us+sst_us, yelp_label+imdb_label+sst_label)}')
+    print(
+        f'SS ACC: {accuracy_score(yelp_ss+imdb_ss+sst_ss, yelp_label+imdb_label+sst_label)}, F1: {f1_score(yelp_ss+imdb_ss+sst_ss, yelp_label+imdb_label+sst_label)}')
+    print(
+        f'Senti ACC: {accuracy_score(yelp_senti+imdb_senti+sst_senti, yelp_label+imdb_label+sst_label)}, F1: {f1_score(yelp_senti+imdb_senti+sst_senti, yelp_label+imdb_label+sst_label)}')
 
 
 # ----------------------------------------------------------------------------------------------- #
 
-
-# # 0.5 %
-# # combined
-# print('\n--Combined Dataset--\n')
+# 0.5 %
 # test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2, min_count=5,
 #                  use_pretrained=True, name='data', lower_thresh=0.8, update_thresh=20000)
-
-# # yelp
-# print('\n--Yelp Dataset--\n')
-# test_sentistream(percent='0_5', batch_size=64, lr=0.01, test_size=0.2, min_count=3,
-#                  use_pretrained=True, name='yelp', lower_thresh=0.8, update_thresh=20000)
-
-# # imdb
-# print('\n--IMDb Dataset--\n')
-# test_sentistream(percent='0_5', batch_size=32, lr=0.003, test_size=0.2, min_count=3,
-#                  use_pretrained=True, name='imdb', lower_thresh=0.5, update_thresh=10000)
-
-# # sst-2
-# print('\n--SST-2 Dataset--\n')
-# test_sentistream(percent='0_5', batch_size=32, lr=0.02, test_size=0.2,
-#                  min_count=2, use_pretrained=True, name='sst', lower_thresh=0.8,
-#                  update_thresh=10000, update_lex=False)
 
 
 # ----------------------------------------------------------------------------------------------- #
 
 
 # 1 %
-# # combined
 # test_sentistream(percent='1', batch_size=256, lr=0.005, test_size=0.2, min_count=5,
 #                  use_pretrained=True, name='data', lower_thresh=0.7, update_thresh=20000)
 
-# # yelp
-# test_sentistream(percent='1', batch_size=128, lr=0.004, test_size=0.2, min_count=5,
-#                  use_pretrained=True, name='yelp', lower_thresh=0.8, update_thresh=20000)
-
-# # imdb
-# test_sentistream(percent='1', batch_size=64, lr=0.003, test_size=0.2, min_count=3,
-#                  use_pretrained=True, name='imdb', lower_thresh=0.6, update_thresh=10000)
-
-# # sst
-# test_sentistream(percent='1', batch_size=64, lr=0.02, test_size=0.2,
-#                  min_count=3, use_pretrained=True, name='sst', lower_thresh=0.8,
-#                  update_thresh=10000, update_lex=False)
 
 # ----------------------------------------------------------------------------------------------- #
 

@@ -3,8 +3,6 @@
 import numpy as np
 import torch
 
-from sklearn.metrics import accuracy_score, f1_score
-
 import config
 
 from semi_supervised_models.utils import join_tokens, preprocess
@@ -46,13 +44,14 @@ class Classifier:
         self.word_vector_algo = word_vector_algo
         self.ssl_model = ssl_model
 
-        self.acc_list = []
-        self.f1_list = []
+        self.eval_list = []
+
         self.wv_model, self.clf_model = None, None
 
         # Set batch size and initialize lists for labels and texts.
         self.batch_size = batch_size
 
+        self.id = []
         self.idx = []
         self.labels = []
         self.texts = []
@@ -98,14 +97,16 @@ class Classifier:
             tuple or str: 'BATCHING' if collection data for batch, else, tuple containing ground 
                         truth label, confidence score and predicted label for current batch.
         """
-        idx, label, text = data
+        id, idx, label, text = data
 
+        self.id.append(id)
         self.idx.append(idx)
         self.labels.append(label)
         self.texts.append(text)
 
         # Check if batch size is reached.
-        if len(self.labels) >= self.batch_size:
+        if len(self.labels) >= self.batch_size or id == '-1':
+            self.batch_size = len(self.labels)
             self.load_updated_model()
 
             # Get document embeddings.
@@ -119,15 +120,14 @@ class Classifier:
             # Get predictions and confidence scores.
             conf, preds = self.get_prediction(embeddings)
 
-            # Calculate model's accuracy.
-            self.acc_list.append(accuracy_score(self.labels, preds))
-            self.f1_list.append(f1_score(self.labels, preds))
+            self.eval_list += list(zip(self.id, preds, self.labels))
 
             # Generate output data.
             output = [[i, 'ss', c, p, t]
                       for i, c, p, t in zip(self.idx, conf, preds, self.texts)]
 
             # Clear the lists for the next batch.
+            self.id = []
             self.idx = []
             self.labels = []
             self.texts = []

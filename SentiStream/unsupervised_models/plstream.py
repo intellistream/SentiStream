@@ -3,9 +3,6 @@
 import math
 import numpy as np
 
-from sklearn.metrics import accuracy_score, f1_score
-# from sklearn.cluster import KMeans
-
 import config
 
 from unsupervised_models.utils import cos_similarity, text_similarity
@@ -47,12 +44,12 @@ class PLStream():
         self.word_vector_algo = word_vector_algo
         self.confidence = confidence
 
-        self.acc_list = []
-        self.f1_list = []
+        self.eval_list = []
 
         # Load pre-trained word vector model.
         self.wv_model = word_vector_algo.load(config.SSL_WV)
 
+        self.id = []
         self.idx = []
         self.labels = []
         self.texts = []
@@ -131,43 +128,6 @@ class PLStream():
         # Update average word embedding for pos and neg ref words.
         self.create_lexicon()
 
-        # else:
-        #     # self.create_lexicon()
-
-        #     for text, label in zip(texts, labels):
-        #         for word in text:
-        #             if word in self.wv_model.wv.key_to_index:
-        #                 if label == 0:
-        #                     np.append(self.neg_ref_vec, self.wv_model.wv[word])
-        #                 else:
-        #                     np.append(self.pos_ref_vec, self.wv_model.wv[word])
-
-        #     # Check if the threshold is exceeded
-        #     # if self.neg_ref_vec.shape[0] + self.pos_ref_vec.shape[0] > self.lexicon_size:
-        #     if True:
-        #         # Determine the number of clusters for negative and positive sentiments
-        #         n_clusters_negative = self.lexicon_size//2 if self.neg_ref_vec.shape[
-        #             0] > self.lexicon_size/2 else self.neg_ref_vec.shape[0]
-        #         n_clusters_positive = self.lexicon_size//2 if self.pos_ref_vec.shape[
-        #             0] > self.lexicon_size/2 else self.pos_ref_vec.shape[0]
-
-        #         # Perform KMeans clustering for negative sentiment
-        #         kmeans_negative = KMeans(
-        #             n_clusters=n_clusters_negative, n_init='auto', init='k-means++',
-        #             algorithm='elkan')
-        #         kmeans_negative.fit(self.neg_ref_vec)
-        #         self.neg_ref_vec = kmeans_negative.cluster_centers_
-
-        #         # Perform KMeans clustering for positive sentiment
-        #         kmeans_positive = KMeans(
-        #             n_clusters=n_clusters_positive, n_init='auto', init='k-means++',
-        #             algorithm='elkan')
-        #         kmeans_positive.fit(self.pos_ref_vec)
-        #         self.pos_ref_vec = kmeans_positive.cluster_centers_
-
-        #         self.neg_ref_mean = np.mean(self.neg_ref_vec, axis=0)
-        #         self.pos_ref_mean = np.mean(self.pos_ref_vec, axis=0)
-
     def process_data(self, data):
         """
         Process incoming stream and output polarity of stream data.
@@ -180,35 +140,37 @@ class PLStream():
                         for current batch's predictions.
         """
 
-        idx, label, text = data
+        id, idx, label, text = data
 
         # Append idx, label and preprocessed text to respective lists.
+        self.id.append(id)
         self.idx.append(idx)
         self.labels.append(label)
         self.texts.append(text)
 
         # Train model & classify once batch size is reached.
-        if len(self.labels) >= self.batch_size:
+        if len(self.labels) >= self.batch_size or id == '-1':
             self.texts = clean_for_wv(self.texts)
 
             train_word_vector_algo(
                 self.wv_model, self.texts, config.SSL_WV, update=True, save=False, epochs=20)
 
             # Get predictions and confidence scores.
-            conf, preds = self.eval_model(self.texts, self.labels)
+            conf, preds = self.eval_model(self.id, self.texts, self.labels)
 
             # Generate output data
-            output = [[i, 'us', c, p, l]
-                      for i, c, p, l in zip(self.idx, conf, preds, self.labels)]
+            output = [[i, 'us', c, p, l, id]
+                      for i, c, p, l, id in zip(self.idx, conf, preds, self.labels, self.id)]
 
             # Clear the lists for the next batch
+            self.id = []
             self.idx = []
             self.labels = []
             self.texts = []
 
             return output
 
-    def eval_model(self, sent_tokens, labels):
+    def eval_model(self, id, sent_tokens, labels):
         """
         Evaluate model on current batch
 
@@ -230,8 +192,8 @@ class PLStream():
             confidence.append(conf)
             y_preds.append(y_pred)
 
-        self.acc_list.append(accuracy_score(labels, y_preds))
-        self.f1_list.append(f1_score(labels, y_preds))
+            self.eval_list.append((id[idx], y_pred, labels[idx]))
+
         return confidence, y_preds
 
     def predict(self, vector, tokens=None):

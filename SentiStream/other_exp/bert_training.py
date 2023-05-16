@@ -19,7 +19,7 @@ device = torch.device("cuda")
 
 def train(batch_size=64, epochs=3, lr=5e-6, name='bert'):
 
-    df = pd.read_csv(config.TRAIN_DATA, names=['label', 'review'])
+    df = pd.read_csv(config.TRAIN_DATA, names=['id', 'label', 'review'])
     labels, review = df.label.values, df.review.values
 
     # max_len = get_max_len(review) # just checked if max len is less than 512.. but its large so

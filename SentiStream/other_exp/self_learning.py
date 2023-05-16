@@ -8,7 +8,6 @@ from time import time, time_ns
 from kafka import KafkaConsumer
 from dataclasses import dataclass
 from sklearn.naive_bayes import MultinomialNB
-from sklearn.metrics import accuracy_score, f1_score
 from sklearn.feature_extraction.text import CountVectorizer
 
 import config
@@ -42,8 +41,7 @@ class SelfLearning():
         self.train_node = 0
         self.train_X = []
         self.train_y = []
-        self.acc = []
-        self.f1 = []
+        self.eval_list = []
 
     def _reset_model(self):
         self.count_vec = CountVectorizer()
@@ -62,7 +60,7 @@ class SelfLearning():
         return self.model.predict(vec_X)
 
     def map(self, value):
-        tag, X, y = value
+        tag, id, X, y = value
         clean_X = ' '.join(tokenize(X))
 
         if tag == 'pretrain':
@@ -83,8 +81,8 @@ class SelfLearning():
                     self.train_node = len(self.train_X)
 
             pred_y = self._predict([clean_X])
-            self.acc.append(accuracy_score([y], pred_y))
-            self.f1.append(f1_score([y], pred_y, zero_division=0))
+            self.eval_list.append((id, pred_y, y))
+
 
 def test_sl():
     sl = SelfLearning(SelfLearningConfig(batch_size=1000))
@@ -93,7 +91,7 @@ def test_sl():
     with open(config.TRAIN_DATA, 'r', encoding='utf-8') as file:
         reader = csv.reader(file)
         for row in reader:
-            sl.map(('pretrain', row[1], int(row[0])))
+            sl.map(('pretrain', row[0], row[2], int(row[1])))
 
     start = time()
     latency = []
@@ -102,13 +100,13 @@ def test_sl():
     for message in consumer:
         arrival_time = time_ns()
 
-        label, text = message.value.split('|||', 1)
+        id, label, text = message.value.split('|||')
         label = int(label)
 
-        sl.map(('inf', text, label))
+        sl.map(('inf', id, text, label))
 
         latency.append(time_ns() - arrival_time)
 
     consumer.close()
 
-    return (time() - start - 1, sum(latency)/(len(latency) * 1000000), sl.acc, sl.f1)
+    return (time() - start - 1, sum(latency)/(len(latency) * 1000000), sl.eval_list)

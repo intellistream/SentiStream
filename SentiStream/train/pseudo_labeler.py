@@ -2,9 +2,8 @@
 # pylint: disable=no-name-in-module
 from collections import defaultdict
 from itertools import zip_longest
-from pyflink.datastream.functions import CoMapFunction
 
-from train.utils import polarity, calculate_perf_metrics
+from train.utils import polarity
 
 
 class SentimentPseudoLabeler:
@@ -33,6 +32,9 @@ class SentimentPseudoLabeler:
     ADAPTIVE_POS_LE_GAP = 0.05
     ADAPTIVE_NEG_LE_GAP = 0.05
 
+    ADAPTIVE_POS_LE = 0
+    ADAPTIVE_NEG_LE = 0
+
     FIXED_POS_THRESHOLD = 0.8
     FIXED_NEG_THRESHOLD = 0.8
 
@@ -40,7 +42,7 @@ class SentimentPseudoLabeler:
         """
         Initialize class to generate pseudo labels.
         """
-        self.to_calc_acc = []
+        self.eval_list = []
         self.acc_list = []
         self.f1_list = []
         self.collector = defaultdict(dict)
@@ -80,7 +82,8 @@ class SentimentPseudoLabeler:
             conf = us_conf + ss_conf
 
         # Store final prediction to calculate sentistream's accuracy.
-        self.to_calc_acc.append([[us[2]], [pred]])
+        # self.to_calc_acc.append([[us[2]], [pred]])
+        self.eval_list.append((us[3], pred, us[2]))
 
         return conf
 
@@ -140,12 +143,7 @@ class SentimentPseudoLabeler:
             SentimentPseudoLabeler.ADAPTIVE_UNSUPERVISED_PREDICTION_WEIGHT = self.us / max_us_ss
             SentimentPseudoLabeler.ADAPTIVE_SEMI_SUPERVISED_PREDICTION_WEIGHT = self.ss / max_us_ss
 
-        if self.to_calc_acc:
-            acc, f1 = calculate_perf_metrics(self.to_calc_acc)
-            self.acc_list.append(acc)
-            self.f1_list.append(f1)
-
-        self.us, self.ss, self.to_calc_acc = 0, 0, []
+        self.us, self.ss = 0, 0
 
         return output
 
@@ -168,21 +166,24 @@ class SentimentPseudoLabeler:
 
         normalized_denom = max(len(conf_list) - (pos_ + neg_), pos_, neg_)
 
-        pos_learn_eff = pos_ / normalized_denom
-        pos_learn_eff /= (2 - pos_learn_eff)
+        if normalized_denom != 0:
+            SentimentPseudoLabeler.ADAPTIVE_POS_LE = pos_ / normalized_denom
+            SentimentPseudoLabeler.ADAPTIVE_POS_LE /= (
+                2 - SentimentPseudoLabeler.ADAPTIVE_POS_LE)
 
-        neg_learn_eff = neg_ / normalized_denom
-        neg_learn_eff /= (2 - neg_learn_eff)
+            SentimentPseudoLabeler.ADAPTIVE_NEG_LE = neg_ / normalized_denom
+            SentimentPseudoLabeler.ADAPTIVE_NEG_LE /= (
+                2 - SentimentPseudoLabeler.ADAPTIVE_NEG_LE)
 
         pseudo_labels = [[1 if conf >= 0 else 0,
                           self.collector[key_list[idx]]['ss'][2]]
                          for idx, conf in enumerate(conf_list)
                          if conf <= -(SentimentPseudoLabeler.FIXED_NEG_THRESHOLD +
                                       SentimentPseudoLabeler.ADAPTIVE_NEG_LE_GAP *
-                                      neg_learn_eff)
+                                      SentimentPseudoLabeler.ADAPTIVE_NEG_LE)
                          or conf >= (SentimentPseudoLabeler.FIXED_POS_THRESHOLD +
                                      SentimentPseudoLabeler.ADAPTIVE_POS_LE_GAP *
-                                     pos_learn_eff)
+                                     SentimentPseudoLabeler.ADAPTIVE_POS_LE)
                          ]
 
         for key in key_list:

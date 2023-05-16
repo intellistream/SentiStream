@@ -26,7 +26,7 @@ def init_train(batch_size=512, lr=0.002, test_size=0.2, min_count=5):
     """
     with open(config.TRAIN_DATA, 'r', encoding='utf-8') as file:
         reader = csv.reader(file)
-        train_data = [[int(row[0]), tokenize(row[1])] for row in reader]
+        train_data = [[int(row[1]), tokenize(row[2])] for row in reader]
     TrainModel(word_vector_algo=config.WORD_VEC_ALGO,
                ssl_model=config.SSL_MODEL, init=True, vector_size=20,
                data=train_data, batch_size=batch_size, lr=lr,
@@ -82,15 +82,15 @@ def stream_process(lower_thresh, update_thresh, update, sim_thresh, dyn_lex, dyn
         # arrival_time = message.timestamp ## THIS IS MESSAGE PRODUCED TIMESTAMP
         arrival_time = time_ns()
 
-        label, text = message.value.split('|||', 1)
+        id, label, text = message.value.split('|||')
         label = int(label)
 
         text = tokenize(text)
 
-        us_output = plstream.process_data((idx, label, text))
+        us_output = plstream.process_data((id, idx, label, text))
         us_latency.append(time_ns() - arrival_time)
 
-        ss_output = classifier.classify((idx, label, text))
+        ss_output = classifier.classify((id, idx, label, text))
         ss_latency.append(time_ns() - arrival_time - us_latency[-1])
 
         if us_output:
@@ -119,6 +119,5 @@ def stream_process(lower_thresh, update_thresh, update, sim_thresh, dyn_lex, dyn
 
     return (time() - start - 1, sum(senti_latency)/(len(senti_latency) * 1000000),
             sum(us_latency) / (len(us_latency) * 1000000),
-            sum(ss_latency) / (len(ss_latency) * 1000000), plstream.acc_list,
-            plstream.f1_list, classifier.acc_list, classifier.f1_list,
-            pseduo_labeler.acc_list, pseduo_labeler.f1_list)
+            sum(ss_latency) / (len(ss_latency) * 1000000), plstream.eval_list,
+            classifier.eval_list, pseduo_labeler.eval_list)
