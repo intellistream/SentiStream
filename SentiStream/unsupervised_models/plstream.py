@@ -64,9 +64,9 @@ class PLStream():
         # Set up positive and negative reference words for trend detection.
         self.pos_ref = {'love', 'best', 'beautiful', 'great', 'cool', 'awesome', 'wonderful',
                         'brilliant', 'excellent', 'fantastic', 'super', 'fun', 'masterpiece',
-                                'rejoice', 'admire', 'amuse', 'bliss', 'yummy', 'glamour'}
+                        'rejoice', 'admire', 'amuse', 'bliss', 'yummy', 'glamour'}
         self.neg_ref = {'bad', 'worst', 'stupid', 'disappointing', 'terrible', 'rubbish', 'boring',
-                        'awful', 'unwatchable', 'awkward', 'bullshit', 'fraud', 'abuse', 'outrange',
+                        'awful', 'unwatchable', 'awkward', 'bullshit', 'fraud', 'abuse', 'outrage',
                         'disgust'}
 
         self.create_lexicon()

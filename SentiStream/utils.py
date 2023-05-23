@@ -146,6 +146,7 @@ def tokenize(text):
         if token in NEGATION_WORDS:
             tokens[i:i+2] = ['negation_' + tokens[i+1], '']
 
+    # return ' '.join([token for token in tokens if len(token) > 1])
     return tokens
 
 

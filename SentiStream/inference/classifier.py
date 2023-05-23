@@ -36,10 +36,8 @@ class Classifier:
             batch_size (_type_, optional): Batch size to use for processing data. Defaults to 10000.
         """
         # Determine if GPU available for inference.
-        # self.device = torch.device(
-        #     'cuda:0' if torch.cuda.is_available() else 'cpu')
-        # TODO: DELETE ONCE FINIALIZED
-        self.device = 'cpu' if ssl_model == 'ANN' else 'cuda:1'
+        self.device = torch.device(
+            'cuda:0' if torch.cuda.is_available() else 'cpu')
 
         self.word_vector_algo = word_vector_algo
         self.ssl_model = ssl_model

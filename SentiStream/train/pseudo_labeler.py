@@ -82,7 +82,6 @@ class SentimentPseudoLabeler:
             conf = us_conf + ss_conf
 
         # Store final prediction to calculate sentistream's accuracy.
-        # self.to_calc_acc.append([[us[2]], [pred]])
         self.eval_list.append((us[3], pred, us[2]))
 
         return conf
