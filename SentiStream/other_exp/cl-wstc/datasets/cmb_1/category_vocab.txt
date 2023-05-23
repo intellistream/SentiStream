@@ -1,0 +1,2 @@
+['love', 'best', 'beautiful', 'great', 'cool', 'awesome', 'wonderful','brilliant', 'excellent', 'fantastic', 'super', 'fun', 'masterpiece','rejoice', 'admire', 'amuse', 'bliss', 'yummy', 'glamour']
+['bad', 'worst', 'stupid', 'disappointing', 'terrible', 'rubbish', 'boring','awful', 'unwatchable', 'awkward', 'bullshit', 'fraud', 'abuse', 'outrage','disgust']
