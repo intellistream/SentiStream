@@ -1,5 +1,4 @@
 # pylint: disable=import-error
-
 import os
 import pandas as pd
 
@@ -13,8 +12,7 @@ def generate_df(df, dataset):
         dataset (str): Name of dataset.
     """
     p_1 = int(len(df) * 0.01)
-    p_0_1 = p_1 // 10
-    p_0_5 = p_0_1 * 5
+    p_0_5 = p_1 // 2
 
     if not os.path.exists('data'):
         os.makedirs('data')
@@ -43,3 +41,25 @@ merged_df = pd.concat([yelp_df, imdb_df, sst_df])
 merged_df.iloc[-1, 0] = -1
 
 generate_df(merged_df, 'data')
+
+
+# from utils import tokenize
+#
+# text = yelp_df.iloc[:, 1].apply(tokenize)
+
+# text.to_csv('train.txt', header=None, index=None)
+# text.to_csv('test.txt', header=None, index=None)
+# yelp_df.iloc[:, 0].to_csv('test_labels.txt', header=None, index=None)
+
+# text = imdb_df.iloc[:, 1].apply(tokenize)
+
+# text.to_csv('train.txt', header=None, index=None)
+# text.to_csv('test.txt', header=None, index=None)
+# imdb_df.iloc[:, 0].to_csv('test_labels.txt', header=None, index=None)
+
+
+# text = sst_df.iloc[:, 1].apply(tokenize)
+
+# text.to_csv('train.txt', header=None, index=None)
+# text.to_csv('test.txt', header=None, index=None)
+# sst_df.iloc[:, 0].to_csv('test_labels.txt', header=None, index=None)

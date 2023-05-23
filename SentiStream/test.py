@@ -1,7 +1,5 @@
 # pylint: disable=import-error
 # pylint: disable=no-name-in-module
-import csv
-import os
 import torch
 
 from gensim.models import Word2Vec
@@ -13,14 +11,10 @@ from main import stream_process, init_train
 from kafka_producer import create_stream
 
 
-if not os.path.exists('outputs'):
-    os.makedirs('outputs')
-
-
 def load_pretrained_models(percent, dataset):
     """
-    Rename pretrained word vector and torch models with best weights for current inference. To
-    avoid overwriting while updatingm models.
+    Rename pretrained word vector (if best model is saved under 'trained_models') and torch models
+    with best weights for current inference. To avoid overwriting while updatingm models.
 
     Args:
         percent (str): Flag to distinguish models trained on different percentages of data.
@@ -124,8 +118,8 @@ def test_sentistream(percent, batch_size, lr, test_size, min_count=5, use_pretra
 # ----------------------------------------------------------------------------------------------- #
 
 # 0.5 %
-# test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2, min_count=5,
-#                  use_pretrained=True, name='data', lower_thresh=0.8, update_thresh=20000)
+test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2, min_count=5,
+                 use_pretrained=True, name='data', lower_thresh=0.8, update_thresh=20000)
 
 
 # ----------------------------------------------------------------------------------------------- #

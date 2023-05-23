@@ -27,10 +27,8 @@ def init_train(batch_size=512, lr=0.002, test_size=0.2, min_count=5):
     with open(config.TRAIN_DATA, 'r', encoding='utf-8') as file:
         reader = csv.reader(file)
         train_data = [[int(row[1]), tokenize(row[2])] for row in reader]
-    TrainModel(word_vector_algo=config.WORD_VEC_ALGO,
-               ssl_model=config.SSL_MODEL, init=True, vector_size=20,
-               data=train_data, batch_size=batch_size, lr=lr,
-               test_size=test_size, min_count=min_count)
+    TrainModel(init=True, vector_size=20, data=train_data,
+               batch_size=batch_size, lr=lr, test_size=test_size, min_count=min_count)
 
 
 def stream_process(lower_thresh, update_thresh, update, sim_thresh, dyn_lex, dyn_thresh):
@@ -50,13 +48,10 @@ def stream_process(lower_thresh, update_thresh, update, sim_thresh, dyn_lex, dyn
 
     PLStream.SIMILARITY_THRESHOLD = sim_thresh
 
-    plstream = PLStream(
-        word_vector_algo=config.WORD_VEC_ALGO)
-    classifier = Classifier(
-        word_vector_algo=config.WORD_VEC_ALGO, ssl_model=config.SSL_MODEL)
+    plstream = PLStream()
+    classifier = Classifier()
     pseduo_labeler = SentimentPseudoLabeler()
-    model_trainer = TrainModel(word_vector_algo=config.WORD_VEC_ALGO,
-                               ssl_model=config.SSL_MODEL, init=False)
+    model_trainer = TrainModel(init=False)
 
     # Create Kafka consumer.
     consumer = KafkaConsumer(

@@ -3,6 +3,8 @@
 import math
 import numpy as np
 
+from gensim.models import Word2Vec
+
 import config
 
 from unsupervised_models.utils import cos_similarity, text_similarity
@@ -28,26 +30,23 @@ class PLStream():
     """
     SIMILARITY_THRESHOLD = 0.9
 
-    def __init__(self, word_vector_algo, batch_size=10000, confidence=0.1):
+    def __init__(self, batch_size=10000, confidence=0.1):
         """
         Initialize PLStream with hyperparameters.
 
         Args:
-            word_vector_algo (class): Type of word vector algorithm to use (either 'Word2Vec' or
-                                    'FastText').
             batch_size (int, optional): Number of samples to wait on before processing. Defaults 
                                         to 5000.
             confidence (float, optional): Confidence difference to distinguish polarity. Defaults 
                                         to 0.09.
         """
         self.batch_size = batch_size
-        self.word_vector_algo = word_vector_algo
         self.confidence = confidence
 
         self.eval_list = []
 
         # Load pre-trained word vector model.
-        self.wv_model = word_vector_algo.load(config.SSL_WV)
+        self.wv_model = Word2Vec.load(config.SSL_WV)
 
         self.id = []
         self.idx = []

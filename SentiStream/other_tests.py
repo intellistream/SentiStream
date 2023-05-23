@@ -21,7 +21,7 @@ def test_bert(percent, batch_size, epochs, lr, name, inf_batch_size):
     count = create_stream()
 
     # comment this if model is already trained
-    # train(batch_size, epochs, lr, 'bert_' + name + '_' + percent)
+    train(batch_size, epochs, lr, 'bert_' + name + '_' + percent)
 
     time, latency, eval_list = get_results(
         'bert_' + name + '_' + percent, inf_batch_size)
@@ -109,18 +109,11 @@ def test_random(percent, batch_size, name):
     print('Avg ACC: ', sum(acc)/len(acc))
     print('Avg F1: ', sum(f1)/len(f1))
 
-    with open(f'outputs/rn_output_{name}_{percent}.csv', 'w', newline='', encoding='utf-8') as file:
-        writer = csv.writer(file)
-        writer.writerow(['acc', 'f1'])
-
-        for row in zip(*[acc, f1]):
-            writer.writerow(row)
-
 
 # BERT
 # # 0.5 %
-# test_bert(percent='0_5', batch_size=64, epochs=10,
-#           lr=5e-5, name='data', inf_batch_size=8)
+test_bert(percent='0_5', batch_size=64, epochs=10,
+          lr=5e-5, name='data', inf_batch_size=8)
 
 
 # # 1 %
@@ -130,13 +123,14 @@ def test_random(percent, batch_size, name):
 
 # ------------------------------------------------------------------------ #
 
+
 # SELF LEARNING
 # 0.5 %
 # test_self_learning('0_5', 'data')
 
 
 # 1 %
-test_self_learning('1', 'data')
+# test_self_learning('1', 'data')
 
 
 # ------------------------------------------------------------------------ #

@@ -3,12 +3,13 @@
 import numpy as np
 import torch
 
+from gensim.models import Word2Vec
+
 import config
 
 from semi_supervised_models.utils import join_tokens, preprocess
-from semi_supervised_models.ann.model import Classifier as ANN
-from semi_supervised_models.han.model import HAN
-from utils import load_torch_model, get_average_word_embeddings, clean_for_wv
+from semi_supervised_models.model import HAN
+from utils import load_torch_model
 
 
 class Classifier:
@@ -25,22 +26,16 @@ class Classifier:
         texts (list): Cleaned and tokenized texts in the current batch.
     """
 
-    def __init__(self, word_vector_algo, ssl_model, batch_size=10000):
+    def __init__(self, batch_size=10000):
         """
         Initialize class with pretrained models.
 
         Args:
-            word_vector_algo (class): Type of word vector algorithm to use (either 'Word2Vec' or
-                                    'FastText').
-            ssl_model (str): Type of SSL model to use (either 'ANN' or 'HAN').
             batch_size (_type_, optional): Batch size to use for processing data. Defaults to 10000.
         """
         # Determine if GPU available for inference.
         self.device = torch.device(
             'cuda:0' if torch.cuda.is_available() else 'cpu')
-
-        self.word_vector_algo = word_vector_algo
-        self.ssl_model = ssl_model
 
         self.eval_list = []
 
@@ -58,11 +53,10 @@ class Classifier:
         """
         Load updated model from local.
         """
-        self.wv_model = self.word_vector_algo.load(config.SSL_WV)
-        self.clf_model = load_torch_model(
-            ANN(self.wv_model.vector_size) if self.ssl_model == 'ANN' else HAN(np.array([
-                self.wv_model.wv[key] for key in self.wv_model.wv.index_to_key]),
-                batch_size=self.batch_size), config.SSL_CLF).to(self.device)
+        self.wv_model = Word2Vec.load(config.SSL_WV)
+        self.clf_model = load_torch_model(HAN(np.array(
+            [self.wv_model.wv[key] for key in self.wv_model.wv.index_to_key]),
+            batch_size=self.batch_size), config.SSL_CLF).to(self.device)
 
     def get_prediction(self, data):
         """
@@ -107,13 +101,8 @@ class Classifier:
             self.batch_size = len(self.labels)
             self.load_updated_model()
 
-            # Get document embeddings.
-            if self.ssl_model == 'ANN':
-                embeddings = get_average_word_embeddings(
-                    self.wv_model, clean_for_wv(self.texts))
-            else:
-                embeddings = np.array(preprocess(join_tokens(
-                    self.texts), self.wv_model.wv.key_to_index))
+            embeddings = np.array(preprocess(join_tokens(
+                self.texts), self.wv_model.wv.key_to_index))
 
             # Get predictions and confidence scores.
             conf, preds = self.get_prediction(embeddings)
