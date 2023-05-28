@@ -11,7 +11,7 @@ from main import stream_process, init_train
 from kafka_producer import create_stream
 
 
-def load_pretrained_models(percent, dataset):
+def load_pretrained_models(percent):
     """
     Rename pretrained word vector (if best model is saved under 'trained_models') and torch models
     with best weights for current inference. To avoid overwriting while updatingm models.
@@ -20,13 +20,13 @@ def load_pretrained_models(percent, dataset):
         percent (str): Flag to distinguish models trained on different percentages of data.
     """
     Word2Vec.load(
-        f'trained_models/best_{dataset}_{percent}.model').save(config.SSL_WV)
+        f'trained_models/best_data_{percent}.model').save(config.SSL_WV)
     torch.save(torch.load(
-        f'trained_models/best_{dataset}_{percent}.pth'), config.SSL_CLF)
+        f'trained_models/best_data_{percent}.pth'), config.SSL_CLF)
 
 
 def test_sentistream(percent, batch_size, lr, test_size, min_count=5, use_pretrained=True,
-                     name='data', lower_thresh=0.8, update_thresh=20000, update_lex=True,
+                     lower_thresh=0.8, update_thresh=20000, update_lex=True,
                      dyn_lex=True, sim_thresh=0.9, dyn_thresh=True):
     """
     Evaluate performance metrics of SentiStream.
@@ -37,17 +37,16 @@ def test_sentistream(percent, batch_size, lr, test_size, min_count=5, use_pretra
         lr (_type_): Learning rate for initial training of torch model.
         test_size (_type_): Test size for initial training of torch model.
         use_pretrained (bool, optional): Flag to use pretrained best model. Defaults to True.
-        name (str, optional): Name of dataset to be tested.
         lower_thresh (float, optional): Lower threshold for stream merge.
         update_thresh (int, optional): Update threshold for updating models.
     """
-    config.DATA = f'data/{name}_{percent}_percent.csv'
-    config.TRAIN_DATA = f'data/{name}_train_{percent}_percent.csv'
+    config.DATA = f'data/data_{percent}_percent.csv'
+    config.TRAIN_DATA = f'data/data_train_{percent}_percent.csv'
 
     count = create_stream()
 
     if use_pretrained:
-        load_pretrained_models(percent, name)
+        load_pretrained_models(percent)
     else:
         init_train(batch_size=batch_size, lr=lr,
                    test_size=test_size, min_count=min_count)
@@ -114,20 +113,19 @@ def test_sentistream(percent, batch_size, lr, test_size, min_count=5, use_pretra
     print(
         f'Senti ACC: {accuracy_score(yelp_senti+imdb_senti+sst_senti, yelp_label+imdb_label+sst_label)}, F1: {f1_score(yelp_senti+imdb_senti+sst_senti, yelp_label+imdb_label+sst_label)}')
 
-
 # ----------------------------------------------------------------------------------------------- #
+
 
 # 0.5 %
 test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2, min_count=5,
-                 use_pretrained=True, name='data', lower_thresh=0.8, update_thresh=20000)
+                 use_pretrained=True, lower_thresh=0.8, update_thresh=20000)
 
 
 # ----------------------------------------------------------------------------------------------- #
 
-
 # 1 %
 # test_sentistream(percent='1', batch_size=256, lr=0.005, test_size=0.2, min_count=5,
-#                  use_pretrained=True, name='data', lower_thresh=0.7, update_thresh=20000)
+#                  use_pretrained=True, lower_thresh=0.7, update_thresh=20000)
 
 
 # ----------------------------------------------------------------------------------------------- #
@@ -135,37 +133,37 @@ test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2, min_cou
 # components test
 # #  baseline
 # test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2,
-#                  min_count=5, use_pretrained=True, name='data', lower_thresh=0.8,
+#                  min_count=5, use_pretrained=True, lower_thresh=0.8,
 #                  update_thresh=20000, dyn_lex=False, dyn_thresh=False)
 
 # # dyn lex update
 # # # 0.7
 # test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2,
-#                  min_count=5, use_pretrained=True, name='data', lower_thresh=0.8,
+#                  min_count=5, use_pretrained=True, lower_thresh=0.8,
 #                  update_thresh=20000, dyn_lex=True, dyn_thresh=False, sim_thresh=0.7)
 
 # # # 0.8
 # test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2,
-#                  min_count=5, use_pretrained=True, name='data', lower_thresh=0.8,
+#                  min_count=5, use_pretrained=True, lower_thresh=0.8,
 #                  update_thresh=20000, dyn_lex=True, dyn_thresh=False, sim_thresh=0.8)
 
 # # # 0.9
 # test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2,
-#                  min_count=5, use_pretrained=True, name='data', lower_thresh=0.8,
+#                  min_count=5, use_pretrained=True, lower_thresh=0.8,
 #                  update_thresh=20000, dyn_lex=True, dyn_thresh=False, sim_thresh=0.9)
 
 # # dyn threshold
 # # # 0.7
 # test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2,
-#                  min_count=5, use_pretrained=True, name='data', lower_thresh=0.7,
+#                  min_count=5, use_pretrained=True, lower_thresh=0.7,
 #                  update_thresh=20000, dyn_lex=False, dyn_thresh=True)
 
 # # # 0.8
 # test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2,
-#                  min_count=5, use_pretrained=True, name='data', lower_thresh=0.8,
+#                  min_count=5, use_pretrained=True, lower_thresh=0.8,
 #                  update_thresh=20000, dyn_lex=False, dyn_thresh=True)
 
 # # # 0.9
 # test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2,
-#                  min_count=5, use_pretrained=True, name='data', lower_thresh=0.9,
+#                  min_count=5, use_pretrained=True, lower_thresh=0.9,
 #                  update_thresh=20000, dyn_lex=False, dyn_thresh=True)
