@@ -42,24 +42,12 @@ merged_df.iloc[-1, 0] = -1
 
 generate_df(merged_df, 'data')
 
+merged_df = pd.concat([imdb_df, sst_df, yelp_df])
+merged_df.iloc[-1, 0] = -1
 
-# from utils import tokenize
-#
-# text = yelp_df.iloc[:, 1].apply(tokenize)
+generate_df(merged_df, 'data_isy')
 
-# text.to_csv('train.txt', header=None, index=None)
-# text.to_csv('test.txt', header=None, index=None)
-# yelp_df.iloc[:, 0].to_csv('test_labels.txt', header=None, index=None)
+merged_df = pd.concat([sst_df, yelp_df, imdb_df])
+merged_df.iloc[-1, 0] = -1
 
-# text = imdb_df.iloc[:, 1].apply(tokenize)
-
-# text.to_csv('train.txt', header=None, index=None)
-# text.to_csv('test.txt', header=None, index=None)
-# imdb_df.iloc[:, 0].to_csv('test_labels.txt', header=None, index=None)
-
-
-# text = sst_df.iloc[:, 1].apply(tokenize)
-
-# text.to_csv('train.txt', header=None, index=None)
-# text.to_csv('test.txt', header=None, index=None)
-# sst_df.iloc[:, 0].to_csv('test_labels.txt', header=None, index=None)
+generate_df(merged_df, 'data_syi')

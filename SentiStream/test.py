@@ -27,7 +27,7 @@ def load_pretrained_models(percent):
 
 def test_sentistream(percent, batch_size, lr, test_size, min_count=5, use_pretrained=True,
                      lower_thresh=0.8, update_thresh=20000, update_lex=True,
-                     dyn_lex=True, sim_thresh=0.9, dyn_thresh=True):
+                     dyn_lex=True, sim_thresh=0.9, dyn_thresh=True, name='data'):
     """
     Evaluate performance metrics of SentiStream.
 
@@ -40,8 +40,8 @@ def test_sentistream(percent, batch_size, lr, test_size, min_count=5, use_pretra
         lower_thresh (float, optional): Lower threshold for stream merge.
         update_thresh (int, optional): Update threshold for updating models.
     """
-    config.DATA = f'data/data_{percent}_percent.csv'
-    config.TRAIN_DATA = f'data/data_train_{percent}_percent.csv'
+    config.DATA = f'data/{name}_{percent}_percent.csv'
+    config.TRAIN_DATA = f'data/{name}_train_{percent}_percent.csv'
 
     count = create_stream()
 
@@ -117,8 +117,9 @@ def test_sentistream(percent, batch_size, lr, test_size, min_count=5, use_pretra
 
 
 # 0.5 %
-test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2, min_count=5,
-                 use_pretrained=True, lower_thresh=0.8, update_thresh=20000)
+# print('\n\nYIS\n\n')
+# test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2, min_count=5,
+#                  use_pretrained=True, lower_thresh=0.8, update_thresh=20000)
 
 
 # ----------------------------------------------------------------------------------------------- #
@@ -126,6 +127,24 @@ test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2, min_cou
 # 1 %
 # test_sentistream(percent='1', batch_size=256, lr=0.005, test_size=0.2, min_count=5,
 #                  use_pretrained=True, lower_thresh=0.7, update_thresh=20000)
+
+
+# ----------------------------------------------------------------------------------------------- #
+
+
+# IMDB -> SST -> YELP
+
+# 0.5 %
+# print('\n\nISY\n\n')
+# test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2, min_count=5,
+#                  use_pretrained=False, lower_thresh=0.8, update_thresh=20000, name='data_isy')
+
+# SST -> YELP -> IMDB
+
+# 0.5 %
+# print('\n\nSYI\n\n')
+test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2, min_count=5,
+                 use_pretrained=False, lower_thresh=0.8, update_thresh=20000, name='data_syi')
 
 
 # ----------------------------------------------------------------------------------------------- #

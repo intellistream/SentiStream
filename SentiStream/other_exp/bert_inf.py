@@ -53,13 +53,12 @@ def get_results(name, batch_size):
                 probs = torch.softmax(logits, dim=1)
                 preds = torch.argmax(probs, axis=1).tolist()
 
-                latency.append(time_ns() - arrival_time)
-
                 eval_list += list(zip(ids, preds, labels))
 
                 ids = []
                 labels = []
                 texts = []
+            latency.append(time_ns() - arrival_time)
 
     consumer.close()
 

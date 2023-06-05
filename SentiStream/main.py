@@ -74,7 +74,6 @@ def stream_process(lower_thresh, update_thresh, update, sim_thresh, dyn_lex, dyn
     start = time()
 
     for idx, message in enumerate(consumer):
-        # arrival_time = message.timestamp ## THIS IS MESSAGE PRODUCED TIMESTAMP
         arrival_time = time_ns()
 
         id, label, text = message.value.split('|||')

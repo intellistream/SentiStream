@@ -13,17 +13,17 @@ from other_exp.ann.trainer import Trainer
 from other_exp.ann.inf import get_preds
 
 
-def test_supervised_bert(percent, batch_size, epochs, lr, inf_batch_size):
-    config.DATA = f'data/data {percent}_percent.csv'
-    config.TRAIN_DATA = f'data/data_train_{percent}_percent.csv'
+def test_supervised_bert(percent, batch_size, epochs, lr, inf_batch_size, name='data'):
+    config.DATA = f'data/{name}_{percent}_percent.csv'
+    config.TRAIN_DATA = f'data/{name}_train_{percent}_percent.csv'
 
     count = create_stream()
 
     # comment this if model is already trained
-    train(batch_size, epochs, lr, 'bert_data_' + percent)
+    # train(batch_size, epochs, lr, f'bert_{name}_' + percent)
 
     time, latency, eval_list = get_results(
-        'bert_data_' + percent, inf_batch_size)
+        f'bert_{name}_' + percent, inf_batch_size)
 
     print('Avg Latency: ', latency, 'ms')
     print('Elapsed time: ', time, 's')
@@ -57,12 +57,12 @@ def test_supervised_bert(percent, batch_size, epochs, lr, inf_batch_size):
         f'ACC: {accuracy_score(yelp+imdb+sst, yelp_label+imdb_label+sst_label)}, F1: {f1_score(yelp+imdb+sst, yelp_label+imdb_label+sst_label)}')
 
 
-def test_supervised_w2v(percent, batch_size, epochs, lr):
+def test_supervised_w2v(percent, batch_size, epochs, lr, name='data'):
     w2v = Word2Vec.load(
-        f'trained_models/best_data_{percent}.model')
+        f'trained_models/best_{name}_{percent}.model')
 
-    config.DATA = f'data/data_{percent}_percent.csv'
-    config.TRAIN_DATA = f'data/data_train_{percent}_percent.csv'
+    config.DATA = f'data/{name}_{percent}_percent.csv'
+    config.TRAIN_DATA = f'data/{name}_train_{percent}_percent.csv'
 
     count = create_stream()
 
@@ -103,9 +103,9 @@ def test_supervised_w2v(percent, batch_size, epochs, lr):
         f'ACC: {accuracy_score(yelp+imdb+sst, yelp_label+imdb_label+sst_label)}, F1: {f1_score(yelp+imdb+sst, yelp_label+imdb_label+sst_label)}')
 
 
-def test_self_learning(percent):
-    config.DATA = f'data/data_{percent}_percent.csv'
-    config.TRAIN_DATA = f'data/data_train_{percent}_percent.csv'
+def test_self_learning(percent, name='data'):
+    config.DATA = f'data/{name}_{percent}_percent.csv'
+    config.TRAIN_DATA = f'data/{name}_train_{percent}_percent.csv'
 
     count = create_stream()
 
@@ -160,10 +160,16 @@ def test_random(percent, batch_size, name):
 # test_supervised_bert(percent='0_5', batch_size=64,
 #                      epochs=10, lr=5e-5, inf_batch_size=8)
 
+# test_supervised_bert(percent='0_5', batch_size=64,
+    #  epochs=10, lr=5e-5, inf_batch_size=2000, name='data_isy')
+
+# test_supervised_bert(percent='0_5', batch_size=64,
+#                      epochs=10, lr=5e-5, inf_batch_size=2000, name='data_syi')
+
 
 # # 1 %
 # test_supervised_bert(percent='1', batch_size=64, epochs=10,
-#           lr=5e-5, inf_batch_size=2000)
+#           lr=5e-5, inf_batch_size=8)
 
 
 # ------------------------------------------------------------------------ #
@@ -171,7 +177,11 @@ def test_random(percent, batch_size, name):
 
 # W2V
 # 0.5 %
-test_supervised_w2v('0_5', 256, 100, 3e-3)
+# test_supervised_w2v('0_5', 256, 100, 3e-3)
+
+# test_supervised_w2v('0_5', 256, 100, 3e-3, name='data_isy')
+
+# test_supervised_w2v('0_5', 256, 100, 3e-3, name='data_syi')
 
 
 # 1 %
@@ -184,6 +194,10 @@ test_supervised_w2v('0_5', 256, 100, 3e-3)
 # SELF LEARNING
 # 0.5 %
 # test_self_learning('0_5')
+
+# test_self_learning('0_5', name='data_isy')
+
+# test_self_learning('0_5', name='data_syi')
 
 
 # 1 %
