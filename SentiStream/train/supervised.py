@@ -46,7 +46,8 @@ class TrainModel:
 
             # Train word vector model.
             train_word_vector_algo(
-                self.wv_model, self.filtered_tokens, config.SSL_WV, update=not init, min_count=min_count)
+                self.wv_model, self.filtered_tokens, config.SSL_WV,
+                update=not init, min_count=min_count)
 
             # Downsample to balance classes.
             self.labels, self.texts = downsampling(self.labels, self.texts)

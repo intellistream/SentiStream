@@ -4,10 +4,9 @@ import torch
 import pandas as pd
 
 
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, TensorDataset
 from transformers import get_linear_schedule_with_warmup
 from transformers import BertForSequenceClassification
-from torch.utils.data import TensorDataset
 from sklearn.model_selection import train_test_split
 
 import config
@@ -62,7 +61,7 @@ def train(batch_size=64, epochs=3, lr=5e-6, name='bert'):
             input_mask = batch[1].to(device)
             labels = batch[2].to(device)
 
-            model.zero_grad()
+            optimizer.zero_grad()
 
             (loss, logits) = model(input_ids,
                                    token_type_ids=None,

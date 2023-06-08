@@ -53,6 +53,7 @@ def test_sentistream(percent, batch_size, lr, test_size, min_count=5, use_pretra
 
     time, senti_latency, us_latency, ss_latency, us_eval, ss_eval, senti_eval = stream_process(
         lower_thresh, update_thresh, update_lex, sim_thresh, dyn_lex, dyn_thresh)
+
     print('SentiStream Latency: ', senti_latency, 'ms')
     print('US Latency: ', us_latency, 'ms')
     print('SS Latency: ', ss_latency, 'ms')
@@ -87,7 +88,8 @@ def test_sentistream(percent, batch_size, lr, test_size, min_count=5, use_pretra
     print(
         f'SS ACC: {accuracy_score(yelp_ss, yelp_label)}, F1: {f1_score(yelp_ss, yelp_label)}')
     print(
-        f'Senti ACC: {accuracy_score(yelp_senti, yelp_label)}, F1: {f1_score(yelp_senti, yelp_label)}')
+        f'Senti ACC: {accuracy_score(yelp_senti, yelp_label)},'
+        f' F1: {f1_score(yelp_senti, yelp_label)}')
 
     print('--IMDB--')
     print(
@@ -95,7 +97,8 @@ def test_sentistream(percent, batch_size, lr, test_size, min_count=5, use_pretra
     print(
         f'SS ACC: {accuracy_score(imdb_ss, imdb_label)}, F1: {f1_score(imdb_ss, imdb_label)}')
     print(
-        f'Senti ACC: {accuracy_score(imdb_senti, imdb_label)}, F1: {f1_score(imdb_senti, imdb_label)}')
+        f'Senti ACC: {accuracy_score(imdb_senti, imdb_label)},'
+        f' F1: {f1_score(imdb_senti, imdb_label)}')
 
     print('--SST--')
     print(
@@ -107,11 +110,14 @@ def test_sentistream(percent, batch_size, lr, test_size, min_count=5, use_pretra
 
     print('--ALL--')
     print(
-        f'US ACC: {accuracy_score(yelp_us+imdb_us+sst_us, yelp_label+imdb_label+sst_label)}, F1: {f1_score(yelp_us+imdb_us+sst_us, yelp_label+imdb_label+sst_label)}')
+        f'US ACC: {accuracy_score(yelp_us+imdb_us+sst_us, yelp_label+imdb_label+sst_label)},'
+        f' F1: {f1_score(yelp_us+imdb_us+sst_us, yelp_label+imdb_label+sst_label)}')
     print(
-        f'SS ACC: {accuracy_score(yelp_ss+imdb_ss+sst_ss, yelp_label+imdb_label+sst_label)}, F1: {f1_score(yelp_ss+imdb_ss+sst_ss, yelp_label+imdb_label+sst_label)}')
+        f'SS ACC: {accuracy_score(yelp_ss+imdb_ss+sst_ss, yelp_label+imdb_label+sst_label)},'
+        f' F1: {f1_score(yelp_ss+imdb_ss+sst_ss, yelp_label+imdb_label+sst_label)}')
     print(
-        f'Senti ACC: {accuracy_score(yelp_senti+imdb_senti+sst_senti, yelp_label+imdb_label+sst_label)}, F1: {f1_score(yelp_senti+imdb_senti+sst_senti, yelp_label+imdb_label+sst_label)}')
+        f'Senti ACC: {accuracy_score(yelp_senti+imdb_senti+sst_senti, yelp_label+imdb_label+sst_label)},'
+        f' F1: {f1_score(yelp_senti+imdb_senti+sst_senti, yelp_label+imdb_label+sst_label)}')
 
 # ----------------------------------------------------------------------------------------------- #
 

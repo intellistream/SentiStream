@@ -54,7 +54,8 @@ def test_supervised_bert(percent, batch_size, epochs, lr, inf_batch_size, name='
         f'ACC: {accuracy_score(sst, sst_label)}, F1: {f1_score(sst, sst_label)}')
     print('--ALL--')
     print(
-        f'ACC: {accuracy_score(yelp+imdb+sst, yelp_label+imdb_label+sst_label)}, F1: {f1_score(yelp+imdb+sst, yelp_label+imdb_label+sst_label)}')
+        f'ACC: {accuracy_score(yelp+imdb+sst, yelp_label+imdb_label+sst_label)},'
+        f' F1: {f1_score(yelp+imdb+sst, yelp_label+imdb_label+sst_label)}')
 
 
 def test_supervised_w2v(percent, batch_size, epochs, lr, name='data'):
@@ -100,7 +101,8 @@ def test_supervised_w2v(percent, batch_size, epochs, lr, name='data'):
         f'ACC: {accuracy_score(sst, sst_label)}, F1: {f1_score(sst, sst_label)}')
     print('--ALL--')
     print(
-        f'ACC: {accuracy_score(yelp+imdb+sst, yelp_label+imdb_label+sst_label)}, F1: {f1_score(yelp+imdb+sst, yelp_label+imdb_label+sst_label)}')
+        f'ACC: {accuracy_score(yelp+imdb+sst, yelp_label+imdb_label+sst_label)},'
+        f' F1: {f1_score(yelp+imdb+sst, yelp_label+imdb_label+sst_label)}')
 
 
 def test_self_learning(percent, name='data'):
@@ -140,7 +142,8 @@ def test_self_learning(percent, name='data'):
         f'ACC: {accuracy_score(sst, sst_label)}, F1: {f1_score(sst, sst_label)}')
     print('--ALL--')
     print(
-        f'ACC: {accuracy_score(yelp+imdb+sst, yelp_label+imdb_label+sst_label)}, F1: {f1_score(yelp+imdb+sst, yelp_label+imdb_label+sst_label)}')
+        f'ACC: {accuracy_score(yelp+imdb+sst, yelp_label+imdb_label+sst_label)},'
+        f' F1: {f1_score(yelp+imdb+sst, yelp_label+imdb_label+sst_label)}')
 
 
 def test_random(percent, batch_size, name):
