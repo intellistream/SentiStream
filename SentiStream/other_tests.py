@@ -20,7 +20,7 @@ def test_supervised_bert(percent, batch_size, epochs, lr, inf_batch_size, name='
     count = create_stream()
 
     # comment this if model is already trained
-    # train(batch_size, epochs, lr, f'bert_{name}_' + percent)
+    train(batch_size, epochs, lr, f'bert_{name}_' + percent)
 
     time, latency, eval_list = get_results(
         f'bert_{name}_' + percent, inf_batch_size)
@@ -146,7 +146,7 @@ def test_self_learning(percent, name='data'):
         f' F1: {f1_score(yelp+imdb+sst, yelp_label+imdb_label+sst_label)}')
 
 
-def test_random(percent, batch_size, name):
+def test_random(percent, batch_size, name='data'):
     config.DATA = f'data/{name}_{percent}_percent.csv'
     config.TRAIN_DATA = f'data/{name}_train_{percent}_percent.csv'
 
@@ -159,20 +159,25 @@ def test_random(percent, batch_size, name):
 
 
 # BERT
-# # 0.5 %
-# test_supervised_bert(percent='0_5', batch_size=64,
-#                      epochs=10, lr=5e-5, inf_batch_size=8)
+# 0.5 %
+print('\nSupervised BERT\n')
+print('\n0.5% => Yelp -> IMDb -> SST-2  \n')
+test_supervised_bert(percent='0_5', batch_size=64,
+                     epochs=10, lr=5e-5, inf_batch_size=8)
 
-# test_supervised_bert(percent='0_5', batch_size=64,
-    #  epochs=10, lr=5e-5, inf_batch_size=2000, name='data_isy')
+print('\n0.5% => IMDb -> SST-2 -> Yelp \n')
+test_supervised_bert(percent='0_5', batch_size=64,
+                     epochs=10, lr=5e-5, inf_batch_size=8, name='data_isy')
 
-# test_supervised_bert(percent='0_5', batch_size=64,
-#                      epochs=10, lr=5e-5, inf_batch_size=2000, name='data_syi')
+print('\n0.5% => SST-2 -> Yelp -> IMDb \n')
+test_supervised_bert(percent='0_5', batch_size=64,
+                     epochs=10, lr=5e-5, inf_batch_size=8, name='data_syi')
 
 
-# # 1 %
-# test_supervised_bert(percent='1', batch_size=64, epochs=10,
-#           lr=5e-5, inf_batch_size=8)
+# 1 %
+print('\n1% => Yelp -> IMDb -> SST-2 \n')
+test_supervised_bert(percent='1', batch_size=64, epochs=10,
+                     lr=5e-5, inf_batch_size=8)
 
 
 # ------------------------------------------------------------------------ #
@@ -180,15 +185,20 @@ def test_random(percent, batch_size, name):
 
 # W2V
 # 0.5 %
-# test_supervised_w2v('0_5', 256, 100, 3e-3)
+print('\nSupervised W2V\n')
+print('\n0.5% => Yelp -> IMDb -> SST-2  \n')
+test_supervised_w2v('0_5', 256, 100, 3e-3)
 
-# test_supervised_w2v('0_5', 256, 100, 3e-3, name='data_isy')
+print('\n0.5% => IMDb -> SST-2 -> Yelp \n')
+test_supervised_w2v('0_5', 256, 100, 3e-3, name='data_isy')
 
-# test_supervised_w2v('0_5', 256, 100, 3e-3, name='data_syi')
+print('\n0.5% => SST-2 -> Yelp -> IMDb \n')
+test_supervised_w2v('0_5', 256, 100, 3e-3, name='data_syi')
 
 
 # 1 %
-# test_supervised_w2v('1', 256, 100, 3e-3)
+print('\n1% => Yelp -> IMDb -> SST-2 \n')
+test_supervised_w2v('1', 256, 100, 3e-3)
 
 
 # ------------------------------------------------------------------------ #
@@ -196,15 +206,20 @@ def test_random(percent, batch_size, name):
 
 # SELF LEARNING
 # 0.5 %
-# test_self_learning('0_5')
+print('\nSelf-Learning\n')
+print('\n0.5% => Yelp -> IMDb -> SST-2  \n')
+test_self_learning('0_5')
 
-# test_self_learning('0_5', name='data_isy')
+print('\n0.5% => IMDb -> SST-2 -> Yelp \n')
+test_self_learning('0_5', name='data_isy')
 
-# test_self_learning('0_5', name='data_syi')
+print('\n0.5% => SST-2 -> Yelp -> IMDb \n')
+test_self_learning('0_5', name='data_syi')
 
 
 # 1 %
-# test_self_learning('1')
+print('\n1% => Yelp -> IMDb -> SST-2 \n')
+test_self_learning('1')
 
 
 # ------------------------------------------------------------------------ #
@@ -212,8 +227,11 @@ def test_random(percent, batch_size, name):
 
 # RANDOM
 # 0.5 %
-# test_random(percent='0_5', batch_size=10000)
+print('\nRandom\n')
+print('\n0.5% => Yelp -> IMDb -> SST-2  \n')
+test_random(percent='0_5', batch_size=10000)
 
 
 # 1 %
-# test_random(percent='1', batch_size=10000)
+print('\n1% => Yelp -> IMDb -> SST-2 \n')
+test_random(percent='1', batch_size=10000)

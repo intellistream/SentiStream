@@ -123,72 +123,82 @@ def test_sentistream(percent, batch_size, lr, test_size, min_count=5, use_pretra
 
 
 # 0.5 %
-# print('\n\nYIS\n\n')
-# test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2, min_count=5,
-#                  use_pretrained=True, lower_thresh=0.8, update_thresh=20000)
+print('\n0.5% => Yelp -> IMDb -> SST-2 \n')
+test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2, min_count=5,
+                 use_pretrained=True, lower_thresh=0.8, update_thresh=20000)
 
-
+# ----------------------------------------------------------------------------------------------- #
+# Additional tests
 # ----------------------------------------------------------------------------------------------- #
 
 # 1 %
-# test_sentistream(percent='1', batch_size=256, lr=0.005, test_size=0.2, min_count=5,
-#                  use_pretrained=True, lower_thresh=0.7, update_thresh=20000)
+print('\n1% => Yelp -> IMDb -> SST-2 \n')
+test_sentistream(percent='1', batch_size=256, lr=0.005, test_size=0.2, min_count=5,
+                 use_pretrained=True, lower_thresh=0.7, update_thresh=20000)
 
 
 # ----------------------------------------------------------------------------------------------- #
 
 
-# IMDB -> SST -> YELP
+# IMDb -> SST -> YELP
 
 # 0.5 %
-# print('\n\nISY\n\n')
-# test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2, min_count=5,
-#                  use_pretrained=False, lower_thresh=0.8, update_thresh=20000, name='data_isy')
-
-# SST -> YELP -> IMDB
-
-# 0.5 %
-# print('\n\nSYI\n\n')
+print('\n0.5% => IMDb -> SST-2 -> Yelp \n')
 test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2, min_count=5,
-                 use_pretrained=False, lower_thresh=0.8, update_thresh=20000, name='data_syi')
+                 use_pretrained=True, lower_thresh=0.8, update_thresh=20000, name='data_isy')
+
+# SST -> YELP -> IMDb
+
+# 0.5 %
+print('\n0.5% => SST-2 -> Yelp -> IMDb \n')
+test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2, min_count=5,
+                 use_pretrained=True, lower_thresh=0.8, update_thresh=20000, name='data_syi')
 
 
 # ----------------------------------------------------------------------------------------------- #
 
 # components test
 # #  baseline
-# test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2,
-#                  min_count=5, use_pretrained=True, lower_thresh=0.8,
-#                  update_thresh=20000, dyn_lex=False, dyn_thresh=False)
+print('\nComponents test\n')
+print('\nBaseline\n')
+test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2,
+                 min_count=5, use_pretrained=True, lower_thresh=0.8,
+                 update_thresh=20000, dyn_lex=False, dyn_thresh=False)
 
 # # dyn lex update
 # # # 0.7
-# test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2,
-#                  min_count=5, use_pretrained=True, lower_thresh=0.8,
-#                  update_thresh=20000, dyn_lex=True, dyn_thresh=False, sim_thresh=0.7)
+print('\nDyn lex update - similarity threshod - 0.7\n')
+test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2,
+                 min_count=5, use_pretrained=True, lower_thresh=0.8,
+                 update_thresh=20000, dyn_lex=True, dyn_thresh=False, sim_thresh=0.7)
 
 # # # 0.8
-# test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2,
-#                  min_count=5, use_pretrained=True, lower_thresh=0.8,
-#                  update_thresh=20000, dyn_lex=True, dyn_thresh=False, sim_thresh=0.8)
+print('\nDyn lex update - similarity threshod - 0.8\n')
+test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2,
+                 min_count=5, use_pretrained=True, lower_thresh=0.8,
+                 update_thresh=20000, dyn_lex=True, dyn_thresh=False, sim_thresh=0.8)
 
 # # # 0.9
-# test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2,
-#                  min_count=5, use_pretrained=True, lower_thresh=0.8,
-#                  update_thresh=20000, dyn_lex=True, dyn_thresh=False, sim_thresh=0.9)
+print('\nDyn lex update - similarity threshod - 0.9\n')
+test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2,
+                 min_count=5, use_pretrained=True, lower_thresh=0.8,
+                 update_thresh=20000, dyn_lex=True, dyn_thresh=False, sim_thresh=0.9)
 
 # # dyn threshold
 # # # 0.7
-# test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2,
-#                  min_count=5, use_pretrained=True, lower_thresh=0.7,
-#                  update_thresh=20000, dyn_lex=False, dyn_thresh=True)
+print('\nDyn threshold - lower threshod - 0.7\n')
+test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2,
+                 min_count=5, use_pretrained=True, lower_thresh=0.7,
+                 update_thresh=20000, dyn_lex=False, dyn_thresh=True)
 
 # # # 0.8
-# test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2,
-#                  min_count=5, use_pretrained=True, lower_thresh=0.8,
-#                  update_thresh=20000, dyn_lex=False, dyn_thresh=True)
+print('\nDyn threshold - lower threshod - 0.7\n')
+test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2,
+                 min_count=5, use_pretrained=True, lower_thresh=0.8,
+                 update_thresh=20000, dyn_lex=False, dyn_thresh=True)
 
 # # # 0.9
-# test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2,
-#                  min_count=5, use_pretrained=True, lower_thresh=0.9,
-#                  update_thresh=20000, dyn_lex=False, dyn_thresh=True)
+print('\nDyn threshold - lower threshod - 0.7\n')
+test_sentistream(percent='0_5', batch_size=64, lr=0.0008, test_size=0.2,
+                 min_count=5, use_pretrained=True, lower_thresh=0.9,
+                 update_thresh=20000, dyn_lex=False, dyn_thresh=True)
