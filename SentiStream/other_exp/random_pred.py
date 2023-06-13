@@ -25,7 +25,7 @@ def test(batch_size):
     labels = []
 
     for message in consumer:
-        labels.append(int(message.value.split('|||', 1)[0]))
+        labels.append(int(message.value.split('|||')[1]))
 
         if len(labels) >= batch_size:
             pred = [random.randint(0, 1) for i in range(10000)]
