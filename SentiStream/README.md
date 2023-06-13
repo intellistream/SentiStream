@@ -29,11 +29,11 @@ pip install -r requirements.txt
 
 ## Datasets
 
-The repository includes three datasets for evaluation: `Yelp`, `LMRD`, and `SST-2`. These datasets can be used to test the performance of the sentiment analysis models implemented in the code.
+The repository includes three datasets for evaluation: [Yelp](https://s3.amazonaws.com/fast-ai-nlp/yelp_review_polarity_csv.tgz), [LMRD](https://ai.stanford.edu/~amaas/data/sentiment/) and [SST-2](https://dl.fbaipublicfiles.com/glue/data/SST-2.zip). These datasets can be used to test the performance of the sentiment analysis models implemented in the code.
 
-- [Yelp](https://s3.amazonaws.com/fast-ai-nlp/yelp_review_polarity_csv.tgz) - Randomly sampled dataset of 80,000 data points from Yelp reviews.
-- [LMRD](https://ai.stanford.edu/~amaas/data/sentiment/) - Combined dataset of the Large Movie Review Dataset training and test sets.
-- [SST-2](https://dl.fbaipublicfiles.com/glue/data/SST-2.zip) -  Combined dataset of the Stanford Sentiment Treebank training and validation sets. 
+- Yelp - Randomly sampled dataset of 80,000 data points from Yelp reviews.
+- LMRD - Combined dataset of the Large Movie Review Dataset training and test sets.
+- SST-2 -  Combined dataset of the Stanford Sentiment Treebank training and validation sets. 
 
 
 ## Evaluation
