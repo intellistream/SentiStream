@@ -1,4 +1,3 @@
-import random
 import copy
 import re
 import numpy as np
@@ -13,7 +12,6 @@ import redis
 import pickle
 import logging
 
-import nltk
 from nltk.corpus import stopwords
 from sklearn.metrics import accuracy_score
 
@@ -101,9 +99,9 @@ class unsupervised_OSA(MapFunction):
 
     # tweet preprocessing
     def text_to_word_list(self, text):
+        text = text.lower()
         text = re.sub("@\w+ ", "", text)
-        text = re.sub("[!~#$+%*:()'?-]", ' ', text)
-        text = re.sub('[^a-zA-Z]', ' ', text)
+        text = re.sub('[^a-z]', ' ', text)
         clean_word_list = text.strip().split(' ')
         clean_word_list = [w for w in clean_word_list if w not in self.stop_words]
         while '' in clean_word_list:
@@ -136,8 +134,6 @@ class unsupervised_OSA(MapFunction):
         model_new.wv.index_to_key = final_words
         model_new.wv.key_to_index = {word: idx for idx, word in enumerate(final_words)}
         model_new.wv.vectors = final_vectors
-        model_new.syn1 = final_syn1
-        model_new.syn1neg = final_syn1neg
         model_new.syn1 = final_syn1
         model_new.syn1neg = final_syn1neg
         model_new.cum_table = final_cum_table
@@ -318,7 +314,7 @@ class unsupervised_OSA(MapFunction):
         for tweet in tweets:
             self.predictions.append(self.predict(tweet, model))
 
-        self.neg_coefficient = self.predictions.count(0) / self.predictions.count(1)
+        self.neg_coefficient = self.predictions.count(0) / (self.predictions.count(1) + self.predictions.count(0))
         self.pos_coefficient = 1 - self.neg_coefficient
         ans = accuracy_score(self.true_label, self.predictions)
         self.predictions = []
@@ -365,21 +361,29 @@ if __name__ == '__main__':
     from time import time
     import pandas as pd
 
-    parallelism = 4
+    parallelism = 2
     
     # the labels of dataset are only used for accuracy computation, since PLStream is unsupervised
-    f = pd.read_csv('./train.csv')  # , encoding='ISO-8859-1'
-    f.columns = ["label","review"]
+    # f = pd.read_csv('./train.csv')  # , encoding='ISO-8859-1'
+    # f.columns = ["label","review"]
+
+    df = pd.read_csv('train.csv', names=['label', 'review'])
     
     # 80,000 data for quick testing
-    true_label = list(f.label)[:80000]
+    df = df.iloc[:8000,:]
+
+    # df['label'] -= 1
+
+    true_label = list(df.label)
     for i in range(len(true_label)):
         if true_label[i] == 1:
             true_label[i] = 0
         else:
             true_label[i] = 1
-    yelp_review = list(f.review)[:80000]
+    yelp_review = list(df.review)
+
     data_stream = []
+    
     for i in range(len(yelp_review)):
         data_stream.append((yelp_review[i], int(true_label[i])))
 
