@@ -1,1 +1,3 @@
+We are a young and dynamic research group based at the Singapore University of Technology and Design in the Information Systems Technology and Design Pillar. From a high-level point of view, our research goal is to optimize and utilize distributed and parallel stream processing technology to better support existing and emerging big data applications. This is important to improve performance and reduce resource consumption, especially for the network connected world by 5G, IoT, etc. Our work spanning around database management, networking systems, machine learning, and data mining.
 
+SentiStream is one of the four project teams of IntelliStream.
