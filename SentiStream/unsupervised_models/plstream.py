@@ -120,9 +120,11 @@ class PLStream():
                 if word not in self.neg_ref and \
                         neg_cos_similarities[i] > PLStream.SIMILARITY_THRESHOLD:
                     self.neg_ref.add(word)
+                    # print('NEG', word)
                 if word not in self.pos_ref and \
                         pos_cos_similarities[i] > PLStream.SIMILARITY_THRESHOLD:
                     self.pos_ref.add(word)
+                    # print('POS', word)
 
         # Update average word embedding for pos and neg ref words.
         self.create_lexicon()
@@ -191,7 +193,8 @@ class PLStream():
             confidence.append(conf)
             y_preds.append(y_pred)
 
-            self.eval_list.append((id[idx], y_pred, labels[idx]))
+            self.eval_list.append(
+                (id[idx], y_pred, labels[idx], conf if y_pred == 1 else 1-conf))
 
         return confidence, y_preds
 
@@ -205,6 +208,11 @@ class PLStream():
         """
         cos_sim_neg = cos_similarity(vector, self.neg_ref_mean)
         cos_sim_pos = cos_similarity(vector, self.pos_ref_mean)
+
+        if np.isnan(cos_sim_neg):
+            cos_sim_neg = 0
+        if np.isnan(cos_sim_pos):
+            cos_sim_pos = 0
 
         # 0.1 best so far
         if abs(cos_sim_neg - cos_sim_pos) < self.confidence and tokens:
