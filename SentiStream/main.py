@@ -27,6 +27,7 @@ def init_train(batch_size=512, lr=0.002, test_size=0.2, min_count=5):
     with open(config.TRAIN_DATA, 'r', encoding='utf-8') as file:
         reader = csv.reader(file)
         train_data = [[int(row[1]), tokenize(row[2])] for row in reader]
+
     TrainModel(init=True, vector_size=20, data=train_data,
                batch_size=batch_size, lr=lr, test_size=test_size, min_count=min_count)
 
@@ -76,7 +77,12 @@ def stream_process(lower_thresh, update_thresh, update, sim_thresh, dyn_lex, dyn
     for idx, message in enumerate(consumer):
         arrival_time = time_ns()
 
-        id, label, text = message.value.split('|||')
+        id, label, text = message.value.split('|O|')
+
+        if id == '3':
+            # print(text.split('|'))
+            text, day = text.split('|D|')
+
         label = int(label)
 
         text = tokenize(text)

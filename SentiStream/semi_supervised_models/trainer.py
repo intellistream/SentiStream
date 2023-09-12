@@ -56,8 +56,10 @@ class Trainer:
         labels = torch.tensor(labels, dtype=torch.float32,
                               device=self.device).unsqueeze(1)
 
-        max_word_length, max_sent_length = 17, 28
-        # # Get max sentence and word length for dataset.
+        max_word_length, max_sent_length = 17, 28 # yelp-imdb-sst
+        # max_word_length, max_sent_length = 9, 5 # senti140
+        # max_word_length, max_sent_length = 11, 9 # amazon
+        # Get max sentence and word length for dataset.
         # if init:
         #     max_word_length, max_sent_length = get_max_lengths(
         #         docs)  # change to train only)
@@ -208,7 +210,7 @@ class Trainer:
         # plt.savefig(
         #     'test.png')
 
-    def fit_and_save(self, filename, epochs=50):
+    def fit_and_save(self, filename, epochs=100):
         """
         Train model and save best model.
 
